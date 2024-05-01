@@ -1,3 +1,1 @@
 from .database import ConnectionPool
-
-

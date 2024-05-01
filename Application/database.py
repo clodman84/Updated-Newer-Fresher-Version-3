@@ -45,11 +45,11 @@ def setup_db():
         connection.executescript(query)
     connection.close()
 
+
 def read_mess_list():
-    with ConnectionPool() as connection:
-        
+    # TODO: implement this
+    pass
 
 
-# this is out here on purpose
+# this is out here on purpose there must be a better way but idc
 setup_db()
-
