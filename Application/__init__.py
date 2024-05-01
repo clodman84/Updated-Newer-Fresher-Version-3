@@ -1,1 +1,1 @@
-from .images import Image
+from .images import Image, ImageManager

@@ -1,8 +1,9 @@
 import pathlib
+from os import path
 
 import dearpygui.dearpygui as dpg
 
-from Application import Image
+from Application import ImageManager
 
 from .bill import BillingWindow
 
@@ -22,15 +23,18 @@ class ImageWindow:
         self.folder = folder
         self.current_image: int = 1
         self.billing_window = BillingWindow(cam, folder.name)
+        self.image_manager = ImageManager(
+            mode="offline", cam=cam, path=folder, roll=folder.name
+        )
         self.setup(parent)
 
     def setup(self, parent):
         with dpg.child_window(parent=parent):
-            image1 = list(self.folder.iterdir())[0]
-            width, height, channel, data = Image.frompath(image1).dpg_texture
+            image = self.image_manager.load(0)
+            width, height, channels, data = image.dpg_texture
             with dpg.texture_registry(show=True):
                 dpg.add_static_texture(
-                    width=width, height=height, default_value=data, tag="Main Image"
+                    width, height, default_value=data, tag="Main Image"
                 )
             dpg.add_image("Main Image")
 

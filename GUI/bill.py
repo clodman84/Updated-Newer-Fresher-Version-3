@@ -1,4 +1,4 @@
-import dearpygui as dpg
+import dearpygui.dearpygui as dpg
 
 
 class AutocompletePopup:

@@ -16,7 +16,6 @@ def main():
     formatter = logging.Formatter(
         "[{asctime}] [{levelname:<8}] {name}: {message}", "%H:%M:%S", style="{"
     )
-
     with dpg.window(tag="Primary Window"):
         with dpg.menu_bar():
             with dpg.menu(label="Tools"):
