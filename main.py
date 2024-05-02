@@ -4,6 +4,9 @@ from pathlib import Path
 import dearpygui.dearpygui as dpg
 
 import GUI
+from Application import ImageManager
+from Application.images import Image
+from GUI.bill import BillingWindow
 
 
 def main():
@@ -32,9 +35,11 @@ def main():
                 core_logger.addHandler(log)
                 gui_logger.addHandler(log)
 
-    with dpg.window() as ImageWindow:
+    with dpg.window() as image_window:
         demo_roll = Path("./30R")
-        GUI.ImageWindow(folder=demo_roll, cam="Sugar Mommy", parent=ImageWindow)
+        image_manager = ImageManager("offline", "Sugar Mommy", "30R", path=demo_roll)
+        billing_window = BillingWindow(cam="Sugar Mommy", roll="30R")
+        GUI.ImageWindow(image_window, billing_window, image_manager)
 
     dpg.setup_dearpygui()
     dpg.set_primary_window("Primary Window", True)
