@@ -86,11 +86,11 @@ class ImageManager:
     def load(self, index):
         logger.debug(f"Loading image {index}")
         if index >= 40:
-            logger.error("Attempted to get image number > 40, defaulted to 40")
-            index = 39
-        elif index < 0:
-            logger.error("Attempted to get image number < 1, defaulted to 0")
+            logger.error("Attempted to get image number > 40, defaulted to 1")
             index = 0
+        elif index < 0:
+            logger.error("Attempted to get image number < 1, defaulted to 40")
+            index = 39
 
         self.current_index = index
         if self.mode == "offline":

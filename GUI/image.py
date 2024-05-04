@@ -40,6 +40,12 @@ class ImageWindow:
                 dpg.add_dynamic_texture(
                     240, 240, default_value=previous.thumbnail[3], tag="Previous Image"
                 )
+
+            with dpg.group(horizontal=True):
+                dpg.add_button(label="Next", callback=self.next)
+                dpg.add_button(label="Previous", callback=self.previous)
+                dpg.add_text(f"Image {self.current_image + 1}/40", tag="Image Number")
+
             with dpg.group(horizontal=True):
                 with dpg.group():
                     dpg.add_text("Previous Image:")
@@ -55,12 +61,19 @@ class ImageWindow:
         dpg.set_value("Main Image", image.dpg_texture[3])
         dpg.set_value("Next Image", next.thumbnail[3])
         dpg.set_value("Previous Image", previous.thumbnail[3])
+        dpg.set_value("Image Number", f"Image {self.current_image + 1}/40")
         self.billing_window.load(index)
 
     def next(self):
-        next = self.current_image + 1
-        self.open(next)
+        if self.current_image < 39:
+            self.current_image += 1
+        else:
+            self.current_image = 0
+        self.open(self.current_image)
 
     def previous(self):
-        previous = self.current_image - 1
-        self.open(previous)
+        if self.current_image > 0:
+            self.current_image -= 1
+        else:
+            self.current_image = 39
+        self.open(self.current_image)
