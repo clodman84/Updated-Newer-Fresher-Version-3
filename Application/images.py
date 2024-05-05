@@ -3,6 +3,7 @@ This is responsible for serving images to the GUI.
 This can be extended to receiving images from the DoPy server when it becomes a reality.
 """
 
+import asyncio
 import functools
 import logging
 from dataclasses import dataclass
@@ -31,7 +32,6 @@ class Image:
         raw_image.putalpha(255)
         thumbnail = PImageOps.pad(raw_image, (240, 240), color="#000000")
         dpg_texture = PImageOps.pad(raw_image, (750, 500), color="#000000")
-
         # dpg_texture-ifying
         channels = len(thumbnail.getbands())
         thumbnail = (
@@ -52,6 +52,7 @@ class Image:
     @functools.lru_cache(maxsize=40)
     def fromserver(cls, cam, roll, id):
         """Makes an Image object by querying the DoPy server"""
+        # TODO: creation of the scaled dpg texture and thumbnails should ideally take place on the server.
         raise NotImplemented
 
 
@@ -91,12 +92,21 @@ class ImageManager:
         elif index < 0:
             logger.error("Attempted to get image number < 1, defaulted to 40")
             index = 39
-
         self.current_index = index
         if self.mode == "offline":
             image_path = self.images[index]
             return Image.frompath(image_path)
         return Image.fromserver(cam=self.cam, roll=self.roll, id=self.images[index])
+
+    async def async_load_all(self):
+        await asyncio.gather(
+            *[asyncio.to_thread(self.load, index) for index in range(40)]
+        )
+
+    def load_in_background(self):
+        # this is about 5 times faster than a basic ass for loop,
+        # there is still a lot of progress to be made however this should do for now
+        asyncio.run(self.async_load_all())
 
     def peek(self, index):
         """Loads without moving the current_index"""

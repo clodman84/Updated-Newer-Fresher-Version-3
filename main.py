@@ -5,7 +5,6 @@ import dearpygui.dearpygui as dpg
 
 import GUI
 from Application import ImageManager
-from Application.images import Image
 from GUI.bill import BillingWindow
 
 

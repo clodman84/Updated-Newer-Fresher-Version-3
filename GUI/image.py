@@ -1,7 +1,6 @@
 import dearpygui.dearpygui as dpg
-from numpy import busday_count
 
-from Application import ImageManager
+from Application import ImageManager, SimpleTimer
 
 from .bill import BillingWindow
 
@@ -24,6 +23,8 @@ class ImageWindow:
         self.billing_window = billing_window
         self.image_manager = image_manager
         self.setup(parent)
+        with SimpleTimer(process_name="Loading all images in the background", log=True):
+            self.image_manager.load_in_background()
 
     def setup(self, parent):
         with dpg.child_window(parent=parent):
