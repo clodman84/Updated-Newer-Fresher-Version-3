@@ -1,5 +1,7 @@
 import logging
+import threading
 import time
+from queue import Queue, SimpleQueue
 
 logger = logging.getLogger("Core.Utils")
 
@@ -26,6 +28,28 @@ def natural_time(time_in_seconds: float) -> str:
             return f"{time_in_seconds / size:.2f} {label}"
 
     return f"{time_in_seconds / 1e-9:.2f} ns"
+
+
+class ShittyParallism:
+    def __init__(self, work, tasks, num_threads=10) -> None:
+        self.work = work
+        self.num_threads = num_threads
+        self.queue = Queue(maxsize=len(tasks))
+        for task in tasks:
+            self.queue.put(task)
+
+    def worker(self):
+        while not self.queue.empty():
+            task = self.queue.get()
+            self.work(task)
+            self.queue.task_done()
+
+    def start(self):
+        threads = []
+        for _ in range(self.num_threads):
+            threads.append(threading.Thread(target=self.worker))
+        for thread in threads:
+            thread.start()
 
 
 class SimpleTimer:

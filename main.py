@@ -10,7 +10,7 @@ from GUI.bill import BillingWindow
 
 
 def make_image_window():
-    with dpg.window() as image_window:
+    with dpg.window(width=1035, height=608) as image_window:
         demo_roll = Path("./30R")
         image_manager = ImageManager("offline", "Sugar Mommy", "30R", path=demo_roll)
         billing_window = BillingWindow(cam="Sugar Mommy", roll="30R")
@@ -25,7 +25,9 @@ def main():
     core_logger.setLevel(logging.DEBUG)
     gui_logger.setLevel(logging.DEBUG)
     formatter = logging.Formatter(
-        "[{asctime}] [{levelname:<8}] {name}: {message}", "%H:%M:%S", style="{"
+        "[{thread}][{asctime}] [{levelname:<8}] {name}: {message}",
+        "%H:%M:%S",
+        style="{",
     )
     with dpg.window(tag="Primary Window"):
         with dpg.menu_bar():

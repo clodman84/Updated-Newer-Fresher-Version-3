@@ -5,7 +5,7 @@ This can be extended to receiving images from the DoPy server when it becomes a 
 
 import functools
 import logging
-from concurrent.futures import ThreadPoolExecutor, wait
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Optional, Tuple
@@ -13,6 +13,8 @@ from typing import Literal, Optional, Tuple
 import numpy as np
 import PIL.Image as PImage
 import PIL.ImageOps as PImageOps
+
+from .utils import ShittyParallism
 
 logger = logging.getLogger("Core.Images")
 
@@ -27,7 +29,7 @@ class Image:
     @classmethod
     @functools.lru_cache(maxsize=40)
     def frompath(cls, path: Path):
-        logger.debug(f"Made image from path: {str(path)}")
+        logger.debug(f"Making image from path: {str(path)}")
         """Makes an Image object from the specified Path"""
         raw_image = PImage.open(path)
         raw_image.putalpha(255)
@@ -47,6 +49,7 @@ class Image:
             channels,
             np.frombuffer(dpg_texture.tobytes(), dtype=np.uint8) / 255.0,
         )
+        logger.debug(f"Image made from path: {str(path)}")
         return Image(path.name, raw_image, dpg_texture, thumbnail)
 
     @classmethod
@@ -86,7 +89,7 @@ class ImageManager:
             return list(range(1, 41))
 
     def load(self, index):
-        logger.debug(f"Loading image {index}")
+        logger.debug(f"Loading image {self.images[index]}")
         if index >= 40:
             logger.error("Attempted to get image number > 40, defaulted to 1")
             index = 0
@@ -100,12 +103,7 @@ class ImageManager:
         return Image.fromserver(cam=self.cam, roll=self.roll, id=self.images[index])
 
     def load_in_background(self):
-        # TODO: this function is blocking and needs to be better.
-        # 3 second load time should be acceptable even if it is blocking...
-
-        with ThreadPoolExecutor() as executor:
-            futures = (executor.submit(self.load, index) for index in range(40))
-            wait(futures)
+        ShittyParallism(self.load, range(40)).start()
 
     def peek(self, index):
         """Loads without moving the current_index"""
