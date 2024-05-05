@@ -30,6 +30,8 @@ class ImageWindow:
         with dpg.child_window(parent=parent):
             image = self.image_manager.load(0)
             with dpg.texture_registry(show=True):
+                # TODO: The next and previous image viewer could be changed into a scrollable selector
+                # with all the images in them
                 dpg.add_dynamic_texture(
                     750, 500, default_value=image.dpg_texture[3], tag="Main Image"
                 )
@@ -45,7 +47,13 @@ class ImageWindow:
             with dpg.group(horizontal=True):
                 dpg.add_button(label="Next", callback=self.next)
                 dpg.add_button(label="Previous", callback=self.previous)
-                dpg.add_text(f"Image {self.current_image + 1}/40", tag="Image Number")
+                dpg.add_slider_int(
+                    default_value=1,
+                    min_value=1,
+                    max_value=40,
+                    callback=lambda _, a, u: self.open(a - 1),
+                    tag="Image Slider",
+                )
 
             with dpg.group(horizontal=True):
                 with dpg.group():
@@ -56,25 +64,24 @@ class ImageWindow:
                 dpg.add_image("Main Image")
 
     def open(self, index: int):
+        self.current_image = index
         image = self.image_manager.load(index)
         previous = self.image_manager.previous()
         next = self.image_manager.next()
         dpg.set_value("Main Image", image.dpg_texture[3])
         dpg.set_value("Next Image", next.thumbnail[3])
         dpg.set_value("Previous Image", previous.thumbnail[3])
-        dpg.set_value("Image Number", f"Image {self.current_image + 1}/40")
+        dpg.set_value("Image Slider", self.current_image + 1)
         self.billing_window.load(index)
 
     def next(self):
         if self.current_image < 39:
-            self.current_image += 1
+            self.open(self.current_image + 1)
         else:
-            self.current_image = 0
-        self.open(self.current_image)
+            self.open(0)
 
     def previous(self):
         if self.current_image > 0:
-            self.current_image -= 1
+            self.open(self.current_image - 1)
         else:
-            self.current_image = 39
-        self.open(self.current_image)
+            self.open(39)

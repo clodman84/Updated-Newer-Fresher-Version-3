@@ -104,8 +104,8 @@ class ImageManager:
         )
 
     def load_in_background(self):
-        # this is about 5 times faster than a basic ass for loop,
-        # there is still a lot of progress to be made however this should do for now
+        # TODO: this function is blocking and needs to be better.
+        # 3 second load time should be acceptable even if it is blocking...
         asyncio.run(self.async_load_all())
 
     def peek(self, index):

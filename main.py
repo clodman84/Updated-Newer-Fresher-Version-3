@@ -2,10 +2,19 @@ import logging
 from pathlib import Path
 
 import dearpygui.dearpygui as dpg
+from dearpygui import demo
 
 import GUI
 from Application import ImageManager
 from GUI.bill import BillingWindow
+
+
+def make_image_window():
+    with dpg.window() as image_window:
+        demo_roll = Path("./30R")
+        image_manager = ImageManager("offline", "Sugar Mommy", "30R", path=demo_roll)
+        billing_window = BillingWindow(cam="Sugar Mommy", roll="30R")
+        GUI.ImageWindow(image_window, billing_window, image_manager)
 
 
 def main():
@@ -28,17 +37,13 @@ def main():
                     label="Show Performance Metrics", callback=dpg.show_metrics
                 )
                 dpg.add_menu_item(label="Show Debug", callback=dpg.show_debug)
-            with dpg.window(height=350, width=350, label="Logger") as logger_window:
-                log = GUI.Logger(parent=logger_window)
-                log.setFormatter(formatter)
-                core_logger.addHandler(log)
-                gui_logger.addHandler(log)
-
-    with dpg.window() as image_window:
-        demo_roll = Path("./30R")
-        image_manager = ImageManager("offline", "Sugar Mommy", "30R", path=demo_roll)
-        billing_window = BillingWindow(cam="Sugar Mommy", roll="30R")
-        GUI.ImageWindow(image_window, billing_window, image_manager)
+            dpg.add_button(label="Open ImageViewer", callback=make_image_window)
+            dpg.add_button(label="Open Demo", callback=demo.show_demo)
+    with dpg.window(height=350, width=350, label="Logger") as logger_window:
+        log = GUI.Logger(parent=logger_window)
+        log.setFormatter(formatter)
+        core_logger.addHandler(log)
+        gui_logger.addHandler(log)
 
     dpg.setup_dearpygui()
     dpg.set_primary_window("Primary Window", True)
