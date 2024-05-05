@@ -3,9 +3,9 @@ This is responsible for serving images to the GUI.
 This can be extended to receiving images from the DoPy server when it becomes a reality.
 """
 
-import asyncio
 import functools
 import logging
+from concurrent.futures import ThreadPoolExecutor, wait
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Optional, Tuple
@@ -19,6 +19,7 @@ logger = logging.getLogger("Core.Images")
 
 @dataclass
 class Image:
+    name: str
     raw_image: PImage.Image
     dpg_texture: Tuple[int, int, int, np.ndarray]
     thumbnail: Tuple[int, int, int, np.ndarray]
@@ -46,7 +47,7 @@ class Image:
             channels,
             np.frombuffer(dpg_texture.tobytes(), dtype=np.uint8) / 255.0,
         )
-        return Image(raw_image, dpg_texture, thumbnail)
+        return Image(path.name, raw_image, dpg_texture, thumbnail)
 
     @classmethod
     @functools.lru_cache(maxsize=40)
@@ -98,15 +99,13 @@ class ImageManager:
             return Image.frompath(image_path)
         return Image.fromserver(cam=self.cam, roll=self.roll, id=self.images[index])
 
-    async def async_load_all(self):
-        await asyncio.gather(
-            *[asyncio.to_thread(self.load, index) for index in range(40)]
-        )
-
     def load_in_background(self):
         # TODO: this function is blocking and needs to be better.
         # 3 second load time should be acceptable even if it is blocking...
-        asyncio.run(self.async_load_all())
+
+        with ThreadPoolExecutor() as executor:
+            futures = (executor.submit(self.load, index) for index in range(40))
+            wait(futures)
 
     def peek(self, index):
         """Loads without moving the current_index"""

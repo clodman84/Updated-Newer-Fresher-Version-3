@@ -23,13 +23,18 @@ class ImageWindow:
         self.billing_window = billing_window
         self.image_manager = image_manager
         self.setup(parent)
-        with SimpleTimer(process_name="Loading all images in the background", log=True):
-            self.image_manager.load_in_background()
 
     def setup(self, parent):
         with dpg.child_window(parent=parent):
+            indicator = dpg.add_loading_indicator()
+            with SimpleTimer(
+                process_name="Loading all images in the background", log=True
+            ):
+                self.image_manager.load_in_background()
+            dpg.delete_item(indicator)
+
             image = self.image_manager.load(0)
-            with dpg.texture_registry(show=True):
+            with dpg.texture_registry():
                 # TODO: The next and previous image viewer could be changed into a scrollable selector
                 # with all the images in them
                 dpg.add_dynamic_texture(
