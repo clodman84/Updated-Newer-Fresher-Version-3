@@ -1,6 +1,7 @@
 import dearpygui.dearpygui as dpg
 
-from Application import ImageManager, SimpleTimer
+from Application import ImageManager
+from Application.utils import ShittyParallism
 
 from .bill import BillingWindow
 
@@ -29,7 +30,10 @@ class ImageWindow:
         with dpg.child_window(parent=parent):
             indicator = dpg.add_loading_indicator()
 
+            # this is an abomination, but it makes the window load 2 seconds faster
+            ShittyParallism(self.image_manager.load, (0, 1, 39)).start()
             image = self.image_manager.load(0)
+
             with dpg.texture_registry():
                 # TODO: The next and previous image viewer could be changed into a scrollable selector
                 # with all the images in them

@@ -22,10 +22,11 @@ logger = logging.getLogger("Core.Images")
 @dataclass
 class Image:
     name: str
-    raw_image: PImage.Image
+    raw_image: PImage.Image  # does raw_image even need to exist?
     dpg_texture: Tuple[int, int, int, np.ndarray]
     thumbnail: Tuple[int, int, int, np.ndarray]
 
+    # TODO: the cache uses a lot of RAM there should be a way to control the maxsize at runtime
     @classmethod
     @functools.lru_cache(maxsize=40)
     def frompath(cls, path: Path):
@@ -35,6 +36,10 @@ class Image:
         raw_image.putalpha(255)
         thumbnail = PImageOps.pad(raw_image, (240, 240), color="#000000")
         dpg_texture = PImageOps.pad(raw_image, (750, 500), color="#000000")
+
+        # this frees up memory, PIL.Image.open() is lazy and does not load the image into memory till it needs to be
+        raw_image = PImage.open(path)
+
         # dpg_texture-ifying
         channels = len(thumbnail.getbands())
         thumbnail = (

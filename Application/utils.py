@@ -1,7 +1,7 @@
 import logging
 import threading
 import time
-from queue import Queue, SimpleQueue
+from queue import Queue
 
 logger = logging.getLogger("Core.Utils")
 

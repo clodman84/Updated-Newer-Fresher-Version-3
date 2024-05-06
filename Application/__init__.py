@@ -1,2 +1,2 @@
 from .images import Image, ImageManager
-from .utils import SimpleTimer
+from .utils import ShittyParallism, SimpleTimer
