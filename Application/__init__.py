@@ -1,2 +1,3 @@
 from .images import Image, ImageManager
-from .utils import ShittyParallism, SimpleTimer
+from .music import DJ
+from .utils import ShittyMultiThreading, SimpleTimer

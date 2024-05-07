@@ -1,7 +1,7 @@
 import dearpygui.dearpygui as dpg
 
 from Application import ImageManager
-from Application.utils import ShittyParallism
+from Application.utils import ShittyMultiThreading
 
 from .bill import BillingWindow
 
@@ -31,7 +31,7 @@ class ImageWindow:
             indicator = dpg.add_loading_indicator()
 
             # this is an abomination, but it makes the window load 2 seconds faster
-            ShittyParallism(self.image_manager.load, (0, 1, 39)).start()
+            ShittyMultiThreading(self.image_manager.load, (0, 1, 39)).start()
             image = self.image_manager.load(0)
 
             with dpg.texture_registry():
@@ -43,10 +43,10 @@ class ImageWindow:
                 next = self.image_manager.next()
                 previous = self.image_manager.previous()
                 dpg.add_dynamic_texture(
-                    240, 240, default_value=next.thumbnail[3], tag="Next Image"
+                    245, 245, default_value=next.thumbnail[3], tag="Next Image"
                 )
                 dpg.add_dynamic_texture(
-                    240, 240, default_value=previous.thumbnail[3], tag="Previous Image"
+                    245, 245, default_value=previous.thumbnail[3], tag="Previous Image"
                 )
 
             with dpg.group(horizontal=True):
@@ -62,9 +62,7 @@ class ImageWindow:
 
             with dpg.group(horizontal=True):
                 with dpg.group():
-                    dpg.add_text("Previous Image:")
                     dpg.add_image("Previous Image")
-                    dpg.add_text("Next Image:")
                     dpg.add_image("Next Image")
                 dpg.add_image("Main Image")
             dpg.delete_item(indicator)

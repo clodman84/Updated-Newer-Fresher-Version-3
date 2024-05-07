@@ -4,3 +4,5 @@ Fileseq==1.15.2
 numpy==1.23.4
 Pillow==10.3.0
 pre-commit==3.3.3
+sounddevice==0.4.6
+soundfile==0.12.1

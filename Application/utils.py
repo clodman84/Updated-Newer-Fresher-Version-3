@@ -30,8 +30,17 @@ def natural_time(time_in_seconds: float) -> str:
     return f"{time_in_seconds / 1e-9:.2f} ns"
 
 
-class ShittyParallism:
-    def __init__(self, work, tasks, num_threads=10) -> None:
+class Singleton(type):
+    _instances = {}
+
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
+        return cls._instances[cls]
+
+
+class ShittyMultiThreading:
+    def __init__(self, work, tasks, num_threads=5) -> None:
         self.work = work
         self.num_threads = num_threads
         self.queue = Queue(maxsize=len(tasks))

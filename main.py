@@ -5,7 +5,7 @@ import dearpygui.dearpygui as dpg
 from dearpygui import demo
 
 import GUI
-from Application import ImageManager
+from Application import DJ, ImageManager
 from GUI.bill import BillingWindow
 
 
@@ -25,7 +25,7 @@ def main():
     core_logger.setLevel(logging.DEBUG)
     gui_logger.setLevel(logging.DEBUG)
     formatter = logging.Formatter(
-        "[{thread}][{asctime}] [{levelname:<8}] {name}: {message}",
+        "[{threadName}][{asctime}] [{levelname:<8}] {name}: {message}",
         "%H:%M:%S",
         style="{",
     )
@@ -41,6 +41,10 @@ def main():
                 dpg.add_menu_item(label="Show Debug", callback=dpg.show_debug)
             dpg.add_button(label="Open ImageViewer", callback=make_image_window)
             dpg.add_button(label="Open Demo", callback=demo.show_demo)
+            dpg.add_button(
+                label="Music",
+                callback=lambda: DJ(["./Data/Audio/sanctuary.mp3"]).start(),
+            )
     with dpg.window(height=350, width=350, label="Logger") as logger_window:
         log = GUI.Logger(parent=logger_window)
         log.setFormatter(formatter)

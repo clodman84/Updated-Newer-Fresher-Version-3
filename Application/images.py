@@ -5,7 +5,6 @@ This can be extended to receiving images from the DoPy server when it becomes a 
 
 import functools
 import logging
-import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Optional, Tuple
@@ -14,7 +13,7 @@ import numpy as np
 import PIL.Image as PImage
 import PIL.ImageOps as PImageOps
 
-from .utils import ShittyParallism
+from .utils import ShittyMultiThreading
 
 logger = logging.getLogger("Core.Images")
 
@@ -34,7 +33,7 @@ class Image:
         """Makes an Image object from the specified Path"""
         raw_image = PImage.open(path)
         raw_image.putalpha(255)
-        thumbnail = PImageOps.pad(raw_image, (240, 240), color="#000000")
+        thumbnail = PImageOps.pad(raw_image, (245, 245), color="#000000")
         dpg_texture = PImageOps.pad(raw_image, (750, 500), color="#000000")
 
         # this frees up memory, PIL.Image.open() is lazy and does not load the image into memory till it needs to be
@@ -43,8 +42,8 @@ class Image:
         # dpg_texture-ifying
         channels = len(thumbnail.getbands())
         thumbnail = (
-            240,
-            240,
+            245,
+            245,
             channels,
             np.frombuffer(thumbnail.tobytes(), dtype=np.uint8) / 255.0,
         )
@@ -108,7 +107,7 @@ class ImageManager:
         return Image.fromserver(cam=self.cam, roll=self.roll, id=self.images[index])
 
     def load_in_background(self):
-        ShittyParallism(self.load, range(40)).start()
+        ShittyMultiThreading(self.load, range(40)).start()
 
     def peek(self, index):
         """Loads without moving the current_index"""
