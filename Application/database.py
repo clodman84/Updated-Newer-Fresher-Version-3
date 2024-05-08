@@ -8,7 +8,7 @@ sqlite3.register_converter("timestamp", lambda x: datetime.fromtimestamp(int(x))
 
 def connect() -> sqlite3.Connection:
     connection = sqlite3.connect(
-        "data.db", detect_types=sqlite3.PARSE_DECLTYPES, check_same_thread=False
+        "./Data/data.db", detect_types=sqlite3.PARSE_DECLTYPES, check_same_thread=False
     )
     connection.execute("pragma foreign_keys = ON")
     return connection
@@ -41,8 +41,8 @@ class ConnectionPool:
 def setup_db():
     with open("schema.sql") as file:
         query = "".join(file.readlines())
-    with connect() as connection:
-        connection.executescript(query)
+    connection = connect()
+    connection.executescript(query)
     connection.close()
 
 

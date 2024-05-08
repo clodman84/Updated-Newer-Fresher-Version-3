@@ -33,7 +33,7 @@ class Image:
         """Makes an Image object from the specified Path"""
         raw_image = PImage.open(path)
         raw_image.putalpha(255)
-        thumbnail = PImageOps.pad(raw_image, (245, 245), color="#000000")
+        thumbnail = PImageOps.pad(raw_image, (245, 247), color="#000000")
         dpg_texture = PImageOps.pad(raw_image, (750, 500), color="#000000")
 
         # this frees up memory, PIL.Image.open() is lazy and does not load the image into memory till it needs to be
@@ -43,7 +43,7 @@ class Image:
         channels = len(thumbnail.getbands())
         thumbnail = (
             245,
-            245,
+            247,
             channels,
             np.frombuffer(thumbnail.tobytes(), dtype=np.uint8) / 255.0,
         )

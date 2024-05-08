@@ -1,9 +1,13 @@
+import logging
+
 import dearpygui.dearpygui as dpg
 
 from Application import ImageManager
 from Application.utils import ShittyMultiThreading
 
 from .bill import BillingWindow
+
+logger = logging.getLogger("GUI.Image")
 
 
 class ImageWindow:
@@ -33,6 +37,7 @@ class ImageWindow:
             # this is an abomination, but it makes the window load 2 seconds faster
             ShittyMultiThreading(self.image_manager.load, (0, 1, 39)).start()
             image = self.image_manager.load(0)
+            logger.debug(image.dpg_texture[3].shape)
 
             with dpg.texture_registry():
                 # TODO: The next and previous image viewer could be changed into a scrollable selector
@@ -43,10 +48,10 @@ class ImageWindow:
                 next = self.image_manager.next()
                 previous = self.image_manager.previous()
                 dpg.add_dynamic_texture(
-                    245, 245, default_value=next.thumbnail[3], tag="Next Image"
+                    245, 247, default_value=next.thumbnail[3], tag="Next Image"
                 )
                 dpg.add_dynamic_texture(
-                    245, 245, default_value=previous.thumbnail[3], tag="Previous Image"
+                    245, 247, default_value=previous.thumbnail[3], tag="Previous Image"
                 )
 
             with dpg.group(horizontal=True):
