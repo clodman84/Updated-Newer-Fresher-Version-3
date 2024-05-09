@@ -6,6 +6,7 @@ import functools
 import logging
 import queue
 import threading
+import warnings
 
 import numpy as np
 import sounddevice as sd
@@ -33,13 +34,7 @@ class DJ(metaclass=Singleton):
         self.audio_buffer = queue.Queue(maxsize=BUFFER_SIZE)
         self.visualiser = visualiser
         self.fft = np.zeros((32,))
-        self.stream = sd.OutputStream(
-            blocksize=BLOCK_SIZE,
-            latency=0.1,
-            callback=self.callback,
-            finished_callback=self.finished_callback,
-            channels=2,
-        )
+        self.stream = None
 
     def callback(
         self,
@@ -52,6 +47,7 @@ class DJ(metaclass=Singleton):
         try:
             data, fft = self.audio_buffer.get()
         except queue.Empty:
+            logger.debug("In DJ.callback: Audio Queue is empty, raised CallbackStop")
             raise sd.CallbackStop
 
         if len(data) < len(outdata):
@@ -60,6 +56,9 @@ class DJ(metaclass=Singleton):
             outdata[len(data) :] = 0
             # this can only happen when the file has been fully processed and the length of data will just be the remainder of
             # the length of audio file divided by blocksize
+            logger.debug(
+                "In DJ.callback: len(data) < len(outdata), raised CallbackStop"
+            )
             raise sd.CallbackStop
         else:
             outdata[:] = data
@@ -69,71 +68,92 @@ class DJ(metaclass=Singleton):
 
     def file_reader(self, path):
         # responsible for putting things into the queue
-        logger.debug("Feeder Thread Made")
         with sf.SoundFile(path) as file:
             data = file.read(
                 BLOCK_SIZE * BUFFER_SIZE
             )  # skipping the blocks that have already been written to the queue in .play()
-            while self.stream.active:
+            while self.stream and self.stream.active:
                 data = file.read(BLOCK_SIZE)
                 if not len(data):
-                    logger.debug("Feeder thread exited")
+                    logger.debug("In DJ.file_reader: Feeder thread exited")
                     return
-                hamming_window = np.hamming(len(data))
-                mono_data = data.mean(1) * hamming_window
-                transform = np.abs(np.fft.rfft(mono_data))[: int(len(data) / 2)]
-                logarithmically_spaced_averages = []
-                previous = 0
+                self.compute_fft(data)
+                self.audio_buffer.put([data, list(self.fft)])
+        logger.debug(
+            "In DJ.file_reader: Feeder thread exited since audiostream is inactive"
+        )
 
-                # octave shit
-                for i in np.logspace(
-                    1, int(np.emath.logn(8, len(data) / 2)), num=32, base=8
-                ):
-                    logarithmically_spaced_averages.append(
-                        np.average(transform[previous : int(i)])
-                    )
-                    previous = int(i)
+    def compute_fft(self, data):
+        hamming_window = np.hamming(len(data))
+        mono_data = data.mean(1) * hamming_window
+        transform = np.abs(np.fft.rfft(mono_data))[: int(len(data) / 2)]
+        logarithmically_spaced_averages = []
 
-                bins = np.array(logarithmically_spaced_averages)
+        # octave shit
+        previous = 0
+        for i in np.logspace(1, int(np.emath.logn(8, len(data) / 2)), num=32, base=8):
+            logarithmically_spaced_averages.append(
+                np.average(transform[previous : int(i)])
+            )
+            previous = int(i)
+
+        bins = np.array(logarithmically_spaced_averages)
+        with warnings.catch_warnings():
+            warnings.filterwarnings("error")
+            try:
                 # gamma correction
                 bins = ((bins / bins.max()) ** 1 / 2) * 20
                 # scaling this logarithmically
                 bins = 10 * np.log10(bins / bins.min())
-                s = 0.7
-                self.fft = s * self.fft + (1 - s) * bins
-                self.audio_buffer.put([data, list(self.fft)])
-        logger.debug("Feeder thread exited")
+            except RuntimeWarning:
+                logger.warning("In DJ.fft: No audio in this frame")
+        s = 0.7
+        self.fft = s * self.fft + (1 - s) * bins
 
     def audio_buffer_setup_from_file(self, path):
         # pre-loading the queue with BUFFER_SIZE blocks of audio
+        logger.debug("In DJ.audio_buffer_setup_from_file: Filling audio_buffer")
         with sf.SoundFile(path) as file:
             for _ in range(BUFFER_SIZE):
                 data = file.read(BLOCK_SIZE)
                 if not len(data):
-                    self.audio_buffer.put(data)
+                    return
+                self.compute_fft(data)
+                self.audio_buffer.put_nowait([data, list(self.fft)])
 
     def finished_callback(self):
-        logger.info("Finished playing audio track")
+        logger.info("In DJ.finished_callback: Finished playing audio track")
 
     def play(self, path):
-        if self.stream.active:
+        if self.stream and self.stream.active:
             return
-        logger.info(f"Playing audio from path: {path}")
+        logger.info(f"In DJ.play: Playing audio from path: {path}")
         self.audio_buffer_setup_from_file(path)
         feeder_thread = threading.Thread(
             target=functools.partial(self.file_reader, path)
         )
+        logger.debug("In DJ.play: new feeder_thread made")
+        self.stream = sd.OutputStream(
+            blocksize=BLOCK_SIZE,
+            latency=0.1,
+            callback=self.callback,
+            finished_callback=self.finished_callback,
+            channels=2,
+        )
         self.stream.start()
+        logger.debug(f"In DJ.play: {self.stream} started")
         feeder_thread.start()
-        logger.debug(f"{self.stream} started")
+        logger.debug(f"In DJ.play: {feeder_thread} started")
 
     def stop(self):
-        if self.stream.active:
+        if self.stream and self.stream.active:
             self.stream.stop()
-            while not self.audio_buffer.qsize() == 0:
+            i = 0
+            while BUFFER_SIZE - i >= 0:
                 try:
                     self.audio_buffer.get_nowait()
+                    i += 1
                 except queue.Empty:
                     continue
                 self.audio_buffer.task_done()
-            logger.debug("Emptied Audio Buffer!")
+            logger.debug("In DJ.stop: Emptied Audio Buffer!")

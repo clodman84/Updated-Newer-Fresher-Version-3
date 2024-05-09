@@ -5,7 +5,7 @@ import dearpygui.dearpygui as dpg
 from dearpygui import demo
 
 import GUI
-from Application import DJ, ImageManager
+from Application import ImageManager
 from GUI import MusicVisualiser
 from GUI.bill import BillingWindow
 
@@ -44,7 +44,7 @@ def main():
             dpg.add_button(label="Open Demo", callback=demo.show_demo)
             dpg.add_button(
                 label="Music",
-                callback=lambda: MusicVisualiser(["./Data/Audio/clodman.mp3"]),
+                callback=lambda: MusicVisualiser(["./Data/Audio/cerium.mp3"]),
             )
     with dpg.window(height=350, width=350, label="Logger") as logger_window:
         log = GUI.Logger(parent=logger_window)
