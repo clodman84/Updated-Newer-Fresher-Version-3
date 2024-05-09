@@ -45,7 +45,7 @@ class DJ(metaclass=Singleton):
     ):
         # reads data from the queue and then writes into the outdata ndarray
         try:
-            data, fft = self.audio_buffer.get()
+            data, fft = self.audio_buffer.get_nowait()
         except queue.Empty:
             logger.debug("In DJ.callback: Audio Queue is empty, raised CallbackStop")
             raise sd.CallbackStop
@@ -84,6 +84,7 @@ class DJ(metaclass=Singleton):
         )
 
     def compute_fft(self, data):
+        # revisit this later
         hamming_window = np.hamming(len(data))
         mono_data = data.mean(1) * hamming_window
         transform = np.abs(np.fft.rfft(mono_data))[: int(len(data) / 2)]
@@ -101,7 +102,7 @@ class DJ(metaclass=Singleton):
         with warnings.catch_warnings():
             warnings.filterwarnings("error")
             try:
-                # gamma correction
+                # gamma correction https://dlbeer.co.nz/articles/fftvis.html
                 bins = ((bins / bins.max()) ** 1 / 2) * 20
                 # scaling this logarithmically
                 bins = 10 * np.log10(bins / bins.min())

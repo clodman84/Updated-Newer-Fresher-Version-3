@@ -44,7 +44,9 @@ def main():
             dpg.add_button(label="Open Demo", callback=demo.show_demo)
             dpg.add_button(
                 label="Music",
-                callback=lambda: MusicVisualiser(["./Data/Audio/cerium.mp3"]),
+                callback=lambda: MusicVisualiser(
+                    "./Data/Audio/clodman_alternate.mp3"
+                ).start(),
             )
     with dpg.window(height=350, width=350, label="Logger") as logger_window:
         log = GUI.Logger(parent=logger_window)
