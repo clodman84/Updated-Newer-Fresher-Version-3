@@ -4,18 +4,26 @@ from pathlib import Path
 import dearpygui.dearpygui as dpg
 from dearpygui import demo
 
+import Application
 import GUI
-from Application import ImageManager
-from GUI import MusicVisualiser
-from GUI.bill import BillingWindow
 
 
 def make_image_window():
     with dpg.window(width=1035, height=608) as image_window:
         demo_roll = Path("./30R")
-        image_manager = ImageManager("offline", "Sugar Mommy", "30R", path=demo_roll)
-        billing_window = BillingWindow(cam="Sugar Mommy", roll="30R")
+        image_manager = Application.ImageManager(
+            "offline", "Sugar Mommy", "30R", path=demo_roll
+        )
+        billing_window = GUI.BillingWindow(cam="Sugar Mommy", roll="30R")
         GUI.ImageWindow(image_window, billing_window, image_manager)
+
+
+def load_mess_list(sender, app_data, user_data):
+    # yuck
+    path = next(iter(app_data["selections"].values()))
+    path = Path(path)
+    Application.db.read_mess_list(path)
+    GUI.modal_message("Mess list loaded successfully!")
 
 
 def main():
@@ -31,6 +39,17 @@ def main():
         style="{",
     )
     with dpg.window(tag="Primary Window"):
+        with dpg.file_dialog(
+            directory_selector=False,
+            show=False,
+            tag="mess_list_file_dialog",
+            callback=load_mess_list,
+        ):
+            # disgusting
+            dpg.add_file_extension(".*")
+            dpg.add_file_extension("", color=(150, 255, 150, 255))
+            dpg.add_file_extension(".csv", color=(0, 255, 0, 255), custom_text="[CSV]")
+
         with dpg.menu_bar():
             with dpg.menu(label="Tools"):
                 dpg.add_menu_item(
@@ -40,12 +59,16 @@ def main():
                     label="Show Performance Metrics", callback=dpg.show_metrics
                 )
                 dpg.add_menu_item(label="Show Debug", callback=dpg.show_debug)
+                dpg.add_menu_item(
+                    label="Load Mess List",
+                    callback=lambda: dpg.show_item("mess_list_file_dialog"),
+                )
             dpg.add_button(label="Open ImageViewer", callback=make_image_window)
             dpg.add_button(label="Open Demo", callback=demo.show_demo)
             dpg.add_button(
                 label="Music",
-                callback=lambda: MusicVisualiser(
-                    "./Data/Audio/clodman_alternate.mp3"
+                callback=lambda: GUI.MusicVisualiser(
+                    "./Data/Audio/clodman.mp3"
                 ).start(),
             )
     with dpg.window(height=350, width=350, label="Logger") as logger_window:

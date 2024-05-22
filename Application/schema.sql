@@ -1,10 +1,11 @@
 CREATE TABLE IF NOT EXISTS students(
   REC text,
-  IDNO text, 
+  IDNO text UNIQUE,
   NAME text,
-  GENDER text, 
-  HOSCODE text, 
-  ROOMNO text
+  GENDER text,
+  HOSCODE text,
+  ROOMNO text,
+  PROG_ID int
 );
 
 -- full text search capabilities for students
@@ -28,4 +29,3 @@ CREATE TRIGGER students_au AFTER UPDATE ON students BEGIN
 END;
 
 INSERT INTO students_fts(students_fts) VALUES('rebuild');
-

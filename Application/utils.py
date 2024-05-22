@@ -63,7 +63,7 @@ class ShittyMultiThreading:
 
 class SimpleTimer:
     """
-    A timer that also logs what it times.
+    Basic timer utility.
 
     Example
     -------

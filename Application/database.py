@@ -1,6 +1,8 @@
+import csv
 import queue
 import sqlite3
 from datetime import datetime
+from pathlib import Path
 
 sqlite3.register_adapter(datetime, lambda x: int(x.timestamp()))
 sqlite3.register_converter("timestamp", lambda x: datetime.fromtimestamp(int(x)))
@@ -39,16 +41,22 @@ class ConnectionPool:
 
 
 def setup_db():
-    with open("schema.sql") as file:
+    with open(Path("Application/schema.sql")) as file:
         query = "".join(file.readlines())
     connection = connect()
     connection.executescript(query)
     connection.close()
 
 
-def read_mess_list():
-    # TODO: implement this
-    pass
+def read_mess_list(path: Path):
+    with open(path) as file:
+        reader = csv.reader(file)
+        connection = connect()
+        vals = [row for row in reader]
+        connection.executemany(
+            "INSERT OR IGNORE INTO students VALUES(?, ?, ?, ?, ?, ?, ?)", vals[1:]
+        )
+        connection.commit()
 
 
 # this is out here on purpose there must be a better way but idc

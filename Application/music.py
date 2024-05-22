@@ -100,12 +100,18 @@ class DJ(metaclass=Singleton):
 
         bins = np.array(logarithmically_spaced_averages)
         with warnings.catch_warnings():
+            # this catches a rare case where the audio buffer sent by libsndfile is empty
             warnings.filterwarnings("error")
             try:
                 # gamma correction https://dlbeer.co.nz/articles/fftvis.html
                 bins = ((bins / bins.max()) ** 1 / 2) * 20
                 # scaling this logarithmically
                 bins = 10 * np.log10(bins / bins.min())
+                # A = np.vstack([range(32), np.ones(32)]).T
+                # m, c= np.linalg.lstsq(A, bins, rcond=None)[0]
+                # bins = bins - [m * i + c for i in range(32)]
+                # logger.debug(bins)
+
             except RuntimeWarning:
                 logger.warning("In DJ.fft: No audio in this frame")
         s = 0.7
