@@ -1,13 +1,25 @@
+import logging
+
 import dearpygui.dearpygui as dpg
 
 from Application import search
+
+logger = logging.getLogger("GUI.Bill")
 
 
 class SuggestionPanel:
     def __init__(self, parent):
         self.parent = parent
-        for i in range(15):
-            dpg.add_text("Lmao", tag=f"{self.parent}_{i}", parent=parent)
+        with dpg.table(policy=dpg.mvTable_SizingFixedFit):
+            dpg.add_table_column(label="Name")
+            dpg.add_table_column(label="ID")
+            dpg.add_table_column(label="Bhawan", width=50)
+            dpg.add_table_column(label="Room", width=50)
+
+            for i in range(15):
+                with dpg.table_row():
+                    for j in range(4):
+                        dpg.add_text("", tag=f"{self.parent}_{i}_{j}")
 
     def update(self, sender, app_data, user_data):
         if len(app_data) > 0:
@@ -16,14 +28,17 @@ class SuggestionPanel:
             return
 
         if not matches:
-            dpg.set_value(f"{self.parent}_{0}", "No matches")
-            for i in range(1, 15):
-                dpg.set_value(f"{self.parent}_{i}", "")
+            for i in range(15):
+                for j in range(4):
+                    dpg.set_value(f"{self.parent}_{i}_{j}", "")
+            dpg.set_value(f"{self.parent}_{0}_{0}", "No matches")
         else:
             for i in range(len(matches)):
-                dpg.set_value(f"{self.parent}_{i}", matches[i][0])
+                for j in range(4):
+                    dpg.set_value(f"{self.parent}_{i}_{j}", matches[i][j])
             for i in range(len(matches), 15):
-                dpg.set_value(f"{self.parent}_{i}", "")
+                for j in range(4):
+                    dpg.set_value(f"{self.parent}_{i}_{j}", "")
 
 
 class BillingWindow:
@@ -39,12 +54,14 @@ class BillingWindow:
 
         self.roll = roll
         self.cam = cam
-        with dpg.window(width=500, label="Billing Window"):
-            with dpg.group(horizontal=True, width=0):
-                with dpg.child_window(width=250) as suggestions:
+        with dpg.window(width=575, height=436, label="Billing Window"):
+            input = dpg.add_input_text()
+            with dpg.group(horizontal=True):
+                with dpg.child_window(width=350) as suggestions:
                     self.suggestions = SuggestionPanel(suggestions)
-                with dpg.child_window(width=250) as self.window:
-                    dpg.add_input_text(callback=self.suggestions.update)
+                with dpg.child_window(width=200) as suggestions:
+                    dpg.add_text("WIP")
+            dpg.set_item_callback(input, self.suggestions.update)
 
     def clear(self):
         pass

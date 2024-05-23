@@ -76,7 +76,7 @@ def main():
         log.setFormatter(formatter)
         core_logger.addHandler(log)
         gui_logger.addHandler(log)
-
+    GUI.BillingWindow(cam="Sugar Mommy", roll="30R")
     dpg.setup_dearpygui()
     dpg.set_primary_window("Primary Window", True)
     dpg.set_viewport_vsync(False)
