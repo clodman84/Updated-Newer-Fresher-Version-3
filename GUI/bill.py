@@ -2,7 +2,7 @@ import logging
 
 import dearpygui.dearpygui as dpg
 
-from Application import search
+from Application import SearchMachine
 
 logger = logging.getLogger("GUI.Bill")
 
@@ -10,6 +10,7 @@ logger = logging.getLogger("GUI.Bill")
 class SuggestionPanel:
     def __init__(self, parent):
         self.parent = parent
+        self.search_machine = SearchMachine()
         with dpg.table(policy=dpg.mvTable_SizingFixedFit):
             dpg.add_table_column(label="Name")
             dpg.add_table_column(label="ID")
@@ -23,7 +24,7 @@ class SuggestionPanel:
 
     def update(self, sender, app_data, user_data):
         if len(app_data) > 0:
-            matches = search(app_data)
+            matches = self.search_machine.search(app_data)
         else:
             return
 
@@ -33,9 +34,11 @@ class SuggestionPanel:
                     dpg.set_value(f"{self.parent}_{i}_{j}", "")
             dpg.set_value(f"{self.parent}_{0}_{0}", "No matches")
         else:
-            for i in range(len(matches)):
+            for i, item in enumerate(matches):
+                if i == 14:
+                    break
                 for j in range(4):
-                    dpg.set_value(f"{self.parent}_{i}_{j}", matches[i][j])
+                    dpg.set_value(f"{self.parent}_{i}_{j}", item[j])
             for i in range(len(matches), 15):
                 for j in range(4):
                     dpg.set_value(f"{self.parent}_{i}_{j}", "")
