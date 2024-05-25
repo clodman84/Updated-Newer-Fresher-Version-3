@@ -8,6 +8,8 @@ logger = logging.getLogger("GUI.Bill")
 
 
 class SuggestionPanel:
+    """Suggests IDs from user input"""
+
     def __init__(self, parent):
         self.parent = parent
         self.search_machine = SearchMachine()
@@ -45,15 +47,15 @@ class SuggestionPanel:
 
 
 class BillingWindow:
+    """Tags and stores images. There is no real ImageManager equivalent for BillingWindow, so this does everything"""
+
     def __init__(self, cam: str, roll: str):
         # List of things the BilledWindow knows about:
         # 1. The cam and roll that it is responsible for
 
         # What does the BilledWindow do?
         # 1. Writes the ID and details of all the students into the database (autosave)
-        # 2. Manages AutocompletePopups as the user starts typing into the text boxes
-        # 3. Dynamically resizes with more text boxes if needed
-        # 4. Manages the textboxes
+        # 2. Advances the billing process (loads the appropriate image)
 
         self.roll = roll
         self.cam = cam

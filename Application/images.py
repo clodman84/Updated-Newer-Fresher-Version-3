@@ -20,6 +20,8 @@ logger = logging.getLogger("Core.Images")
 
 @dataclass
 class Image:
+    """This stores the images in a way that the GUI can represent, and since the classmethods are cached this greatly increases performance"""
+
     name: str
     raw_image: PImage.Image  # does raw_image even need to exist?
     dpg_texture: Tuple[int, int, int, np.ndarray]
@@ -65,6 +67,8 @@ class Image:
 
 
 class ImageManager:
+    """Does what the name suggests, creates Images. Regardless of wherever it is from, the interface stays the same"""
+
     def __init__(
         self,
         mode: Literal["online", "offline"],

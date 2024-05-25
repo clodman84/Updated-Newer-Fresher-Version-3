@@ -10,16 +10,10 @@ dpg.create_context()
 
 
 class MusicVisualiser:
-    def __init__(self, track):
-        # List of things the image window knows about:
-        # 1. The roll that is currently being billed
-        # 2. The images in the roll
-        # 3. A BilledWindow
+    """UI representation of the DJ object. The DJ can live without this, but the visualiser can't live without
+    the DJ :-("""
 
-        # What does the ImageWindow do?
-        # 1. Creates and manages the BilledWindow
-        # 2. Lets us open our image of choice
-        # 3. Has a preview for the next and previous image
+    def __init__(self, track):
         self.dj = DJ(self.visualiser)
         self.track = track
         with dpg.window(label="DJ", no_resize=True):

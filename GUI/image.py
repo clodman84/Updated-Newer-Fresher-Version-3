@@ -11,6 +11,8 @@ logger = logging.getLogger("GUI.Image")
 
 
 class ImageWindow:
+    """imej"""
+
     def __init__(
         self, parent, billing_window: BillingWindow, image_manager: ImageManager
     ):

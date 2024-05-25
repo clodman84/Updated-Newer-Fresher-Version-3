@@ -31,6 +31,8 @@ def natural_time(time_in_seconds: float) -> str:
 
 
 class Singleton(type):
+    """Handcuffs"""
+
     _instances = {}
 
     def __call__(cls, *args, **kwargs):
@@ -40,6 +42,8 @@ class Singleton(type):
 
 
 class ShittyMultiThreading:
+    """terrible, utterly horrendous. doesn't even store the return values lmao"""
+
     def __init__(self, work, tasks, num_threads=5) -> None:
         self.work = work
         self.num_threads = num_threads
@@ -64,6 +68,9 @@ class ShittyMultiThreading:
 class SimpleTimer:
     """
     Basic timer utility.
+
+    This is for when you want to see just how incredibly inefficient your pile of
+    shit it.
 
     Example
     -------

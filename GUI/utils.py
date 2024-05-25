@@ -6,6 +6,7 @@ MODAL_HIDDEN_LIST = []
 
 
 def modal_message(message):
+    """When you need a popup"""
     if message in MODAL_HIDDEN_LIST:
         return
     with dpg.mutex():
@@ -30,6 +31,8 @@ def modal_message(message):
 
 
 class Logger(logging.Handler):
+    """Snazzy"""
+
     def __init__(self, parent):
         super().__init__()
         self.log_level = 0
