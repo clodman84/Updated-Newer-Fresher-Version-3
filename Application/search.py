@@ -6,6 +6,7 @@ from pyparsing import (
     Combine,
     Forward,
     Group,
+    ParseException,
     Suppress,
     Word,
     ZeroOrMore,
@@ -58,7 +59,7 @@ class SearchMachine:
             f"SELECT name, idno, hoscode, roomno from students WHERE hoscode LIKE ?"
         )
         self.id_regex = re.compile(
-            r"([0-9]{2,4}|)([a-zA-Z][0-9]|)([a-zA-Z][0-9]|)([0-9]{4}|)"
+            r"([0-9]{2}|)([a-zA-Z][0-9]|)([a-zA-Z][0-9]|)([0-9]{4}|)"
         )
 
     def get_name(self, argument):
@@ -119,4 +120,7 @@ class SearchMachine:
                 return self.evaluate(argument[0])
 
     def search(self, text):
-        return self.evaluate(self.parser(text))
+        try:
+            return self.evaluate(self.parser(text))
+        except ParseException:
+            pass
