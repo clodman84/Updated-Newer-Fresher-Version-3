@@ -25,7 +25,7 @@ class BillingWindow:
         self.search_machine = SearchMachine()
         self.current_index = 0
 
-        with dpg.window(width=575, height=436, label="Billing Window"):
+        with dpg.window(width=625, height=436, label="Billing Window", no_resize=True):
             input = dpg.add_input_text()
             with dpg.group(horizontal=True):
                 with dpg.child_window(width=350) as self.suggestions_panel:
@@ -50,8 +50,8 @@ class BillingWindow:
                                             "", tag=f"{self.suggestions_panel}_{i}_{j}"
                                         )
 
-                with dpg.child_window(width=200):
-                    with dpg.table(policy=dpg.mvTable_SizingFixedFit) as self.ids_table:
+                with dpg.child_window(width=250):
+                    with dpg.table(resizable=True) as self.ids_table:
                         dpg.add_table_column(label="ID")
                         dpg.add_table_column(label="Count")
             dpg.set_item_callback(input, self.update)
@@ -88,25 +88,27 @@ class BillingWindow:
                         dpg.hide_item(f"{self.suggestions_panel}_{i}_{j}")
                     dpg.set_value(f"{self.suggestions_panel}_{i}_{j}", "")
 
-    def add_id(self, id):
-        self.ids_per_roll[self.current_index].update([id])
-        self.show_selected_ids()
-
-    def remove_id(self, id):
-        self.ids_per_roll[self.current_index][id] -= 1
-        if self.ids_per_roll[self.current_index][id] == 0:
+    def set_id(self, id, value):
+        self.ids_per_roll[self.current_index][id] = value
+        if value == 0:
             self.ids_per_roll[self.current_index].pop(id)
         self.show_selected_ids()
+
+    def add_id(self, id):
+        new_val = self.ids_per_roll[self.current_index][id] + 1
+        self.set_id(id, new_val)
 
     def show_selected_ids(self):
         counter = self.ids_per_roll[self.current_index]
         self.clear()
         for key, value in counter.items():
             with dpg.table_row(parent=self.ids_table):
-                dpg.add_button(
-                    label=key, callback=lambda s, a, u: self.remove_id(u), user_data=key
+                dpg.add_text(key)
+                dpg.add_input_int(
+                    default_value=value,
+                    callback=lambda s, a, u: self.set_id(u, a),
+                    user_data=key,
                 )
-                dpg.add_text(str(value))
 
     def clear(self):
         for item in dpg.get_item_children(self.ids_table)[1]:
@@ -114,7 +116,7 @@ class BillingWindow:
 
     def load(self, index: int):
         self.current_index = index
-        self.clear()
+        self.show_selected_ids()
 
     def save(self):
         pass
