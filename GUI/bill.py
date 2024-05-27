@@ -12,8 +12,6 @@ logger = logging.getLogger("GUI.Bill")
 
 
 class BillingWindow:
-    """Tags and stores images. There is no real ImageManager equivalent for BillingWindow, so this does everything"""
-
     def __init__(self, roll: str, path: Path):
         # List of things the BilledWindow knows about:
         # 1. The cam and roll that it is responsible for

@@ -65,7 +65,7 @@ def get_file_name(id):
             "SELECT hoscode, roomno FROM students WHERE idno = ?", (id,)
         )
         hoscode, roomno = cursor.fetchone()
-        return f"{hoscode}_{roomno}_{'{}'}_{'{}'}_{id[2:4]}{id[-4:]}"
+        return f"{hoscode}_{roomno}_{'{}'}_{'{:2d}'}_{'{}'}_{id[2:4]}{id[-4:]}"
 
 
 # this is out here on purpose there must be a better way but idc

@@ -31,7 +31,8 @@ def copy_images(counters: list[Counter], path: Path):
             file_name_base = get_file_name(id)
             for i in range(count):
                 file_name = (
-                    file_name_base.format(path.name, i + 1) + images[index].suffix
+                    file_name_base.format(path.name, index, i + 1)
+                    + images[index].suffix
                 )
                 logger.debug(file_name)
                 copy(images[index], Path(f"./Data/{path.name}") / file_name)
