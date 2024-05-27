@@ -163,4 +163,5 @@ cython_debug/
 # test rollbook
 30R/
 # billed rolls
-Data/*.json
+Data/*
+!Data/Audio
