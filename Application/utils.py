@@ -18,9 +18,9 @@ def natural_time(time_in_seconds: float) -> str:
         ("mi", 60),
         (" s", 1),
         ("ms", 1e-3),
-        ("\N{GREEK SMALL LETTER MU}s", 1e-6),
+        ("us", 1e-6),
     )
-
+    # TODO: Add utf-8 character set to dearpygui so that greek letters can be displayed
     absolute = abs(time_in_seconds)
 
     for label, size in units:
@@ -98,4 +98,4 @@ class SimpleTimer:
             logger.debug(str(self))
 
     def __str__(self):
-        return f"{self.name + ' ' if self.name else ''}completed in {natural_time(self.time)}"
+        return f"{self.name + ' ' + 'in' if self.name else 'completed in'} {natural_time(self.time)}"

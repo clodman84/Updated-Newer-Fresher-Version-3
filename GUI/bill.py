@@ -3,7 +3,8 @@ import logging
 
 import dearpygui.dearpygui as dpg
 
-from Application import SearchMachine
+from Application import SearchMachine, load, write
+from Application.utils import SimpleTimer
 
 logger = logging.getLogger("GUI.Bill")
 
@@ -21,7 +22,9 @@ class BillingWindow:
 
         self.roll = roll
         self.cam = cam
-        self.ids_per_roll = [collections.Counter() for _ in range(40)]
+        self.ids_per_roll = load(cam, roll) or [
+            collections.Counter() for _ in range(40)
+        ]
         self.search_machine = SearchMachine()
         self.current_index = 0
 
@@ -54,9 +57,10 @@ class BillingWindow:
                     with dpg.table(resizable=True) as self.ids_table:
                         dpg.add_table_column(label="ID")
                         dpg.add_table_column(label="Count")
-            dpg.set_item_callback(input, self.update)
+            dpg.set_item_callback(input, self.suggest)
+        self.show_selected_ids()
 
-    def update(self, sender, app_data, user_data):
+    def suggest(self, sender, app_data, user_data):
         if len(app_data) > 0:
             matches = self.search_machine.search(app_data)
         else:
@@ -92,6 +96,9 @@ class BillingWindow:
         self.ids_per_roll[self.current_index][id] = value
         if value == 0:
             self.ids_per_roll[self.current_index].pop(id)
+        with SimpleTimer("Autosaved") as timer:
+            write(self.ids_per_roll, self.cam, self.roll)
+        logger.debug(timer)
         self.show_selected_ids()
 
     def add_id(self, id):
