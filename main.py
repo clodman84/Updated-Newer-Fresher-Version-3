@@ -2,20 +2,25 @@ import logging
 from pathlib import Path
 
 import dearpygui.dearpygui as dpg
-from dearpygui import demo
 
 import Application
 import GUI
 
+logger = logging.getLogger("Core.Main")
 
-def make_image_window():
+
+def make_image_window(path: Path):
     with dpg.window(width=1035, height=608) as image_window:
-        demo_roll = Path("./30R")
         image_manager = Application.ImageManager(
-            "offline", "Sugar Mommy", "30R", path=demo_roll
+            mode="offline", roll=path.name, path=path
         )
-        billing_window = GUI.BillingWindow(cam="Sugar Mommy", roll="30R")
+        billing_window = GUI.BillingWindow(roll="30R")
         GUI.ImageWindow(image_window, billing_window, image_manager)
+
+
+def load_image_folder(sender, app_data, user_data):
+    path = Path(app_data["file_path_name"])
+    make_image_window(path)
 
 
 def load_mess_list(sender, app_data, user_data):
@@ -44,27 +49,32 @@ def main():
             show=False,
             tag="mess_list_file_dialog",
             callback=load_mess_list,
+            height=400,
         ):
-            # disgusting
-            dpg.add_file_extension(".*")
-            dpg.add_file_extension("", color=(150, 255, 150, 255))
             dpg.add_file_extension(".csv", color=(0, 255, 0, 255), custom_text="[CSV]")
+
+        dpg.add_file_dialog(
+            directory_selector=True,
+            show=False,
+            tag="roll_folder_dialog",
+            callback=load_image_folder,
+            height=400,
+        )
 
         with dpg.menu_bar():
             with dpg.menu(label="Tools"):
                 dpg.add_menu_item(
-                    label="Show Item Registry", callback=dpg.show_item_registry
+                    label="Load Roll",
+                    callback=lambda: dpg.show_item("roll_folder_dialog"),
                 )
-                dpg.add_menu_item(
-                    label="Show Performance Metrics", callback=dpg.show_metrics
-                )
-                dpg.add_menu_item(label="Show Debug", callback=dpg.show_debug)
                 dpg.add_menu_item(
                     label="Load Mess List",
                     callback=lambda: dpg.show_item("mess_list_file_dialog"),
                 )
-            dpg.add_button(label="Open ImageViewer", callback=make_image_window)
-            dpg.add_button(label="Open Demo", callback=demo.show_demo)
+                dpg.add_menu_item(
+                    label="Show Performance Metrics", callback=dpg.show_metrics
+                )
+
             dpg.add_button(
                 label="Music",
                 callback=lambda: GUI.MusicVisualiser(

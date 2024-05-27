@@ -12,7 +12,7 @@ logger = logging.getLogger("GUI.Bill")
 class BillingWindow:
     """Tags and stores images. There is no real ImageManager equivalent for BillingWindow, so this does everything"""
 
-    def __init__(self, cam: str, roll: str):
+    def __init__(self, roll: str):
         # List of things the BilledWindow knows about:
         # 1. The cam and roll that it is responsible for
 
@@ -21,10 +21,7 @@ class BillingWindow:
         # 2. Advances the billing process (loads the appropriate image)
 
         self.roll = roll
-        self.cam = cam
-        self.ids_per_roll = load(cam, roll) or [
-            collections.Counter() for _ in range(40)
-        ]
+        self.ids_per_roll = load(roll) or [collections.Counter() for _ in range(40)]
         self.search_machine = SearchMachine()
         self.current_index = 0
 
@@ -97,7 +94,7 @@ class BillingWindow:
         if value == 0:
             self.ids_per_roll[self.current_index].pop(id)
         with SimpleTimer("Autosaved") as timer:
-            write(self.ids_per_roll, self.cam, self.roll)
+            write(self.ids_per_roll, self.roll)
         logger.debug(timer)
         self.show_selected_ids()
 

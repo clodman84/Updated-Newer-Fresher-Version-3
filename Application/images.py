@@ -60,7 +60,7 @@ class Image:
 
     @classmethod
     @functools.lru_cache(maxsize=40)
-    def fromserver(cls, cam, roll, id):
+    def fromserver(cls, roll, id):
         """Makes an Image object by querying the DoPy server"""
         # TODO: creation of the scaled dpg texture and thumbnails should ideally take place on the server.
         raise NotImplemented
@@ -72,7 +72,6 @@ class ImageManager:
     def __init__(
         self,
         mode: Literal["online", "offline"],
-        cam: str,
         roll: str,
         path: Optional[Path] = None,
     ) -> None:
@@ -82,14 +81,14 @@ class ImageManager:
             )
         self.mode = mode
         self.path = path
-        self.cam = cam
+        logger.debug(path)
         self.roll = roll
         self.current_index = 0
 
     @functools.cached_property
     def images(self):
         if self.path:
-            return sorted(list(self.path.iterdir()), key=lambda x: x.name)
+            return sorted(list(self.path.iterdir()))
         else:
             # this may seem stupid right now, but this will replaced with a function
             # call to get image ids from the server, as the images will not be
@@ -108,7 +107,7 @@ class ImageManager:
         if self.mode == "offline":
             image_path = self.images[index]
             return Image.frompath(image_path)
-        return Image.fromserver(cam=self.cam, roll=self.roll, id=self.images[index])
+        return Image.fromserver(roll=self.roll, id=self.images[index])
 
     def load_in_background(self):
         ShittyMultiThreading(self.load, range(40)).start()
