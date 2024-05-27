@@ -1,7 +1,11 @@
 import json
 import logging
+import os
 from collections import Counter
 from pathlib import Path
+from shutil import copy
+
+from .database import get_file_name
 
 logger = logging.getLogger("Core.Store")
 
@@ -16,3 +20,18 @@ def load(roll: str):
     if path.exists():
         with open(path) as file:
             return [Counter(i) for i in json.load(file)]
+
+
+def copy_images(counters: list[Counter], path: Path):
+    if not Path(f"./Data/{path.name}").exists():
+        os.mkdir(Path(f"./Data/{path.name}"))
+    images = sorted(path.iterdir())
+    for index, image in enumerate(counters):
+        for id, count in image.items():
+            file_name_base = get_file_name(id)
+            for i in range(count):
+                file_name = (
+                    file_name_base.format(path.name, i + 1) + images[index].suffix
+                )
+                logger.debug(file_name)
+                copy(images[index], Path(f"./Data/{path.name}") / file_name)

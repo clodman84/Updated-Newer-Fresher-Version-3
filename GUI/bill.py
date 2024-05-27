@@ -1,10 +1,12 @@
 import collections
 import logging
+from pathlib import Path
 
 import dearpygui.dearpygui as dpg
 
-from Application import SearchMachine, load, write
+from Application import SearchMachine, copy_images, load, write
 from Application.utils import SimpleTimer
+from GUI.utils import modal_message
 
 logger = logging.getLogger("GUI.Bill")
 
@@ -12,7 +14,7 @@ logger = logging.getLogger("GUI.Bill")
 class BillingWindow:
     """Tags and stores images. There is no real ImageManager equivalent for BillingWindow, so this does everything"""
 
-    def __init__(self, roll: str):
+    def __init__(self, roll: str, path: Path):
         # List of things the BilledWindow knows about:
         # 1. The cam and roll that it is responsible for
 
@@ -24,9 +26,12 @@ class BillingWindow:
         self.ids_per_roll = load(roll) or [collections.Counter() for _ in range(40)]
         self.search_machine = SearchMachine()
         self.current_index = 0
+        self.path = path
 
         with dpg.window(width=625, height=436, label="Billing Window", no_resize=True):
-            input = dpg.add_input_text()
+            with dpg.group(horizontal=True):
+                input = dpg.add_input_text()
+                dpg.add_button(label="Export", callback=self.export)
             with dpg.group(horizontal=True):
                 with dpg.child_window(width=350) as self.suggestions_panel:
                     with dpg.table(policy=dpg.mvTable_SizingFixedFit):
@@ -56,6 +61,10 @@ class BillingWindow:
                         dpg.add_table_column(label="Count")
             dpg.set_item_callback(input, self.suggest)
         self.show_selected_ids()
+
+    def export(self):
+        copy_images(self.ids_per_roll, self.path)
+        modal_message("Roll Exported!")
 
     def suggest(self, sender, app_data, user_data):
         if len(app_data) > 0:

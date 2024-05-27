@@ -59,5 +59,14 @@ def read_mess_list(path: Path):
         connection.commit()
 
 
+def get_file_name(id):
+    with ConnectionPool() as db:
+        cursor = db.execute(
+            "SELECT hoscode, roomno FROM students WHERE idno = ?", (id,)
+        )
+        hoscode, roomno = cursor.fetchone()
+        return f"{hoscode}_{roomno}_{'{}'}_{'{}'}_{id[2:4]}{id[-4:]}"
+
+
 # this is out here on purpose there must be a better way but idc
 setup_db()

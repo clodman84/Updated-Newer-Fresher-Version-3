@@ -14,7 +14,7 @@ def make_image_window(path: Path):
         image_manager = Application.ImageManager(
             mode="offline", roll=path.name, path=path
         )
-        billing_window = GUI.BillingWindow(roll="30R")
+        billing_window = GUI.BillingWindow(roll="30R", path=path)
         GUI.ImageWindow(image_window, billing_window, image_manager)
 
 
