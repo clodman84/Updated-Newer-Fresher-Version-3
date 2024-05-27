@@ -53,7 +53,7 @@ Shourin & /b4a7/ -> Valid
 
 shourin & /b4/ & [GN] -> Valid
 
-evaluation order - (shourin & /b4/) & [GN])  {left to right}
+evaluation order - (shourin & /b4/) & [GN]  {left to right}
 
 functools reduce the fuck out of this shit
 
