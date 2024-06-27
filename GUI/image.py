@@ -76,9 +76,11 @@ class ImageWindow:
 
     def open(self, index: int):
         self.current_image = index
+
         image = self.image_manager.load(index)
         previous = self.image_manager.previous()
         next = self.image_manager.next()
+
         dpg.set_value("Main Image", image.dpg_texture[3])
         dpg.set_value("Next Image", next.thumbnail[3])
         dpg.set_value("Previous Image", previous.thumbnail[3])

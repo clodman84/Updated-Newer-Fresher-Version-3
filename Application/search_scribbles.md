@@ -9,6 +9,7 @@ my terminology is ass since I barely know this shit
 shourin chakraborty -> Just a name that searches via fts
 23* -> matches the IDs
 name matching: basic fts MATCH
+
 id matching: this is little tricky as there needs to be an idno MATCH str that needs to change depending on the type of filter
 |- year
 |- branch

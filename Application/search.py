@@ -48,6 +48,14 @@ def parser():
     return union.parse_string
 
 
+def set_and(x, y):
+    return x & y
+
+
+def set_or(x, y):
+    return x | y
+
+
 class SearchMachine:
     def __init__(self) -> None:
         self.parser = parser()
@@ -72,7 +80,6 @@ class SearchMachine:
         argument = argument
         m = self.id_regex.match(argument)
         if not m:
-            # TODO: This should raise an error
             return None
         j = 0
         for i in range(1, 5):
@@ -98,16 +105,12 @@ class SearchMachine:
         match c:
             case "or":
                 if len(argument) > 1:
-                    return reduce(
-                        lambda x, y: x | y, (self.evaluate(i) for i in argument)
-                    )
+                    return reduce(set_or, (self.evaluate(i) for i in argument))
                 else:
                     return self.evaluate(argument[0])
             case "and":
                 if len(argument) > 1:
-                    return reduce(
-                        lambda x, y: x & y, (self.evaluate(i) for i in argument)
-                    )
+                    return reduce(set_and, (self.evaluate(i) for i in argument))
                 else:
                     return self.evaluate(argument[0])
             case "name":

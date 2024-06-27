@@ -17,10 +17,25 @@ def connect() -> sqlite3.Connection:
 
 
 class ConnectionPool:
+    """
+    Allows database connections to be reused
+
+    Attributes:
+        _q: A queue.SimpleQueue that stores the connections
+    """
+
     # it will be easier to make this asynchronous in the future, I guess
+
     _q = queue.SimpleQueue()
 
     def __enter__(self) -> sqlite3.Connection:
+        """
+        Gets a connections from ConnectionPool._q, creates a new connection if the queue is empty.
+
+        Returns:
+
+        sqlite3.Connection
+        """
         try:
             self.connection = self._q.get_nowait()
         except queue.Empty:
@@ -28,6 +43,15 @@ class ConnectionPool:
         return self.connection
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        """
+        Commits the changes if there was no error, rolls back if there was an error. Puts the connection
+        back into the queue.
+
+        Args:
+            exc_type ():
+            exc_val ():
+            exc_tb ():
+        """
         if exc_type:
             self.connection.rollback()
         else:
@@ -36,11 +60,15 @@ class ConnectionPool:
 
     @classmethod
     def close(cls):
+        """Closes all open database connections"""
         while not cls._q.empty():
             cls._q.get_nowait().close()
 
 
 def setup_db():
+    """
+    Creates the sqlite database based on the schema in Application/schema.sql
+    """
     with open(Path("Application/schema.sql")) as file:
         query = "".join(file.readlines())
     connection = connect()
@@ -49,6 +77,12 @@ def setup_db():
 
 
 def read_mess_list(path: Path):
+    """
+    Populates the database with values from a csv file.
+
+    Args:
+        path: Path to the csv file
+    """
     with open(path) as file:
         reader = csv.reader(file)
         connection = connect()
@@ -60,6 +94,17 @@ def read_mess_list(path: Path):
 
 
 def get_file_name(id):
+    """
+    Returns the file name skeleton which can be formated with the roll number. This
+    if the name of the output of the billing process.
+
+    Args:
+        id (): The complete ID of the person who's image is being saved.
+
+    Returns:
+        str of the form "hoscode_roomno_{}_YEARLAST4DIGITS"
+
+    """
     with ConnectionPool() as db:
         cursor = db.execute(
             "SELECT hoscode, roomno FROM students WHERE idno = ?", (id,)

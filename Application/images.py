@@ -20,7 +20,17 @@ logger = logging.getLogger("Core.Images")
 
 @dataclass
 class Image:
-    """This stores the images in a way that the GUI can represent, and since the classmethods are cached this greatly increases performance"""
+    """
+    Dataclass that stores images that are served by the ImageManager. Dearpygui cannot display PImage.Image from Pillow
+    directly, so this converts the image into a numpy array that dearpygui can display as a texture. The image is also padded
+    with black borders if it's aspect ratio doesn't fit the ImageWindow.
+
+    Attributes:
+        name: The name of the image file
+        raw_image: PImage.Image object
+        dpg_texture: A scaled image that is shown in the bigger display, stored in a form that dearpygui accepts
+        thumbnail: A scaled thumbnail that is shown in the preview displays, stored in a form that dearpygui accepts
+    """
 
     name: str
     raw_image: PImage.Image  # does raw_image even need to exist?
@@ -31,6 +41,15 @@ class Image:
     @classmethod
     @functools.lru_cache(maxsize=40)
     def frompath(cls, path: Path):
+        """
+        Creates an Image object from the path of the image.
+
+        Args:
+            path (Path): Path to the image
+
+        Returns:
+            Image
+        """
         logger.debug(f"Making image from path: {str(path)}")
         """Makes an Image object from the specified Path"""
         raw_image = PImage.open(path)
@@ -61,12 +80,29 @@ class Image:
     @classmethod
     @functools.lru_cache(maxsize=40)
     def fromserver(cls, roll, id):
+        """
+        Implement this function when the server is up and running. This doesn't work right now.
+
+        Args:
+            roll (str):
+            id (str):
+        """
         """Makes an Image object by querying the DoPy server"""
         # TODO: creation of the scaled dpg texture and thumbnails should ideally take place on the server.
         raise NotImplemented
 
 
 class ImageManager:
+    """
+    Does what the name suggests, creates Images. Regardless of wherever it is from, the interface stays the same
+
+    Attributes:
+        mode: Whether the images are being created from a local file or via the server
+        path: Path to the folder containing all the images (This has to be there if it is loading images in offline mode)
+        roll: The roll number
+        current_index: The index of the image that is currently being displayed
+    """
+
     """Does what the name suggests, creates Images. Regardless of wherever it is from, the interface stays the same"""
 
     def __init__(
@@ -87,6 +123,11 @@ class ImageManager:
 
     @functools.cached_property
     def images(self):
+        """
+        A sorted list of all the images
+
+        Returns: list
+        """
         if self.path:
             return sorted(list(self.path.iterdir()))
         else:
@@ -96,6 +137,15 @@ class ImageManager:
             return list(range(1, 41))
 
     def load(self, index):
+        """
+        Returns an Image object, given an index
+
+        Args:
+            index (int): The index of the roll that needs to be loaded
+
+        Returns:
+
+        """
         logger.debug(f"Loading image {self.images[index]}")
         if index >= 40:
             logger.error("Attempted to get image number > 40, defaulted to 1")
@@ -110,16 +160,33 @@ class ImageManager:
         return Image.fromserver(roll=self.roll, id=self.images[index])
 
     def load_in_background(self):
+        """
+        Loads all the images in the background using ShittMultiThreading from utils.py
+        This works because the images are cached.
+        """
         ShittyMultiThreading(self.load, range(40)).start()
 
     def peek(self, index):
-        """Loads without moving the current_index"""
+        """
+        Returns an image object without moving the current_index
+
+        Args:
+            index (int): The index of the image we want to view
+
+        Returns: Image
+        """
         og = self.current_index
         img = self.load(index)
         self.current_index = og
         return img
 
     def next(self):
+        """
+        Helper function to peek the next image
+
+        Returns:
+           Image
+        """
         curr = self.current_index
         if curr < 39:
             curr += 1
@@ -128,6 +195,12 @@ class ImageManager:
         return self.peek(curr)
 
     def previous(self):
+        """
+        Helper function to peek the previous image
+
+        Returns:
+           Image
+        """
         curr = self.current_index
         if curr > 0:
             curr -= 1
