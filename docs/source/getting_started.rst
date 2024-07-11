@@ -6,7 +6,9 @@ Getting Started
 
 Konichiwa! Welcome to the **DoPy Billing App, also known as Updated-Newer-Fresher-Version-3**!
 This may seem somewhat complicated, but it's much easier than it may feel like, so let's dive in!
-(Also this app has been coded entirely by **clodman84**, and I haven't helped, so I'm gonna do my best here [I'm **DestinyBreacher** btw :D])
+This application was developed by PyDos (DoPy 2023) and is based on an `earlier <https://github.com/DoPyBITS/Billing-Software>`_ version of the DoPy Billing App.
+Updated-Newer-Fresher-Version-3 gets its name from `Updated-New-Fresh-Version-2 <https://github.com/DoPyBITS/Updated-New-Fresh-Version-2>`_.
+This newer version aims to be easy to update and maintain, and contributions from future batches are welcome (add whatever you want, it doesn't have to make sense).
 
 .. _Loading The Mess List:
 
@@ -23,7 +25,7 @@ Any csv file will appear green. Simply select it. Upon succesful loading, a mess
 Loading The Roll
 ================
 
-The roll is a folder containing all the images in one *DoPy Roll*. It will have a maximum of 40 images, and will have a suffix of *R*. Load the roll similarly
+The roll is a folder containing all the images in one *DoPy Roll*. It will have a maximum of 40 images (tradition), and will have a suffix of *R*. Load the roll similarly
 to the mess list (Tools->Load Roll). Choose the roll, and just click ok.
 
 
@@ -32,7 +34,9 @@ to the mess list (Tools->Load Roll). Choose the roll, and just click ok.
 Billing window
 ==============
 
-Using this window, you can search for names, IDs, hostels, etc. and bill them accordingly. clodman84 is so goated he made a parser to do shit lmaoooo.
+Using this window, you can search for names, IDs, hostels, etc. and bill them accordingly. The billing window comes with a parser built into so you can querry the database of students with more control.
+
+(ADD AN EXPLANATION OF THE PARSER SYNTAX HERE)
 
 
 .. _Logger:
