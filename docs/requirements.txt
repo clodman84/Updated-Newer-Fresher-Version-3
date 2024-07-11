@@ -1,2 +1,4 @@
+dearpygui
+numpy
 sphinx-autoapi
 sphinx-rtd-theme
