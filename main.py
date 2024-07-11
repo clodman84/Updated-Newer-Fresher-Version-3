@@ -9,6 +9,17 @@ import GUI
 logger = logging.getLogger("Core.Main")
 
 
+def setup_db():
+    """
+    Creates the sqlite database based on the schema in Application/schema.sql
+    """
+    with open(Path("Application/schema.sql")) as file:
+        query = "".join(file.readlines())
+    connection = Application.db.connect()
+    connection.executescript(query)
+    connection.close()
+
+
 def make_image_window(path: Path):
     with dpg.window(width=1035, height=608) as image_window:
         image_manager = Application.ImageManager(
@@ -32,6 +43,7 @@ def load_mess_list(sender, app_data, user_data):
 
 
 def main():
+    setup_db()
     dpg.create_context()
     dpg.create_viewport(title="DoPy")
     core_logger = logging.getLogger("Core")

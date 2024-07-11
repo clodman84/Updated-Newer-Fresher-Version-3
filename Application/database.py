@@ -65,17 +65,6 @@ class ConnectionPool:
             cls._q.get_nowait().close()
 
 
-def setup_db():
-    """
-    Creates the sqlite database based on the schema in Application/schema.sql
-    """
-    with open(Path("Application/schema.sql")) as file:
-        query = "".join(file.readlines())
-    connection = connect()
-    connection.executescript(query)
-    connection.close()
-
-
 def read_mess_list(path: Path):
     """
     Populates the database with values from a csv file.
@@ -111,7 +100,3 @@ def get_file_name(id):
         )
         hoscode, roomno = cursor.fetchone()
         return f"{hoscode}_{roomno}_{'{}'}_{'{:2d}'}_{'{}'}_{id[2:4]}{id[-4:]}"
-
-
-# this is out here on purpose there must be a better way but idc
-setup_db()
