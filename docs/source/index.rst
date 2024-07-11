@@ -5,7 +5,8 @@ A Product of DoPySoft Inc.
    :maxdepth: 2
    :caption: Contents:
 
-   Getting Started
+   getting_started
+   modules
 
 
 Indices and tables
