@@ -1,1 +1,8 @@
+dearpygui
+numpy
+Pillow
+pre-commit
+pyparsing
+sounddevice
+soundfile
 sphinx-rtd-theme
