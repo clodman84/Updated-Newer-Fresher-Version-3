@@ -8,7 +8,8 @@
 import os
 import sys
 
-sys.path.insert(0, os.path.abspath("./../../.."))
+sys.path.insert(0, os.path.abspath("./../.."))
+print(sys.path)
 
 project = "Updated-Newer-Fresher-Version-3"
 copyright = "2024, The Department of Photography"
