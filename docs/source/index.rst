@@ -8,7 +8,6 @@ A Product of DoPySoft Inc.
    Getting Started
    modules
 
-
 Indices and tables
 ==================
 
