@@ -111,3 +111,12 @@ Music
 
 In the same toolbar as the Tools option, the Music option exists. The DJ is spawned upon selection, and it has three options; start, change and stop.
 Play the handpicked tunes lesgoo.
+
+
+Dinosaur
+========
+
+.. image:: giraffe.jpg
+  :width: 600
+
+
