@@ -13,7 +13,7 @@ def setup_db():
     """
     Creates the sqlite database based on the schema in Application/schema.sql
     """
-    with open(Path("Application/schema.sql")) as file:
+    with open(Path("Data/schema.sql")) as file:
         query = "".join(file.readlines())
     connection = Application.db.connect()
     connection.executescript(query)

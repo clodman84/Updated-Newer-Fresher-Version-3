@@ -1,5 +1,5 @@
 import logging
-
+import os
 import dearpygui.dearpygui as dpg
 
 from Application import ImageManager
@@ -37,7 +37,7 @@ class ImageWindow:
             indicator = dpg.add_loading_indicator()
 
             # this is an abomination, but it makes the window load 2 seconds faster
-            ShittyMultiThreading(self.image_manager.load, (0, 1, 39)).start()
+            ShittyMultiThreading(self.image_manager.load, (0, 1, self.image_manager.end_index-1)).start()
             image = self.image_manager.load(0)
             logger.debug(image.dpg_texture[3].shape)
 
@@ -62,7 +62,7 @@ class ImageWindow:
                 dpg.add_slider_int(
                     default_value=1,
                     min_value=1,
-                    max_value=40,
+                    max_value=self.image_manager.end_index,
                     callback=lambda _, a, u: self.open(a - 1),
                     tag="Image Slider",
                 )
@@ -88,7 +88,7 @@ class ImageWindow:
         self.billing_window.load(index)
 
     def next(self):
-        if self.current_image < 39:
+        if self.current_image < self.image_manager.end_index:
             self.open(self.current_image + 1)
         else:
             self.open(0)
@@ -97,4 +97,4 @@ class ImageWindow:
         if self.current_image > 0:
             self.open(self.current_image - 1)
         else:
-            self.open(39)
+            self.open(self.image_manager.end_index-1)

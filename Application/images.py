@@ -2,7 +2,7 @@
 This is responsible for serving images to the GUI.
 This can be extended to receiving images from the DoPy server when it becomes a reality.
 """
-
+import os
 import functools
 import logging
 from dataclasses import dataclass
@@ -120,7 +120,7 @@ class ImageManager:
         logger.debug(path)
         self.roll = roll
         self.current_index = 0
-
+        self.end_index = len([name for name in os.listdir(path)])
     @functools.cached_property
     def images(self):
         """
@@ -134,7 +134,7 @@ class ImageManager:
             # this may seem stupid right now, but this will replaced with a function
             # call to get image ids from the server, as the images will not be
             # renamed on the server.
-            return list(range(1, 41))
+            return list(range(1, self.end_index+1))
 
     def load(self, index):
         """
@@ -147,12 +147,13 @@ class ImageManager:
 
         """
         logger.debug(f"Loading image {self.images[index]}")
-        if index >= 40:
+        if index >= self.end_index:
+            print(self.end_index)
             logger.error("Attempted to get image number > 40, defaulted to 1")
             index = 0
         elif index < 0:
             logger.error("Attempted to get image number < 1, defaulted to 40")
-            index = 39
+            index = self.end_index-1
         self.current_index = index
         if self.mode == "offline":
             image_path = self.images[index]
@@ -164,7 +165,7 @@ class ImageManager:
         Loads all the images in the background using ShittMultiThreading from utils.py
         This works because the images are cached.
         """
-        ShittyMultiThreading(self.load, range(40)).start()
+        ShittyMultiThreading(self.load, range(self.end_index)).start()
 
     def peek(self, index):
         """
@@ -188,7 +189,7 @@ class ImageManager:
            Image
         """
         curr = self.current_index
-        if curr < 39:
+        if curr < self.end_index-1:
             curr += 1
         else:
             curr = 0
@@ -205,5 +206,5 @@ class ImageManager:
         if curr > 0:
             curr -= 1
         else:
-            curr = 39
+            curr = self.end_index-1
         return self.peek(curr)
