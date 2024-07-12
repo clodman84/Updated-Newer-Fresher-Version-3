@@ -6,6 +6,7 @@ A Product of DoPySoft Inc.
    :caption: Contents:
 
    Getting Started
+   modules
 
 
 Indices and tables

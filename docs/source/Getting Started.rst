@@ -18,7 +18,7 @@ Loading The Mess List
 
 The mess list is a csv file which consists of the ID Numbers, Names, Genders and Hostels of all the students in the college. You can keep it anywhere on your
 PC. To load the mess list, drag the :ref:`Logger` window away to reveal the toolbar located on the top of the main app window. Simply click on Tools -> Load Mess List.
-Any csv file will appear green. Simply select it. Upon succesful loading, a message will pop up, and za roll will be loaded.
+Any csv file will appear green. Simply select it. Upon succesful loading, a message will pop up, and za list will be loaded.
 
 
 .. _Loading The Roll:
