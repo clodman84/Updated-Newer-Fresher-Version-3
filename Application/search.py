@@ -67,7 +67,7 @@ class SearchMachine:
             f"SELECT name, idno, hoscode, roomno from students WHERE hoscode LIKE ?"
         )
         self.id_regex = re.compile(
-            r"([0-9]{2}|)([a-zA-Z][0-9]|)([a-zA-Z][0-9]|)([0-9]{4}|)"
+            r"([0-9]{2}|)([a-zA-Z][a-zA-Z0-9]|)([a-zA-Z][a-zA-Z0-9]|)([0-9]{4}|)"
         )
 
     def get_name(self, argument):
