@@ -42,6 +42,9 @@ So, if you directly type out text, the billing window returns a bunch of names, 
 **ID Number**, you need to enclose it in **forward slashes (/)** (for example, /0758/). For a particular **hostel**, you need to enlcose it in **square brackets ([])**
 (for example, [GN]).
 
+.. image:: giraffe.jpg
+  :width: 600
+
 .. list-table:: Hostel IDs
    :widths: 20 5
    :header-rows: 1
