@@ -23,6 +23,9 @@ The mess list is a csv file which consists of the ID Numbers, Names, Genders and
 PC. To load the mess list, drag the :ref:`Logger` window away to reveal the toolbar located on the top of the main app window. Simply click on Tools -> Load Mess List.
 Any csv file will appear green. Simply select it. Upon succesful loading, a message will pop up, and za list will be loaded.
 
+.. image:: MessList.PNG
+  :width: 800
+
 
 .. _Loading The Roll:
 
@@ -101,6 +104,9 @@ As an example,
 **ram & /b4/ & [GN]|[KR]** queries all the people with ram in their name *AND* have the b4 branch *AND* live in gandhi, *OR* the people living in krishna.
 Basically it becomes **(ram & /b4/ & [GN])|([KR])**.
 
+.. image:: Billing.PNG
+  :width: 800
+
 
 .. _Logger:
 
@@ -108,6 +114,8 @@ Logger
 ======
 
 The Logger, as the name implies, logs stuff! Nothing escapes its sight
+
+.. image:: Logger.PNG
 
 
 .. _Music:
@@ -118,6 +126,7 @@ Music
 In the same toolbar as the Tools option, the Music option exists. The DJ is spawned upon selection, and it has three options; start, change and stop.
 Play the handpicked tunes lesgoo.
 
+.. image:: DJ.PNG
 
 Dinosaur
 ========
