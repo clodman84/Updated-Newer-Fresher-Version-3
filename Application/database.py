@@ -77,7 +77,7 @@ def read_mess_list(path: Path):
         connection = connect()
         vals = [row for row in reader]
         connection.executemany(
-            "INSERT OR IGNORE INTO students VALUES(?, ?, ?, ?, ?, ?, ?)", vals[1:]
+            "INSERT OR IGNORE INTO students VALUES(?, ?, ?, ?, ?, ?, ?, NULL)", vals[1:]
         )
         connection.commit()
 
