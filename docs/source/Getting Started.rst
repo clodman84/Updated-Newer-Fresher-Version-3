@@ -35,10 +35,8 @@ to the mess list (Tools->Load Roll). Choose the roll, and just click ok.
 Billing window
 --------------
 
-.. video:: Billing.webm
-   :loop:
-   :autoplay:
-   :width: 600
+.. image :: Billing.webp
+   :width: 800
 
 Using this window, you can search for names, IDs, hostels, etc. and bill them accordingly. The billing window comes with a parser built into so you can querry the database of students with more control.
 The parser syntax is confounding and stupefying at first, but like all things, when you break it down it becomes easier to grasp.
@@ -99,10 +97,8 @@ As an example,
 **ram & /b4/ & [GN]|[KR]** queries all the people with ram in their name *AND* have the b4 branch *AND* live in gandhi, *OR* the people living in krishna.
 Basically it becomes **(ram & /b4/ & [GN])|([KR])**.
 
-.. video:: Parser.webm
-   :loop:
-   :autoplay:
-   :width: 600
+.. image :: Parser.webp
+   :width: 800
 
 
 Logger
@@ -120,8 +116,6 @@ In the same toolbar as the Tools option, the Music option exists. The DJ is spaw
 Play the handpicked tunes lesgoo.
 
 .. video:: DJ.webm
-   :loop:
-   :autoplay:
    :width: 600
 
 Dinosaur
