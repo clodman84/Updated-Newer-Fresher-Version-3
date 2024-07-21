@@ -2,8 +2,9 @@ dearpygui
 numpy
 Pillow
 pre-commit
+pydata-sphinx-theme
 pyparsing
 sounddevice
 soundfile
 sphinx-autoapi
-sphinx-rtd-theme
+sphinxcontrib-video

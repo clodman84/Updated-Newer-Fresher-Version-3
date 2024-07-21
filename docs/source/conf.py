@@ -11,7 +11,7 @@ import sys
 sys.path.insert(0, os.path.abspath("./../.."))
 print(sys.path)
 
-project = "Updated-Newer-Fresher-Version-3"
+project = "UNFv3"
 copyright = "2024, The Department of Photography"
 author = "The Department of Photography"
 release = "0.1.0-alpha"
@@ -23,7 +23,8 @@ extensions = [
     "autoapi.extension",
     "sphinx.ext.viewcode",
     "sphinx.ext.todo",
-    "sphinx_rtd_theme",
+    "pydata_sphinx_theme",
+    "sphinxcontrib.video",
 ]
 
 templates_path = ["_templates"]
@@ -33,5 +34,5 @@ autoapi_dirs = ["../../Application", "../../GUI/"]
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
-html_theme = "sphinx_rtd_theme"
+html_theme = "pydata_sphinx_theme"
 html_static_path = ["_static"]
