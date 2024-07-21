@@ -3,13 +3,7 @@
 Getting Started
 ===============
 
-
-Konichiwa! Welcome to the **DoPy Billing App, also known as Updated-Newer-Fresher-Version-3**!
 This may seem somewhat complicated, but it's much easier than it may feel like, so let's dive in!
-This application was developed by PyDos (DoPy 2023) and is based on an `earlier <https://github.com/DoPyBITS/Billing-Software>`_ version of the DoPy Billing App.
-Updated-Newer-Fresher-Version-3 gets its name from `Updated-New-Fresh-Version-2 <https://github.com/DoPyBITS/Updated-New-Fresh-Version-2>`_.
-This newer version aims to be easy to update and maintain, and contributions from future batches are welcome (add whatever you want, it doesn't have to make sense).
-
 
 Loading The Mess List
 ---------------------
@@ -32,7 +26,7 @@ The roll is a folder containing all the images in one *DoPy Roll*. It will have 
 to the mess list (Tools->Load Roll). Choose the roll, and just click ok.
 
 
-Billing window
+Billing Window
 --------------
 
 .. image :: Billing.webp
@@ -101,6 +95,8 @@ Basically it becomes **(ram & /b4/ & [GN])|([KR])**.
    :width: 800
 
 
+.. _Logger:
+
 Logger
 ------
 
@@ -111,6 +107,9 @@ The Logger, as the name implies, logs stuff! Nothing escapes its sight. You can 
 
 Music
 -----
+
+.. note::
+   Although the internals for playing and visualising music are close to ready this feature is still unfinished. This will be implemented before BOSM.
 
 In the same toolbar as the Tools option, the Music option exists. The DJ is spawned upon selection, and it has three options; start, change and stop.
 Play the handpicked tunes lesgoo.
