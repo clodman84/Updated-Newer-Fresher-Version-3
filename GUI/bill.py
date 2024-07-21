@@ -67,7 +67,6 @@ class BillingWindow:
     def suggest(self, sender, app_data, user_data):
         if len(app_data) > 0:
             matches = self.search_machine.search(app_data)
-            logger.info(matches)
         else:
             return
 
