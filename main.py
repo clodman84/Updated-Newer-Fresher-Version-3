@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 
 import dearpygui.dearpygui as dpg
+from dearpygui import demo
 
 import Application
 import GUI
@@ -86,6 +87,14 @@ def main():
                 dpg.add_menu_item(
                     label="Show Performance Metrics", callback=dpg.show_metrics
                 )
+            with dpg.menu(label="Dev"):
+                dpg.add_menu_item(
+                    label="Spawn Billing Window",
+                    callback=lambda: GUI.BillingWindow(
+                        roll="Dev", path=Path("Data/Dev")
+                    ),
+                )
+                dpg.add_menu_item(label="Show GUI Demo", callback=demo.show_demo)
 
             dpg.add_button(
                 label="Music",

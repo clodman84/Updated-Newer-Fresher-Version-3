@@ -59,7 +59,7 @@ def set_or(x, y):
 class SearchMachine:
     def __init__(self) -> None:
         self.parser = parser()
-        self.fts_text = f"SELECT name, idno, hoscode, roomno FROM students WHERE rowid IN (SELECT rowid FROM students_fts WHERE name MATCH ? ORDER BY rank)"
+        self.fts_text = """SELECT name, idno, hoscode, roomno FROM students WHERE rowid IN (SELECT * from (SELECT rowid FROM students_fts WHERE name MATCH ? ORDER BY rank) UNION SELECT * from (SELECT rowid FROM students_fts WHERE nick MATCH ? ORDER BY rank))"""
         self.id_text = (
             f"SELECT name, idno, hoscode, roomno from students WHERE idno LIKE ?"
         )
@@ -72,7 +72,9 @@ class SearchMachine:
 
     def get_name(self, argument):
         with ConnectionPool() as db:
-            cursor = db.execute(self.fts_text, (argument,))
+            cursor = db.execute(
+                self.fts_text, (argument, argument)
+            )  # argument, argument since the querry uses the search term twice :(
             return {tuple(item) for item in cursor}
 
     def get_id(self, argument):
