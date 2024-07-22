@@ -7,13 +7,14 @@ MODAL_HIDDEN_LIST = []
 
 def modal_message(message):
     """When you need a popup"""
+    print(message)
     if message in MODAL_HIDDEN_LIST:
         return
     with dpg.mutex():
         with dpg.window(
             modal=True, autosize=True, no_resize=True, no_title_bar=True
         ) as warning:
-            dpg.add_text(f"{message}", wrap=200)
+            dpg.add_text(message, wrap=200)
             dpg.add_separator()
             dpg.add_checkbox(
                 label="Don't show this again.",

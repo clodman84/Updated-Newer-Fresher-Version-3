@@ -100,3 +100,15 @@ def get_file_name(id):
         )
         hoscode, roomno = cursor.fetchone()
         return f"{hoscode}_{roomno}_{'{}'}_{'{:2d}'}_{'{}'}_{id[2:4]}{id[-4:]}"
+
+
+def set_nick(nick, id):
+    with ConnectionPool() as db:
+        db.execute("UPDATE students SET nick = ? WHERE idno = ?", (nick, id))
+        return True
+
+
+def get_nick(id):
+    with ConnectionPool() as db:
+        cursor = db.execute("SELECT nick FROM students WHERE idno = ?", (id,))
+        return cursor.fetchone()

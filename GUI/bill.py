@@ -4,7 +4,7 @@ from pathlib import Path
 
 import dearpygui.dearpygui as dpg
 
-from Application import SearchMachine, copy_images, load, write
+from Application import SearchMachine, copy_images, db, load, write
 from Application.utils import SimpleTimer
 from GUI.utils import modal_message
 
@@ -26,7 +26,9 @@ class BillingWindow:
         self.current_index = 0
         self.path = path
 
-        with dpg.window(width=625, height=436, label="Billing Window", no_resize=True):
+        with dpg.window(
+            width=625, height=436, label="Billing Window", no_resize=True, no_close=True
+        ):
             with dpg.group(horizontal=True):
                 input = dpg.add_input_text()
                 dpg.add_button(label="Export", callback=self.export)
@@ -41,7 +43,33 @@ class BillingWindow:
                         for i in range(15):
                             with dpg.table_row():
                                 for j in range(4):
-                                    if j == 1:
+                                    if j == 0:
+                                        name = dpg.add_text(
+                                            "", tag=f"{self.suggestions_panel}_{i}_{j}"
+                                        )
+                                        with dpg.popup(
+                                            name,
+                                            tag=f"{self.suggestions_panel}_{i}_popup",
+                                        ):
+                                            dpg.add_input_text(
+                                                tag=f"{self.suggestions_panel}_{i}_nick_text"
+                                            )
+                                            dpg.add_text(
+                                                "Does this dude have too many fucking pictures?",
+                                                wrap=200,
+                                            )
+                                            dpg.add_separator()
+                                            with dpg.group(horizontal=True):
+                                                dpg.add_text("Set a nickname")
+                                                dpg.add_button(
+                                                    label="Confirm",
+                                                    tag=f"{self.suggestions_panel}_{i}_nick_button",
+                                                    callback=lambda s, a, u: self.set_nick(
+                                                        u
+                                                    ),
+                                                    user_data=i,
+                                                )
+                                    elif j == 1:
                                         dpg.add_button(
                                             label="",
                                             tag=f"{self.suggestions_panel}_{i}_{j}",
@@ -89,7 +117,14 @@ class BillingWindow:
                             f"{self.suggestions_panel}_{i}_{j}", item[j]
                         )
                         dpg.show_item(f"{self.suggestions_panel}_{i}_{j}")
+
+                        # updating the nick name text box
+                        (nick,) = db.get_nick(item[j])
+                        nick = nick if nick else ""  # :vomit emoji:
+                        dpg.set_value(f"{self.suggestions_panel}_{i}_nick_text", nick)
+
                     dpg.set_value(f"{self.suggestions_panel}_{i}_{j}", item[j])
+
             for i in range(len(matches), 15):
                 for j in range(4):
                     if j == 1:
@@ -108,6 +143,12 @@ class BillingWindow:
     def add_id(self, id):
         new_val = self.ids_per_roll[self.current_index][id] + 1
         self.set_id(id, new_val)
+
+    def set_nick(self, row):
+        nick = dpg.get_value(f"{self.suggestions_panel}_{row}_nick_text")
+        id = dpg.get_item_user_data(f"{self.suggestions_panel}_{row}_1")
+        db.set_nick(nick, id)
+        dpg.hide_item(f"{self.suggestions_panel}_{row}_popup")
 
     def show_selected_ids(self):
         counter = self.ids_per_roll[self.current_index]
