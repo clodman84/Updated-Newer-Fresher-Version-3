@@ -127,3 +127,16 @@ class Logger(logging.Handler):
     def clear_log(self):
         dpg.delete_item(self.filter_id, children_only=True)
         self.count = 0
+
+
+class TableManager9000:
+    def __init__(self, parent, rows: int, columns: int, headers: list[str]):
+        self.rows = rows
+        self.columns = columns
+        self.headers = headers
+        with dpg.table(parent=parent, policy=dpg.mvTable_SizingFixedFit) as self.table:
+            for name in headers:
+                dpg.add_table_column(label=name)
+
+    def __setitem__(self, column, task):
+        logger.debug(f"{column, task}")

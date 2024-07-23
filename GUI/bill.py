@@ -6,6 +6,7 @@ import dearpygui.dearpygui as dpg
 
 from Application import SearchMachine, copy_images, db, load, write
 from Application.utils import SimpleTimer
+from GUI.tablez import TableManager9000
 from GUI.utils import modal_message
 
 logger = logging.getLogger("GUI.Bill")
@@ -32,54 +33,47 @@ class BillingWindow:
             with dpg.group(horizontal=True):
                 input = dpg.add_input_text()
                 dpg.add_button(label="Export", callback=self.export)
-            with dpg.group(horizontal=True):
-                with dpg.child_window(width=350) as self.suggestions_panel:
-                    with dpg.table(policy=dpg.mvTable_SizingFixedFit):
-                        dpg.add_table_column(label="Name")
-                        dpg.add_table_column(label="ID")
-                        dpg.add_table_column(label="Bhawan", width=50)
-                        dpg.add_table_column(label="Room", width=50)
 
-                        for i in range(15):
-                            with dpg.table_row():
-                                for j in range(4):
-                                    if j == 0:
-                                        name = dpg.add_text(
-                                            "", tag=f"{self.suggestions_panel}_{i}_{j}"
-                                        )
-                                        with dpg.popup(
-                                            name,
-                                            tag=f"{self.suggestions_panel}_{i}_popup",
-                                        ):
-                                            dpg.add_input_text(
-                                                tag=f"{self.suggestions_panel}_{i}_nick_text"
-                                            )
-                                            dpg.add_text(
-                                                "Does this dude have too many fucking pictures?",
-                                                wrap=200,
-                                            )
-                                            dpg.add_separator()
-                                            with dpg.group(horizontal=True):
-                                                dpg.add_text("Set a nickname")
-                                                dpg.add_button(
-                                                    label="Confirm",
-                                                    tag=f"{self.suggestions_panel}_{i}_nick_button",
-                                                    callback=lambda s, a, u: self.set_nick(
-                                                        u
-                                                    ),
-                                                    user_data=i,
-                                                )
-                                    elif j == 1:
-                                        dpg.add_button(
-                                            label="",
-                                            tag=f"{self.suggestions_panel}_{i}_{j}",
-                                            show=False,
-                                            callback=lambda s, a, u: self.add_id(u),
-                                        )
-                                    else:
-                                        dpg.add_text(
-                                            "", tag=f"{self.suggestions_panel}_{i}_{j}"
-                                        )
+            with dpg.group(horizontal=True) as parent:
+                num_rows = 15
+                self.suggestions_panel = dpg.add_child_window(width=350, parent=parent)
+                table = TableManager9000(
+                    parent=self.suggestions_panel,
+                    rows=num_rows,
+                    headers=["Name", "ID", "Bhawan", "Room"],
+                )
+                table["Name"] = dpg.add_text, {"label": ""}
+                table["ID"] = dpg.add_button, {
+                    "label": "",
+                    "show": False,
+                    "callback": lambda s, a, u: self.add_id(u),
+                }
+                table["Bhawan"] = dpg.add_text, {"label": ""}
+                table["Room"] = dpg.add_text, {"label": ""}
+                table.construct()
+
+                for row in range(num_rows):
+                    # TODO: when getitem is written this should iterate through all the cells of a column nicely
+                    with dpg.popup(
+                        f"{self.suggestions_panel}_{row}_0",
+                        tag=f"{self.suggestions_panel}_{row}_popup",
+                    ):
+                        dpg.add_input_text(
+                            tag=f"{self.suggestions_panel}_{row}_nick_text"
+                        )
+                        dpg.add_text(
+                            "Does this dude have too many fucking pictures?",
+                            wrap=200,
+                        )
+                        dpg.add_separator()
+                        with dpg.group(horizontal=True):
+                            dpg.add_text("Set a nickname")
+                            dpg.add_button(
+                                label="Confirm",
+                                tag=f"{self.suggestions_panel}_{row}_nick_button",
+                                callback=lambda s, a, u: self.set_nick(u),
+                                user_data=row,
+                            )
 
                 with dpg.child_window(width=250):
                     with dpg.table(resizable=True) as self.ids_table:
