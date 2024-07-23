@@ -1,5 +1,6 @@
 import logging
 import re
+from collections import namedtuple
 from functools import reduce
 
 from pyparsing import (
@@ -17,6 +18,8 @@ from pyparsing import (
 from .database import ConnectionPool
 
 logger = logging.getLogger("Core.Search")
+
+SearchResult = namedtuple("SearchResult", ["name", "idno", "hoscode", "roomno"])
 
 
 def parser():
@@ -75,7 +78,7 @@ class SearchMachine:
             cursor = db.execute(
                 self.fts_text, (argument, argument)
             )  # argument, argument since the querry uses the search term twice :(
-            return {tuple(item) for item in cursor}
+            return {SearchResult(*item) for item in cursor}
 
     def get_id(self, argument):
         param = "%"
@@ -95,12 +98,12 @@ class SearchMachine:
         param += "%"
         with ConnectionPool() as db:
             cursor = db.execute(self.id_text, (param,))
-            return {tuple(item) for item in cursor}
+            return {SearchResult(*item) for item in cursor}
 
     def get_bhawan(self, argument):
         with ConnectionPool() as db:
             cursor = db.execute(self.bhawan_text, (argument,))
-            return {tuple(item) for item in cursor}
+            return {SearchResult(*item) for item in cursor}
 
     def evaluate(self, argument):
         c = argument.get_name()
@@ -124,8 +127,8 @@ class SearchMachine:
             case "set":
                 return self.evaluate(argument[0])
 
-    def search(self, text):
+    def search(self, text) -> set[SearchResult] | None:
         try:
             return self.evaluate(self.parser(text))
         except ParseException:
-            pass
+            return None
