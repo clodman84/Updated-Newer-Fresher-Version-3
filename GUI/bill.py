@@ -112,14 +112,16 @@ class BillingWindow:
                     break
                 for j in range(4):
                     if j == 1:
-                        dpg.set_item_label(f"{self.suggestions_panel}_{i}_{j}", item[j])
+                        dpg.set_item_label(
+                            f"{self.suggestions_panel}_{i}_{j}", item.idno
+                        )
                         dpg.set_item_user_data(
-                            f"{self.suggestions_panel}_{i}_{j}", item[j]
+                            f"{self.suggestions_panel}_{i}_{j}", item.idno
                         )
                         dpg.show_item(f"{self.suggestions_panel}_{i}_{j}")
 
                         # updating the nick name text box
-                        (nick,) = db.get_nick(item[j])
+                        (nick,) = db.get_nick(item.idno)
                         nick = nick if nick else ""  # :vomit emoji:
                         dpg.set_value(f"{self.suggestions_panel}_{i}_nick_text", nick)
                     dpg.set_value(f"{self.suggestions_panel}_{i}_{j}", item[j])
@@ -147,11 +149,22 @@ class BillingWindow:
         nick = dpg.get_value(f"{self.suggestions_panel}_{row}_nick_text")
         id = dpg.get_item_user_data(f"{self.suggestions_panel}_{row}_1")
         if len(nick) < 3:
-            logger.debug("Can't set shit") #nice
+            logger.debug("Can't set shit")  # nice
             if not dpg.does_item_exist("invalid_nick"):
-                with dpg.window(width=200, height=100, no_close=True, no_resize=True, tag="invalid_nick"):
-                    dpg.add_text("You cannot have a nickname\nbe lesser than 3 letters\ndumbass!")
-                    dpg.add_button(label="yeah yeah", callback=lambda: dpg.delete_item("invalid_nick"))
+                with dpg.window(
+                    width=200,
+                    height=100,
+                    no_close=True,
+                    no_resize=True,
+                    tag="invalid_nick",
+                ):
+                    dpg.add_text(
+                        "You cannot have a nickname\nbe lesser than 3 letters\ndumbass!"
+                    )
+                    dpg.add_button(
+                        label="yeah yeah",
+                        callback=lambda: dpg.delete_item("invalid_nick"),
+                    )
             else:
                 logger.debug("Close the warning window first da")
         else:
