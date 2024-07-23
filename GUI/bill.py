@@ -122,7 +122,6 @@ class BillingWindow:
                         (nick,) = db.get_nick(item[j])
                         nick = nick if nick else ""  # :vomit emoji:
                         dpg.set_value(f"{self.suggestions_panel}_{i}_nick_text", nick)
-
                     dpg.set_value(f"{self.suggestions_panel}_{i}_{j}", item[j])
 
             for i in range(len(matches), 15):
@@ -147,8 +146,21 @@ class BillingWindow:
     def set_nick(self, row):
         nick = dpg.get_value(f"{self.suggestions_panel}_{row}_nick_text")
         id = dpg.get_item_user_data(f"{self.suggestions_panel}_{row}_1")
-        db.set_nick(nick, id)
-        dpg.hide_item(f"{self.suggestions_panel}_{row}_popup")
+        if len(nick) < 3:
+            logger.debug("Can't set shit") #nice
+            if not dpg.does_item_exist("invalid_nick"):
+                with dpg.window(width=200, height=100, no_close=True, no_resize=True, tag="invalid_nick"):
+                    dpg.add_text("You cannot have a nickname\nbe lesser than 3 letters\ndumbass!")
+                    dpg.add_button(label="yeah yeah", callback=lambda: dpg.delete_item("invalid_nick"))
+            else:
+                logger.debug("Close the warning window first da")
+        else:
+            if not dpg.does_item_exist("invalid_nick"):
+                db.set_nick(nick, id)
+                dpg.hide_item(f"{self.suggestions_panel}_{row}_popup")
+                logger.debug("Nickname has been set")
+            else:
+                logger.debug("Close the warning window first da")
 
     def show_selected_ids(self):
         counter = self.ids_per_roll[self.current_index]
