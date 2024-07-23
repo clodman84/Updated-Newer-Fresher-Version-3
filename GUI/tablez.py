@@ -1,3 +1,4 @@
+import functools
 import logging
 from typing import Callable
 
@@ -11,8 +12,9 @@ class TableManager9000:
         self.num_rows = rows
         placeholder = lambda: None
         self.columns: dict[str, tuple[Callable, dict]] = {
-            column_name: placeholder for column_name in headers
+            column_name: (placeholder, {}) for column_name in headers
         }
+        self.headers = headers
         self.parent = parent
         self.table = None
 
@@ -23,11 +25,11 @@ class TableManager9000:
         with dpg.table(
             parent=self.parent, policy=dpg.mvTable_SizingFixedFit
         ) as self.table:
-            for name in self.columns.keys():
+            for name in self.headers:
                 dpg.add_table_column(label=name)
             for row in range(self.num_rows):
                 with dpg.table_row():
-                    for column_number, column_name in enumerate(self.columns.keys()):
+                    for column_number, column_name in enumerate(self.headers):
                         # running usercode to instantiate the cell
                         func, kwargs = self.columns[column_name]
                         # TODO: change this self.table later
@@ -37,3 +39,9 @@ class TableManager9000:
         # I know that this is technically slower than assigning all the columns and rows in one big sweep,
         # but fuck you, that was a pain in the ass to make sense of and this will happen only once anyways
         self.columns[column] = task
+
+    def __getitem__(self, key) -> dict[str, str]:
+        return {
+            column: f"{self.parent}_{key}_{column_n}"
+            for column_n, column in enumerate(self.headers)
+        }

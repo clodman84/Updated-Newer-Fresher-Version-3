@@ -3,6 +3,7 @@ import logging
 from pathlib import Path
 
 import dearpygui.dearpygui as dpg
+from pyparsing import col
 
 from Application import SearchMachine, copy_images, db, load, write
 from Application.utils import SimpleTimer
@@ -37,20 +38,20 @@ class BillingWindow:
             with dpg.group(horizontal=True) as parent:
                 num_rows = 15
                 self.suggestions_panel = dpg.add_child_window(width=350, parent=parent)
-                table = TableManager9000(
+                self.suggestion_table = TableManager9000(
                     parent=self.suggestions_panel,
                     rows=num_rows,
                     headers=["Name", "ID", "Bhawan", "Room"],
                 )
-                table["Name"] = dpg.add_text, {"label": ""}
-                table["ID"] = dpg.add_button, {
+                self.suggestion_table["Name"] = dpg.add_text, {"label": ""}
+                self.suggestion_table["ID"] = dpg.add_button, {
                     "label": "",
                     "show": False,
                     "callback": lambda s, a, u: self.add_id(u),
                 }
-                table["Bhawan"] = dpg.add_text, {"label": ""}
-                table["Room"] = dpg.add_text, {"label": ""}
-                table.construct()
+                self.suggestion_table["Bhawan"] = dpg.add_text, {"label": ""}
+                self.suggestion_table["Room"] = dpg.add_text, {"label": ""}
+                self.suggestion_table.construct()
 
                 for row in range(num_rows):
                     # TODO: when getitem is written this should iterate through all the cells of a column nicely
@@ -93,38 +94,38 @@ class BillingWindow:
             return
 
         if not matches:
-            for i in range(15):
-                for j in range(4):
-                    if j == 1:
-                        dpg.hide_item(f"{self.suggestions_panel}_{i}_{j}")
-                    dpg.set_value(f"{self.suggestions_panel}_{i}_{j}", "")
-
-            dpg.set_value(f"{self.suggestions_panel}_{0}_{0}", "No matches")
+            for row in range(15):
+                for column, cell in self.suggestion_table[row].items():
+                    if column == "ID":
+                        dpg.hide_item(cell)
+                    dpg.set_value(cell, "")
+            dpg.set_value(self.suggestion_table[0]["Name"], "No matches")
         else:
-            for i, item in enumerate(matches):
-                if i == 14:
+            for row, item in enumerate(matches):
+                if row == 14:
                     break
-                for j in range(4):
-                    if j == 1:
+                for j, column in enumerate(self.suggestion_table.headers):
+                    if column == "ID":
                         dpg.set_item_label(
-                            f"{self.suggestions_panel}_{i}_{j}", item.idno
+                            self.suggestion_table[row][column], item.idno
                         )
                         dpg.set_item_user_data(
-                            f"{self.suggestions_panel}_{i}_{j}", item.idno
+                            self.suggestion_table[row][column], item.idno
                         )
-                        dpg.show_item(f"{self.suggestions_panel}_{i}_{j}")
+                        dpg.show_item(self.suggestion_table[row][column])
 
                         # updating the nick name text box
                         (nick,) = db.get_nick(item.idno)
                         nick = nick if nick else ""  # :vomit emoji:
-                        dpg.set_value(f"{self.suggestions_panel}_{i}_nick_text", nick)
-                    dpg.set_value(f"{self.suggestions_panel}_{i}_{j}", item[j])
+                        dpg.set_value(f"{self.suggestions_panel}_{row}_nick_text", nick)
 
-            for i in range(len(matches), 15):
-                for j in range(4):
-                    if j == 1:
-                        dpg.hide_item(f"{self.suggestions_panel}_{i}_{j}")
-                    dpg.set_value(f"{self.suggestions_panel}_{i}_{j}", "")
+                    dpg.set_value(self.suggestion_table[row][column], item[j])
+
+            for row in range(len(matches), 15):
+                for column in self.suggestion_table.headers:
+                    if column == "ID":
+                        dpg.hide_item(self.suggestion_table[row][column])
+                    dpg.set_value(self.suggestion_table[row][column], "")
 
     def set_id(self, id, value):
         self.ids_per_roll[self.current_index][id] = value
