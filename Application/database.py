@@ -1,11 +1,19 @@
 import csv
+import logging
 import queue
+import re
 import sqlite3
 from datetime import datetime
 from pathlib import Path
 
 sqlite3.register_adapter(datetime, lambda x: int(x.timestamp()))
 sqlite3.register_converter("timestamp", lambda x: datetime.fromtimestamp(int(x)))
+
+logger = logging.getLogger("Core.Database")
+
+
+class GarbageMessListError(Exception):
+    pass
 
 
 def connect() -> sqlite3.Connection:
@@ -65,6 +73,76 @@ class ConnectionPool:
             cls._q.get_nowait().close()
 
 
+def scan_mess_list(path: Path) -> list[dict[str, str]]:
+    """
+    Verifies that the csv file is a messand returns which datatype of each column
+    """
+    with open(path) as file:
+        reader = csv.reader(file)
+        rows = [row for row in reader]
+
+    pattern = re.compile(
+        r"(?x)(?P<id>\d{4}[a-zA-Z\d]{4}\d{4})|(?P<room>[0-9]{2,4}|0)|(?P<gender>[mMfF]{1})|(?P<name_or_bhawan>^[a-zA-Z_.\-\s]*$)"
+    )
+    rows = rows[1:]  # we are assuming the first row is all headers
+    vals = []
+    hoscodes = {
+        "ak",
+        "bd",
+        "cvr",
+        "ds",
+        "ps",
+        "gn",
+        "kr",
+        "ml",
+        "msa",
+        "mr",
+        "rm",
+        "rp",
+        "sk",
+        "sr",
+        "vk",
+        "vy",
+        "rha",
+        "rhb",
+        "rhc",
+        "rhc",
+        "rhd",
+        "rhe",
+        "rhf",
+    }
+
+    for i, row in enumerate(rows):
+        val = {}
+        for item in row:
+            m = pattern.fullmatch(item)
+            if not m:
+                continue
+            else:
+                match m.lastgroup:
+                    case "id":
+                        val["idno"] = item
+                    case "room":
+                        val["roomno"] = item
+                    case "gender":
+                        val["gender"] = item
+                    case "name_or_bhawan":
+                        if item.lower() in hoscodes:
+                            val["hoscode"] = item
+                        else:
+                            val["name"] = item
+                val["nick"] = None
+        if len(val.keys()) != 6:
+            logger.error(f"Something is wrong in row {i+2}\n\nScan results: {val}")
+            raise GarbageMessListError
+        else:
+            vals.append(val)
+            logger.debug(val)
+
+    logger.info(f"Scanned {len(vals)} rows and found no discrepencies")
+    return vals
+
+
 def read_mess_list(path: Path):
     """
     Populates the database with values from a csv file.
@@ -72,14 +150,13 @@ def read_mess_list(path: Path):
     Args:
         path: Path to the csv file
     """
-    with open(path) as file:
-        reader = csv.reader(file)
-        connection = connect()
-        vals = [row for row in reader]
-        connection.executemany(
-            "INSERT OR IGNORE INTO students VALUES(?, ?, ?, ?, ?, ?, ?, NULL)", vals[1:]
+    with ConnectionPool() as db:
+        vals = scan_mess_list(path)
+        db.executemany(
+            "INSERT OR IGNORE INTO students (idno, name, gender, hoscode, roomno, nick) VALUES(:idno, :name, :gender, :hoscode, :roomno, :nick)",
+            vals,
         )
-        connection.commit()
+        db.commit()
 
 
 def get_file_name(id):
