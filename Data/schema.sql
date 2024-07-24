@@ -1,11 +1,9 @@
 CREATE TABLE IF NOT EXISTS students(
-  REC text,
   IDNO text UNIQUE,
   NAME text,
   GENDER text,
   HOSCODE text,
   ROOMNO text,
-  PROG_ID int,
   NICK text UNIQUE
 );
 
