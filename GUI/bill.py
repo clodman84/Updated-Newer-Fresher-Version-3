@@ -27,6 +27,7 @@ class BillingWindow:
         self.search_machine = SearchMachine()
         self.current_index = 0
         self.path = path
+        self.num_rows = 45
 
         with dpg.window(
             width=625, height=436, label="Billing Window", no_resize=True, no_close=True
@@ -36,11 +37,10 @@ class BillingWindow:
                 dpg.add_button(label="Export", callback=self.export)
 
             with dpg.group(horizontal=True) as parent:
-                num_rows = 15
                 self.suggestions_panel = dpg.add_child_window(width=350, parent=parent)
                 self.suggestion_table = TableManager9000(
                     parent=self.suggestions_panel,
-                    rows=num_rows,
+                    rows=self.num_rows,
                     headers=["Name", "ID", "Bhawan", "Room"],
                 )
                 self.suggestion_table["Name"] = dpg.add_text, {"label": ""}
@@ -53,7 +53,7 @@ class BillingWindow:
                 self.suggestion_table["Room"] = dpg.add_text, {"label": ""}
                 self.suggestion_table.construct()
 
-                for row in range(num_rows):
+                for row in range(self.num_rows):
                     # TODO: when getitem is written this should iterate through all the cells of a column nicely
                     with dpg.popup(
                         f"{self.suggestions_panel}_{row}_0",
@@ -94,7 +94,7 @@ class BillingWindow:
             return
 
         if not matches:
-            for row in range(15):
+            for row in range(self.num_rows):
                 for column, cell in self.suggestion_table[row].items():
                     if column == "ID":
                         dpg.hide_item(cell)
@@ -102,7 +102,7 @@ class BillingWindow:
             dpg.set_value(self.suggestion_table[0]["Name"], "No matches")
         else:
             for row, item in enumerate(matches):
-                if row == 14:
+                if row == self.num_rows - 1:
                     break
                 for j, column in enumerate(self.suggestion_table.headers):
                     if column == "ID":
@@ -121,7 +121,7 @@ class BillingWindow:
 
                     dpg.set_value(self.suggestion_table[row][column], item[j])
 
-            for row in range(len(matches), 15):
+            for row in range(len(matches), self.num_rows):
                 for column in self.suggestion_table.headers:
                     if column == "ID":
                         dpg.hide_item(self.suggestion_table[row][column])

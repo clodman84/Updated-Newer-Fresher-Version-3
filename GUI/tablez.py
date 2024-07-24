@@ -23,7 +23,7 @@ class TableManager9000:
         Construct can only be called after all the columns have been asigned something to do
         """
         with dpg.table(
-            parent=self.parent, policy=dpg.mvTable_SizingFixedFit
+            parent=self.parent, policy=dpg.mvTable_SizingFixedFit, scrollX=True
         ) as self.table:
             for name in self.headers:
                 dpg.add_table_column(label=name)
