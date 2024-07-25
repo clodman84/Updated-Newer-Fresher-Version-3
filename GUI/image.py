@@ -1,6 +1,8 @@
 import logging
-import os
+from pathlib import Path
+
 import dearpygui.dearpygui as dpg
+from screeninfo import get_monitors
 
 from Application import ImageManager
 from Application.utils import ShittyMultiThreading
@@ -13,9 +15,7 @@ logger = logging.getLogger("GUI.Image")
 class ImageWindow:
     """imej"""
 
-    def __init__(
-        self, parent, billing_window: BillingWindow, image_manager: ImageManager
-    ):
+    def __init__(self, path: Path):
         # List of things the image window knows about:
         # 1. The roll that is currently being billed
         # 2. The images in the roll
@@ -27,17 +27,46 @@ class ImageWindow:
         # 3. Has a preview for the next and previous image
 
         self.current_image: int = 0
-        self.billing_window = billing_window
-        self.image_manager = image_manager
-        self.setup(parent)
+        self.billing_window = BillingWindow(roll=path.name, path=path)
+        self.main_image_dimensions = (750, 500)
+        self.thumnail_dimensions = (245, 247)
+        self.window_dimensions = (1035, 608)
+
+        monitors = get_monitors()
+        for monitor in monitors:
+            if monitor.is_primary and monitor.width_mm < 320:
+                scale = 0.65
+                self.main_image_dimensions = tuple(
+                    int(scale * i) for i in self.main_image_dimensions
+                )
+                self.thumnail_dimensions = tuple(
+                    int(scale * i) for i in self.thumnail_dimensions
+                )
+                self.window_dimensions = tuple(
+                    int(scale * i) for i in self.window_dimensions
+                )
+
+        self.image_manager = ImageManager(
+            mode="offline",
+            roll=path.name,
+            path=path,
+            main_image_dimensions=self.main_image_dimensions,
+            thumbnail_dimensions=self.thumnail_dimensions,
+        )
+        self.setup()
         self.image_manager.load_in_background()
 
-    def setup(self, parent):
+    def setup(self):
+        parent = dpg.add_window(
+            width=self.window_dimensions[0], height=self.window_dimensions[1]
+        )
         with dpg.child_window(parent=parent):
             indicator = dpg.add_loading_indicator()
 
             # this is an abomination, but it makes the window load 2 seconds faster
-            ShittyMultiThreading(self.image_manager.load, (0, 1, self.image_manager.end_index-1)).start()
+            ShittyMultiThreading(
+                self.image_manager.load, (0, 1, self.image_manager.end_index - 1)
+            ).start()
             image = self.image_manager.load(0)
             logger.debug(image.dpg_texture[3].shape)
 
@@ -45,15 +74,21 @@ class ImageWindow:
                 # TODO: The next and previous image viewer could be changed into a scrollable selector
                 # with all the images in them
                 dpg.add_dynamic_texture(
-                    750, 500, default_value=image.dpg_texture[3], tag="Main Image"
+                    *self.main_image_dimensions,
+                    default_value=image.dpg_texture[3],
+                    tag="Main Image"
                 )
                 next = self.image_manager.next()
                 previous = self.image_manager.previous()
                 dpg.add_dynamic_texture(
-                    245, 247, default_value=next.thumbnail[3], tag="Next Image"
+                    *self.thumnail_dimensions,
+                    default_value=next.thumbnail[3],
+                    tag="Next Image"
                 )
                 dpg.add_dynamic_texture(
-                    245, 247, default_value=previous.thumbnail[3], tag="Previous Image"
+                    *self.thumnail_dimensions,
+                    default_value=previous.thumbnail[3],
+                    tag="Previous Image"
                 )
 
             with dpg.group(horizontal=True):
@@ -97,4 +132,4 @@ class ImageWindow:
         if self.current_image > 0:
             self.open(self.current_image - 1)
         else:
-            self.open(self.image_manager.end_index-1)
+            self.open(self.image_manager.end_index - 1)

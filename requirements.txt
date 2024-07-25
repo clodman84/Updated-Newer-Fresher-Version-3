@@ -3,5 +3,6 @@ numpy
 Pillow
 pre-commit
 pyparsing
+screeninfo
 sounddevice
 soundfile

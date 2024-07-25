@@ -22,12 +22,7 @@ def setup_db():
 
 
 def make_image_window(path: Path):
-    with dpg.window(width=1035, height=608) as image_window:
-        image_manager = Application.ImageManager(
-            mode="offline", roll=path.name, path=path
-        )
-        billing_window = GUI.BillingWindow(roll=path.name, path=path)
-        GUI.ImageWindow(image_window, billing_window, image_manager)
+    GUI.ImageWindow(path)
 
 
 def load_image_folder(sender, app_data, user_data):
