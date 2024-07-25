@@ -2,9 +2,9 @@
 This is responsible for serving images to the GUI.
 This can be extended to receiving images from the DoPy server when it becomes a reality.
 """
-import os
 import functools
 import logging
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Optional, Tuple
@@ -40,7 +40,12 @@ class Image:
     # TODO: the cache uses a lot of RAM there should be a way to control the maxsize at runtime
     @classmethod
     @functools.lru_cache(maxsize=40)
-    def frompath(cls, path: Path):
+    def frompath(
+        cls,
+        path: Path,
+        main_image_dimensions: Tuple[int, int],
+        thumbnail_dimensions: Tuple[int, int],
+    ):
         """
         Creates an Image object from the path of the image.
 
@@ -54,8 +59,8 @@ class Image:
         """Makes an Image object from the specified Path"""
         raw_image = PImage.open(path)
         raw_image.putalpha(255)
-        thumbnail = PImageOps.pad(raw_image, (245, 247), color="#000000")
-        dpg_texture = PImageOps.pad(raw_image, (750, 500), color="#000000")
+        thumbnail = PImageOps.pad(raw_image, thumbnail_dimensions, color="#000000")
+        dpg_texture = PImageOps.pad(raw_image, main_image_dimensions, color="#000000")
 
         # this frees up memory, PIL.Image.open() is lazy and does not load the image into memory till it needs to be
         raw_image = PImage.open(path)
@@ -63,14 +68,12 @@ class Image:
         # dpg_texture-ifying
         channels = len(thumbnail.getbands())
         thumbnail = (
-            245,
-            247,
+            *thumbnail_dimensions,
             channels,
             np.frombuffer(thumbnail.tobytes(), dtype=np.uint8) / 255.0,
         )
         dpg_texture = (
-            750,
-            500,
+            *main_image_dimensions,
             channels,
             np.frombuffer(dpg_texture.tobytes(), dtype=np.uint8) / 255.0,
         )
@@ -109,6 +112,8 @@ class ImageManager:
         self,
         mode: Literal["online", "offline"],
         roll: str,
+        main_image_dimensions,
+        thumbnail_dimensions,
         path: Optional[Path] = None,
     ) -> None:
         if mode == "offline" and not Path:
@@ -120,7 +125,10 @@ class ImageManager:
         logger.debug(path)
         self.roll = roll
         self.current_index = 0
+        self.main_image_dimensions = main_image_dimensions
+        self.thumbnail_dimensions = thumbnail_dimensions
         self.end_index = len([name for name in os.listdir(path)])
+
     @functools.cached_property
     def images(self):
         """
@@ -134,7 +142,7 @@ class ImageManager:
             # this may seem stupid right now, but this will replaced with a function
             # call to get image ids from the server, as the images will not be
             # renamed on the server.
-            return list(range(1, self.end_index+1))
+            return list(range(1, self.end_index + 1))
 
     def load(self, index):
         """
@@ -153,11 +161,13 @@ class ImageManager:
             index = 0
         elif index < 0:
             logger.error("Attempted to get image number < 1, defaulted to 40")
-            index = self.end_index-1
+            index = self.end_index - 1
         self.current_index = index
         if self.mode == "offline":
             image_path = self.images[index]
-            return Image.frompath(image_path)
+            return Image.frompath(
+                image_path, self.main_image_dimensions, self.thumbnail_dimensions
+            )
         return Image.fromserver(roll=self.roll, id=self.images[index])
 
     def load_in_background(self):
@@ -189,7 +199,7 @@ class ImageManager:
            Image
         """
         curr = self.current_index
-        if curr < self.end_index-1:
+        if curr < self.end_index - 1:
             curr += 1
         else:
             curr = 0
@@ -206,5 +216,5 @@ class ImageManager:
         if curr > 0:
             curr -= 1
         else:
-            curr = self.end_index-1
+            curr = self.end_index - 1
         return self.peek(curr)
