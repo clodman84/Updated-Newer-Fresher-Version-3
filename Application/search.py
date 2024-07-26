@@ -82,29 +82,15 @@ class SearchMachine:
 
     def get_id(self, argument):
         param = "%"
-        argument = argument
-        m = self.id_regex.match(argument)
-        if not m:
-            return None
-        '''j = 0
-        for i in range(1, 5):
-            c = m.group(i)
-            logger.debug(c)
-            if not c:
-                if i == 3 and j != 3:
-                    param += "%"
-                continue
-            param += c
-            j += 1
-        logger.debug(param)
-        param += "%"'''
         if len(argument) == 3:
             param = "%" + argument + "%"
         elif len(argument) == 6:
             if argument.isdigit():
-                param = "%" + argument[0:1] + "%" + argument[2:6]
+                param = "%" + argument[:2] + "%" + argument[2:6]
             else:
-                param = "%" + argument + "%"
+                param = (
+                    "20" + argument + "%"
+                )  # if bits and dopy exists a 1000 years later, change the 20 to 30
         elif len(argument) == 2:
             if argument.isdigit():
                 param = "20" + argument + "%"
@@ -112,9 +98,12 @@ class SearchMachine:
                 param = "%" + argument + "%"
         elif len(argument) == 4:
             if argument.isdigit():
-                param = "%%" + argument
+                param = "%" + argument
             else:
                 param = "%" + argument + "%"
+        else:
+            return None
+        # logger.debug(param)
         with ConnectionPool() as db:
             cursor = db.execute(self.id_text, (param,))
             return {SearchResult(*item) for item in cursor}
