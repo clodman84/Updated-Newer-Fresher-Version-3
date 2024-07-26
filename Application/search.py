@@ -99,15 +99,22 @@ class SearchMachine:
         logger.debug(param)
         param += "%"'''
         if len(argument) == 3:
-            param = "%%" + argument
+            param = "%" + argument + "%"
         elif len(argument) == 6:
-            param = "%" + argument[0] + argument[1] + "%" + argument[2:6]
+            if argument.isdigit():
+                param = "%" + argument[0:1] + "%" + argument[2:6]
+            else:
+                param = "%" + argument + "%"
         elif len(argument) == 2:
-            param = "20" + argument + "%"
-        elif len(argument) == 5:
-            param = "%" + argument[0:2] + "%" + argument[2:5]
+            if argument.isdigit():
+                param = "20" + argument + "%"
+            else:
+                param = "%" + argument + "%"
         elif len(argument) == 4:
-            param = "%%" + argument
+            if argument.isdigit():
+                param = "%%" + argument
+            else:
+                param = "%" + argument + "%"
         with ConnectionPool() as db:
             cursor = db.execute(self.id_text, (param,))
             return {SearchResult(*item) for item in cursor}
