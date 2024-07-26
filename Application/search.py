@@ -70,7 +70,7 @@ class SearchMachine:
             f"SELECT name, idno, hoscode, roomno from students WHERE hoscode LIKE ?"
         )
         self.id_regex = re.compile(
-            r"([0-9]{2}|)([a-zA-Z][a-zA-Z0-9]|)([a-zA-Z][a-zA-Z0-9]|)([0-9]{4}|)"
+            r"\d{4}[a-zA-Z][a-zA-Z0-9][a-zA-Z][a-zA-Z\d][0-9]{4}"
         )
 
     def get_name(self, argument):
@@ -101,8 +101,8 @@ class SearchMachine:
                 param = "%" + argument
             else:
                 param = "%" + argument + "%"
-        else:
-            return None
+        elif self.id_regex.fullmatch(argument):
+            param = argument
         # logger.debug(param)
         with ConnectionPool() as db:
             cursor = db.execute(self.id_text, (param,))
