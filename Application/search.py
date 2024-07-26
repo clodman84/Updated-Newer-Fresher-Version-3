@@ -86,16 +86,28 @@ class SearchMachine:
         m = self.id_regex.match(argument)
         if not m:
             return None
-        j = 0
+        '''j = 0
         for i in range(1, 5):
             c = m.group(i)
+            logger.debug(c)
             if not c:
                 if i == 3 and j != 3:
                     param += "%"
                 continue
             param += c
             j += 1
-        param += "%"
+        logger.debug(param)
+        param += "%"'''
+        if len(argument) == 3:
+            param = "%%" + argument
+        elif len(argument) == 6:
+            param = "%" + argument[0] + argument[1] + "%" + argument[2:6]
+        elif len(argument) == 2:
+            param = "20" + argument + "%"
+        elif len(argument) == 5:
+            param = "%" + argument[0:2] + "%" + argument[2:5]
+        elif len(argument) == 4:
+            param = "%%" + argument
         with ConnectionPool() as db:
             cursor = db.execute(self.id_text, (param,))
             return {SearchResult(*item) for item in cursor}
