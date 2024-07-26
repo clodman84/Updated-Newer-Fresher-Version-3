@@ -45,6 +45,8 @@ class ImageWindow:
                 self.window_dimensions = tuple(
                     int(scale * i) for i in self.window_dimensions
                 )
+                logger.debug("Small monitor detected, scaled down the ImageWindow")
+        logger.debug("Monitor big enough, ImageWindow was not scaled down")
 
         self.image_manager = ImageManager(
             mode="offline",
