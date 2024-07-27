@@ -70,7 +70,7 @@ class SearchMachine:
             f"SELECT name, idno, hoscode, roomno from students WHERE hoscode LIKE ?"
         )
         self.id_regex = re.compile(
-            r"([0-9]{2}|)([a-zA-Z][a-zA-Z0-9]|)([a-zA-Z][a-zA-Z0-9]|)([0-9]{4}|)"
+            r"\d{4}[a-zA-Z][a-zA-Z0-9][a-zA-Z][a-zA-Z\d][0-9]{4}"
         )
 
     def get_name(self, argument):
@@ -82,20 +82,28 @@ class SearchMachine:
 
     def get_id(self, argument):
         param = "%"
-        argument = argument
-        m = self.id_regex.match(argument)
-        if not m:
-            return None
-        j = 0
-        for i in range(1, 5):
-            c = m.group(i)
-            if not c:
-                if i == 3 and j != 3:
-                    param += "%"
-                continue
-            param += c
-            j += 1
-        param += "%"
+        if len(argument) == 3:
+            param = "%" + argument + "%"
+        elif len(argument) == 6:
+            if argument.isdigit():
+                param = "%" + argument[:2] + "%" + argument[2:6]
+            else:
+                param = (
+                    "20" + argument + "%"
+                )  # if bits and dopy exists a 1000 years later, change the 20 to 30
+        elif len(argument) == 2:
+            if argument.isdigit():
+                param = "20" + argument + "%"
+            else:
+                param = "%" + argument + "%"
+        elif len(argument) == 4:
+            if argument.isdigit():
+                param = "%" + argument
+            else:
+                param = "%" + argument + "%"
+        elif self.id_regex.fullmatch(argument):
+            param = argument
+        # logger.debug(param)
         with ConnectionPool() as db:
             cursor = db.execute(self.id_text, (param,))
             return {SearchResult(*item) for item in cursor}
