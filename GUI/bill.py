@@ -33,7 +33,10 @@ class BillingWindow:
             width=625, height=436, label="Billing Window", no_resize=True, no_close=True
         ):
             with dpg.group(horizontal=True):
-                input = dpg.add_input_text()
+                dpg.add_text("Search")
+                input = dpg.add_input_text(width=250)
+                self.same_as_input = dpg.add_input_int(default_value=30, width=80)
+                dpg.add_button(label="Same As", callback=self.same_as)
                 dpg.add_button(label="Export", callback=self.export)
 
             with dpg.group(horizontal=True) as parent:
@@ -188,7 +191,16 @@ class BillingWindow:
 
     def load(self, index: int):
         self.current_index = index
+        same_as_default = index if index != 0 else 30
+        dpg.set_value(self.same_as_input, same_as_default)
         self.show_selected_ids()
 
-    def save(self):
-        pass
+    def same_as(self, index):
+        index = dpg.get_value(self.same_as_input)
+        index -= 1
+        for key, value in self.ids_per_roll[index].items():
+            self.ids_per_roll[self.current_index][key] = value
+        with SimpleTimer("Autosaved") as timer:
+            write(self.ids_per_roll, self.roll)
+        logger.debug(timer)
+        self.show_selected_ids()
