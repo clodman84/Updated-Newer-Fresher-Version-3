@@ -198,6 +198,9 @@ class BillingWindow:
         same_as_default = index if index != 0 else 30
         dpg.set_value(self.same_as_input, same_as_default)
         self.show_selected_ids()
+        
+    def save(self):
+        pass
 
     def same_as(self, index):
         index = dpg.get_value(self.same_as_input)
@@ -208,3 +211,31 @@ class BillingWindow:
             write(self.ids_per_roll, self.roll)
         logger.debug(timer)
         self.show_selected_ids()
+        
+        
+def show_all_nicks():
+    nicks = db.get_all_nicks()
+    headers_2 = ["Name", "ID", "Nicks"]
+    with dpg.window(
+        modal=True,
+        tag="all_nicks",
+        width=500,
+        height=300,
+        no_resize=True,
+        on_close=lambda: dpg.delete_item("all_nicks"),
+    ):
+        with dpg.table(
+            parent="all_nicks",
+            scrollX=True,
+            row_background=True,
+            borders_innerH=True,
+            borders_innerV=True,
+            borders_outerH=True,
+            borders_outerV=True,
+        ):
+            for name in headers_2:
+                dpg.add_table_column(label=name)
+            for i in range(len(nicks)):
+                with dpg.table_row():
+                    for j in range(len(headers_2)):
+                        dpg.add_text(nicks[i][j])
