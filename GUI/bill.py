@@ -35,6 +35,7 @@ class BillingWindow:
             with dpg.group(horizontal=True):
                 input = dpg.add_input_text()
                 dpg.add_button(label="Export", callback=self.export)
+                dpg.add_button(label="See All Nicks", callback=self.get_all_nicks)
 
             with dpg.group(horizontal=True) as parent:
                 self.suggestions_panel = dpg.add_child_window(width=350, parent=parent)
@@ -181,6 +182,56 @@ class BillingWindow:
                     callback=lambda s, a, u: self.set_id(u, a),
                     user_data=key,
                 )
+
+    def get_all_nicks(self):
+        dpg.delete_item("all_nicks")
+        nicks = db.get_all_nicks()
+        self.clear()
+        headers_2 = ["Name", "ID", "Nicks"]
+        with dpg.window(modal=True, tag="all_nicks", width=500, height=300,no_resize=True):
+            with dpg.table(parent="all_nicks",scrollX=True, row_background=True, borders_innerH=True, borders_innerV=True, borders_outerH=True, borders_outerV=True):
+                for name in headers_2:
+                    dpg.add_table_column(label=name)
+                for i in range(len(nicks)):
+                    with dpg.table_row():
+                        for j in range(len(headers_2)):
+                            dpg.add_text(nicks[i][j])
+
+
+        '''if not nicks:  #copypaste zindabaad (this is assery help)
+            for row in range(self.num_rows):
+                for column, cell in self.suggestion_table[row].items():
+                    if column == "ID":
+                        dpg.hide_item(cell)
+                    dpg.set_value(cell, "")
+            dpg.set_value(self.suggestion_table[0]["Name"], "No matches")
+        else:
+            for row, item in enumerate(nicks):
+                if row == self.num_rows - 1:
+                    break
+                for j, column in enumerate(self.suggestion_table.headers):
+                        if column == "ID":
+                            dpg.set_item_label(
+                                self.suggestion_table[row][column], item[1]
+                            )
+                            dpg.set_item_user_data(
+                                self.suggestion_table[row][column], item[1]
+                            )
+                            dpg.show_item(self.suggestion_table[row][column])
+
+                            # updating the nick name text box
+                            (nick,) = db.get_nick(item[1])
+                            nick = nick if nick else ""  # :vomit emoji:
+                            dpg.set_value(f"{self.suggestions_panel}_{row}_nick_text", nick)
+
+                        dpg.set_value(self.suggestion_table[row][column], item[j])
+
+                for row in range(len(nicks), self.num_rows):
+                    for column in self.suggestion_table.headers:
+                        if column == "ID":
+                            dpg.hide_item(self.suggestion_table[row][column])
+                        dpg.set_value(self.suggestion_table[row][column], "")'''
+
 
     def clear(self):
         for item in dpg.get_item_children(self.ids_table)[1]:

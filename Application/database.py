@@ -189,3 +189,8 @@ def get_nick(id):
     with ConnectionPool() as db:
         cursor = db.execute("SELECT nick FROM students WHERE idno = ?", (id,))
         return cursor.fetchone()
+
+def get_all_nicks():
+    with ConnectionPool() as db:
+        cursor = db.execute("SELECT name, idno, nick FROM students WHERE nick IS NOT NULL")
+        return cursor.fetchall()
