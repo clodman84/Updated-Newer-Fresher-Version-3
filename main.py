@@ -79,6 +79,7 @@ def main():
                     label="Load Mess List",
                     callback=lambda: dpg.show_item("mess_list_file_dialog"),
                 )
+                dpg.add_menu_item(label="Show Nicknames", callback=GUI.show_all_nicks)
                 dpg.add_menu_item(
                     label="Show Performance Metrics", callback=dpg.show_metrics
                 )
