@@ -30,7 +30,11 @@ class BillingWindow:
         self.num_rows = 45
 
         with dpg.window(
-            width=625, height=436, label="Billing Window", no_resize=True, no_close=True
+            width=625,
+            height=436,
+            label=f"Billing Window {self.path.name}",
+            no_resize=True,
+            no_close=True,
         ):
             with dpg.group(horizontal=True):
                 dpg.add_text("Search")
