@@ -31,6 +31,7 @@ class ImageWindow:
         self.main_image_dimensions = (750, 500)
         self.thumnail_dimensions = (245, 247)
         self.window_dimensions = (1035, 608)
+        self.path = path
 
         monitors = get_monitors()
         for monitor in monitors:
@@ -59,10 +60,12 @@ class ImageWindow:
         self.image_manager.load_in_background()
 
     def setup(self):
-        parent = dpg.add_window(
-            width=self.window_dimensions[0], height=self.window_dimensions[1]
+        self.parent = dpg.add_window(
+            label=self.path.name,
+            width=self.window_dimensions[0],
+            height=self.window_dimensions[1],
         )
-        with dpg.child_window(parent=parent):
+        with dpg.child_window(parent=self.parent):
             indicator = dpg.add_loading_indicator()
 
             # this is an abomination, but it makes the window load 2 seconds faster
@@ -78,19 +81,19 @@ class ImageWindow:
                 dpg.add_dynamic_texture(
                     *self.main_image_dimensions,
                     default_value=image.dpg_texture[3],
-                    tag="Main Image"
+                    tag=f"{self.parent}_Main Image",
                 )
                 next = self.image_manager.next()
                 previous = self.image_manager.previous()
                 dpg.add_dynamic_texture(
                     *self.thumnail_dimensions,
                     default_value=next.thumbnail[3],
-                    tag="Next Image"
+                    tag=f"{self.parent}_Next Image",
                 )
                 dpg.add_dynamic_texture(
                     *self.thumnail_dimensions,
                     default_value=previous.thumbnail[3],
-                    tag="Previous Image"
+                    tag=f"{self.parent}_Previous Image",
                 )
 
             with dpg.group(horizontal=True):
@@ -101,14 +104,14 @@ class ImageWindow:
                     min_value=1,
                     max_value=self.image_manager.end_index,
                     callback=lambda _, a, u: self.open(a - 1),
-                    tag="Image Slider",
+                    tag=f"{self.parent}_Image Slider",
                 )
 
             with dpg.group(horizontal=True):
                 with dpg.group():
-                    dpg.add_image("Previous Image")
-                    dpg.add_image("Next Image")
-                dpg.add_image("Main Image")
+                    dpg.add_image(f"{self.parent}_Previous Image")
+                    dpg.add_image(f"{self.parent}_Next Image")
+                dpg.add_image(f"{self.parent}_Main Image")
             dpg.delete_item(indicator)
 
     def open(self, index: int):
@@ -118,10 +121,10 @@ class ImageWindow:
         previous = self.image_manager.previous()
         next = self.image_manager.next()
 
-        dpg.set_value("Main Image", image.dpg_texture[3])
-        dpg.set_value("Next Image", next.thumbnail[3])
-        dpg.set_value("Previous Image", previous.thumbnail[3])
-        dpg.set_value("Image Slider", self.current_image + 1)
+        dpg.set_value(f"{self.parent}_Main Image", image.dpg_texture[3])
+        dpg.set_value(f"{self.parent}_Next Image", next.thumbnail[3])
+        dpg.set_value(f"{self.parent}_Previous Image", previous.thumbnail[3])
+        dpg.set_value(f"{self.parent}_Image Slider", self.current_image + 1)
         self.billing_window.load(index)
 
     def next(self):
