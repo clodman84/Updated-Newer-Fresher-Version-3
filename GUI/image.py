@@ -9,6 +9,7 @@ from Application.utils import ShittyMultiThreading
 
 from .bill import BillingWindow
 
+
 logger = logging.getLogger("GUI.Image")
 
 
@@ -64,6 +65,7 @@ class ImageWindow:
             label=self.path.name,
             width=self.window_dimensions[0],
             height=self.window_dimensions[1],
+            on_close=self.billing_window.close
         )
         with dpg.child_window(parent=self.parent):
             indicator = dpg.add_loading_indicator()
@@ -138,3 +140,4 @@ class ImageWindow:
             self.open(self.current_image - 1)
         else:
             self.open(self.image_manager.end_index - 1)
+
