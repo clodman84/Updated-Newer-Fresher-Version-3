@@ -29,13 +29,15 @@ class BillingWindow:
         self.path = path
         self.num_rows = 45
 
+
         with dpg.window(
             width=625,
             height=436,
             label=f"Billing Window {self.path.name}",
             no_resize=True,
             no_close=True,
-        ):
+
+        ) as self.window:
             with dpg.group(horizontal=True):
                 dpg.add_text("Search")
                 input = dpg.add_input_text(width=250)
@@ -211,7 +213,11 @@ class BillingWindow:
             write(self.ids_per_roll, self.roll)
         logger.debug(timer)
         self.show_selected_ids()
-        
+
+    def close(self):
+        dpg.delete_item(self.window)
+    
+
         
 def show_all_nicks():
     nicks = db.get_all_nicks()
@@ -239,3 +245,5 @@ def show_all_nicks():
                 with dpg.table_row():
                     for j in range(len(headers_2)):
                         dpg.add_text(nicks[i][j])
+
+
