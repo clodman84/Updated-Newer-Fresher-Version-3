@@ -1,0 +1,12 @@
+[project]
+name = "UNF-v3"
+version = "0.2.0-beta"
+description = "DoPy Billing Software"
+
+[tool.cxfreeze]
+executables = [
+    {script = "main.py", base = "gui", icon="dopylogofinal"}
+]
+
+[tool.cxfreeze.build_exe]
+optimize = 2
