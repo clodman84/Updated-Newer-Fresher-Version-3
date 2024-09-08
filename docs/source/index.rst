@@ -12,6 +12,7 @@ This newer version aims to be easy to update and maintain, and contributions fro
    :caption: Contents:
 
    Getting Started
+   Search Syntax
 
 Indices and tables
 ------------------
