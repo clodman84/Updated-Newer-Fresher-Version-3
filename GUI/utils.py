@@ -248,8 +248,6 @@ def logger_stress_test():
             render_frame(A, B)
             A += 0.08
             B += 0.03
-            if dpg.get_frame_rate() < 90:
-                L.clear_log()
 
     t = threading.Thread(target=task)
     t.start()
