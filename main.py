@@ -83,6 +83,9 @@ def main():
                 dpg.add_menu_item(
                     label="Show Performance Metrics", callback=dpg.show_metrics
                 )
+                dpg.add_menu_item(
+                    label="Logger Stress Test", callback=GUI.logger_stress_test
+                )
             with dpg.menu(label="Dev"):
                 dpg.add_menu_item(
                     label="Spawn Billing Window",
@@ -91,18 +94,18 @@ def main():
                     ),
                 )
                 dpg.add_menu_item(label="Show GUI Demo", callback=demo.show_demo)
-
             dpg.add_button(
                 label="Music",
                 callback=lambda: GUI.MusicVisualiser(
                     "./Data/Audio/clodman.mp3"
                 ).start(),
             )
-    with dpg.window(height=350, width=350, label="Logger") as logger_window:
-        log = GUI.Logger(parent=logger_window)
-        log.setFormatter(formatter)
-        core_logger.addHandler(log)
-        gui_logger.addHandler(log)
+
+    log = GUI.Logger()
+    log.setFormatter(formatter)
+    core_logger.addHandler(log)
+    gui_logger.addHandler(log)
+
     dpg.setup_dearpygui()
     dpg.set_primary_window("Primary Window", True)
     dpg.set_viewport_vsync(False)
