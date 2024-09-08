@@ -64,6 +64,7 @@ class ImageWindow:
             label=self.path.name,
             width=self.window_dimensions[0],
             height=self.window_dimensions[1],
+            on_close=self.billing_window.close,
         )
         with dpg.child_window(parent=self.parent):
             indicator = dpg.add_loading_indicator()
@@ -128,7 +129,7 @@ class ImageWindow:
         self.billing_window.load(index)
 
     def next(self):
-        if self.current_image < self.image_manager.end_index:
+        if self.current_image < self.image_manager.end_index - 1:
             self.open(self.current_image + 1)
         else:
             self.open(0)
