@@ -29,7 +29,9 @@ Loading The Mess List
 ---------------------
 
 .. note::
-   This needs to be done only when you have downloaded the app for the first time or when the mess list has changed.
+   #. This needs to be done only when you have downloaded the app for the first time or when the mess list has changed
+   #. Every NULL in the mess list should be changed to a 0
+   #. Every invalid character detected in the mess list (such as an extra space in a name, or a random UNICODE character) must be removed
 
 The mess list is a csv file which consists of the ID Numbers, Names, Genders and Hostels of all the students in the college. You can keep it anywhere on your
 PC. To load the mess list, drag the :ref:`Logger` window away to reveal the toolbar located on the top of the main app window. Simply click Tools -> Load Mess List.
