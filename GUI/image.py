@@ -28,26 +28,30 @@ class ImageWindow:
 
         self.current_image: int = 0
         self.billing_window = BillingWindow(roll=path.name, path=path)
-        self.main_image_dimensions = (750, 500)
-        self.thumnail_dimensions = (245, 247)
-        self.window_dimensions = (1035, 608)
+        self.main_image_ratios = (0.55, 0.65)
+        self.thumnail_ratios = (0.18, 0.32)
+        self.window_ratios = (0.76, 0.79)
         self.path = path
 
         monitors = get_monitors()
         for monitor in monitors:
-            if monitor.is_primary and monitor.width_mm < 320:
-                scale = 0.65
+            if monitor.is_primary:
                 self.main_image_dimensions = tuple(
-                    int(scale * i) for i in self.main_image_dimensions
+                    int(j * i)
+                    for i, j in zip(
+                        self.main_image_ratios, (monitor.width, monitor.height)
+                    )
                 )
                 self.thumnail_dimensions = tuple(
-                    int(scale * i) for i in self.thumnail_dimensions
+                    int(j * i)
+                    for i, j in zip(
+                        self.thumnail_ratios, (monitor.width, monitor.height)
+                    )
                 )
                 self.window_dimensions = tuple(
-                    int(scale * i) for i in self.window_dimensions
+                    int(j * i)
+                    for i, j in zip(self.window_ratios, (monitor.width, monitor.height))
                 )
-                logger.debug("Small monitor detected, scaled down the ImageWindow")
-        logger.debug("Monitor big enough, ImageWindow was not scaled down")
 
         self.image_manager = ImageManager(
             mode="offline",
