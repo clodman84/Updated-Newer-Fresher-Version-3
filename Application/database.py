@@ -77,6 +77,8 @@ def scan_mess_list(path: Path) -> list[dict[str, str]]:
     """
     Verifies that the csv file is a messand returns which datatype of each column
     """
+
+    #TODO: There needs to be instruction in the docs to turn all NULL hoscodes to ps and all NULL roomnos to 0 (a roomno of 1 does not make sense)
     with open(path) as file:
         reader = csv.reader(file)
         rows = [row for row in reader]
