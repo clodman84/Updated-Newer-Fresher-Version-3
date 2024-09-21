@@ -89,6 +89,7 @@ def scan_mess_list(path: Path) -> list[dict[str, str]]:
     hoscodes = {
         "ak",
         "bd",
+        "bg",
         "cvr",
         "ds",
         "ps",
@@ -190,7 +191,10 @@ def get_nick(id):
         cursor = db.execute("SELECT nick FROM students WHERE idno = ?", (id,))
         return cursor.fetchone()
 
+
 def get_all_nicks():
     with ConnectionPool() as db:
-        cursor = db.execute("SELECT name, idno, nick FROM students WHERE nick IS NOT NULL")
+        cursor = db.execute(
+            "SELECT name, idno, nick FROM students WHERE nick IS NOT NULL"
+        )
         return cursor.fetchall()
