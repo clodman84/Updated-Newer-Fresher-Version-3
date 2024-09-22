@@ -11,21 +11,25 @@ MODAL_HIDDEN_LIST = []
 logger = logging.getLogger("GUI.Utils")
 
 
-def modal_message(message):
+def modal_message(message, checkbox=True):
     """When you need a popup"""
     print(message)
     if message in MODAL_HIDDEN_LIST:
         return
     with dpg.mutex():
         with dpg.window(
-            modal=True, autosize=True, no_resize=True, no_title_bar=True
+            modal=True,
+            autosize=True,
+            no_resize=True,
+            no_title_bar=True,
         ) as warning:
             dpg.add_text(message, wrap=200)
             dpg.add_separator()
-            dpg.add_checkbox(
-                label="Don't show this again.",
-                callback=lambda: MODAL_HIDDEN_LIST.append(message),
-            )
+            if checkbox == True:
+                dpg.add_checkbox(
+                    label="Don't show this again.",
+                    callback=lambda: MODAL_HIDDEN_LIST.append(message),
+                )
             with dpg.group(horizontal=True):
                 dpg.add_button(
                     label="Okay", width=75, callback=lambda: dpg.delete_item(warning)

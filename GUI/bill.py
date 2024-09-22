@@ -28,7 +28,7 @@ class BillingWindow:
         self.current_index = 0
         self.path = path
         self.num_rows = 45
-
+        self.total_snaps = 0
 
         with dpg.window(
             width=625,
@@ -36,7 +36,6 @@ class BillingWindow:
             label=f"Billing Window {self.path.name}",
             no_resize=True,
             no_close=True,
-
         ) as self.window:
             with dpg.group(horizontal=True):
                 dpg.add_text("Search")
@@ -94,7 +93,10 @@ class BillingWindow:
 
     def export(self):
         copy_images(self.ids_per_roll, self.path)
-        modal_message("Roll Exported!")
+        modal_message(
+            "Roll Exported!\nBilled Snaps = {}".format(self.update_total_snaps()),
+            checkbox=False,
+        )
 
     def suggest(self, sender, app_data, user_data):
         if len(app_data) > 0:
@@ -200,7 +202,7 @@ class BillingWindow:
         same_as_default = index if index != 0 else 30
         dpg.set_value(self.same_as_input, same_as_default)
         self.show_selected_ids()
-        
+
     def save(self):
         pass
 
@@ -216,9 +218,15 @@ class BillingWindow:
 
     def close(self):
         dpg.delete_item(self.window)
-    
 
-        
+    def update_total_snaps(self):
+        self.total_snaps = 0
+        for i in self.ids_per_roll:
+            for j in i.values():
+                self.total_snaps += j
+        return self.total_snaps
+
+
 def show_all_nicks():
     nicks = db.get_all_nicks()
     headers_2 = ["Name", "ID", "Nicks"]
@@ -245,5 +253,3 @@ def show_all_nicks():
                 with dpg.table_row():
                     for j in range(len(headers_2)):
                         dpg.add_text(nicks[i][j])
-
-
