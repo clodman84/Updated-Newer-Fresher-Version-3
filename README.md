@@ -1,8 +1,7 @@
 # This is the DoPy billing software
 ![image](https://github.com/user-attachments/assets/2d2cf74b-86f9-4c08-baf6-fe51b7ae0746)
 
-The dopy billing software is used by the Department of Photography BITS Pilani to associate images with room numbers and ids so that images can be billed and sent to students across the campus.
-This application aims to overhaul the DoPy billing application and is a continuation of decades of evolution of our processes. Detailed documentation can be found [here](https://updated-newer-fresher-version-3.readthedocs.io/en/latest/index.html) (the documentation is a work in progress as of writing this).
+Detailed documentation can be found [here](https://updated-newer-fresher-version-3.readthedocs.io/en/latest/index.html) (the documentation is a work in progress as of writing this).
 
 ## Features
 
