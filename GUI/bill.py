@@ -3,7 +3,6 @@ import logging
 from pathlib import Path
 
 import dearpygui.dearpygui as dpg
-from pyparsing import col
 
 from Application import SearchMachine, copy_images, db, load, write
 from Application.utils import SimpleTimer
