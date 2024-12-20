@@ -57,13 +57,25 @@ class Image:
         """
         logger.debug(f"Making image from path: {str(path)}")
         """Makes an Image object from the specified Path"""
-        raw_image = PImage.open(path)
-        raw_image.putalpha(255)
-        thumbnail = PImageOps.pad(raw_image, thumbnail_dimensions, color="#000000")
-        dpg_texture = PImageOps.pad(raw_image, main_image_dimensions, color="#000000")
+        try:
+            raw_image = PImage.open(path)
+            raw_image.putalpha(255)
+            thumbnail = PImageOps.pad(raw_image, thumbnail_dimensions, color="#000000")
+            dpg_texture = PImageOps.pad(raw_image, main_image_dimensions, color="#000000")
+        except Exception:
+            # I know that catching all exceptions is bad, but the range of errors is truly insane here
+            logger.error(f"Something is seriously wrong with image: {str(path)}")
+            raw_image = PImage.open("./dopylogofinal.png")
+            raw_image.putalpha(255)
+            thumbnail = PImageOps.pad(raw_image, thumbnail_dimensions, color="#000000")
+            dpg_texture = PImageOps.pad(raw_image, main_image_dimensions, color="#000000")
+
 
         # this frees up memory, PIL.Image.open() is lazy and does not load the image into memory till it needs to be
-        raw_image = PImage.open(path)
+        try:
+            raw_image = PImage.open(path)
+        except PImage.UnidentifiedImageError:
+            pass
 
         # dpg_texture-ifying
         channels = len(thumbnail.getbands())
@@ -106,7 +118,6 @@ class ImageManager:
         current_index: The index of the image that is currently being displayed
     """
 
-    """Does what the name suggests, creates Images. Regardless of wherever it is from, the interface stays the same"""
 
     def __init__(
         self,
@@ -157,10 +168,10 @@ class ImageManager:
         logger.debug(f"Loading image {self.images[index]}")
         if index >= self.end_index:
             print(self.end_index)
-            logger.error("Attempted to get image number > 40, defaulted to 1")
+            logger.error(f"Attempted to get image number > {self.end_index}, defaulted to 1")
             index = 0
         elif index < 0:
-            logger.error("Attempted to get image number < 1, defaulted to 40")
+            logger.error(f"Attempted to get image number < 1, defaulted to {self.end_index}")
             index = self.end_index - 1
         self.current_index = index
         if self.mode == "offline":
