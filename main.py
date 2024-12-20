@@ -10,6 +10,11 @@ import GUI
 
 logger = logging.getLogger("Core.Main")
 
+DETECT_FACES = True
+def toggle_detect_faces():
+    global DETECT_FACES
+    DETECT_FACES = not DETECT_FACES
+    logger.info(f"Face detection set to {DETECT_FACES}")
 
 def setup_db():
     """
@@ -23,7 +28,7 @@ def setup_db():
 
 
 def make_image_window(path: Path):
-    GUI.ImageWindow(path)
+    GUI.ImageWindow(path, DETECT_FACES)
 
 
 def load_image_folder(sender, app_data, user_data):
@@ -92,6 +97,9 @@ def main():
                 )
                 dpg.add_menu_item(
                     label="Logger Stress Test", callback=GUI.logger_stress_test
+                )
+                dpg.add_menu_item(
+                    label="Toggle Face Detection", callback=toggle_detect_faces
                 )
             with dpg.menu(label="Dev"):
                 dpg.add_menu_item(
