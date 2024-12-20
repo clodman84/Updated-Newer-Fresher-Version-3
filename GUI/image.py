@@ -4,7 +4,7 @@ from pathlib import Path
 import dearpygui.dearpygui as dpg
 from screeninfo import get_monitors
 
-from Application import ImageManager
+from Application import ImageManager, detect
 from Application.utils import ShittyMultiThreading
 
 from .bill import BillingWindow
@@ -101,7 +101,7 @@ class ImageWindow:
                     tag=f"{self.parent}_Previous Image",
                 )
 
-            with dpg.group(horizontal=True):
+            with dpg.group(horizontal=True) as self.ribbon:
                 dpg.add_button(label="Next", callback=self.next)
                 dpg.add_button(label="Previous", callback=self.previous)
                 dpg.add_slider_int(
@@ -111,6 +111,8 @@ class ImageWindow:
                     callback=lambda _, a, u: self.open(a - 1),
                     tag=f"{self.parent}_Image Slider",
                 )
+                dpg.add_button(label="Count Faces", callback=self.count_faces)
+                dpg.add_text("", tag=f"{self.parent}_face_count")
 
             with dpg.group(horizontal=True):
                 with dpg.group():
@@ -130,6 +132,8 @@ class ImageWindow:
         dpg.set_value(f"{self.parent}_Next Image", next.thumbnail[3])
         dpg.set_value(f"{self.parent}_Previous Image", previous.thumbnail[3])
         dpg.set_value(f"{self.parent}_Image Slider", self.current_image + 1)
+        dpg.set_value(f"{self.parent}_face_count", "")
+
         self.billing_window.load(index)
 
     def next(self):
@@ -143,3 +147,10 @@ class ImageWindow:
             self.open(self.current_image - 1)
         else:
             self.open(self.image_manager.end_index - 1)
+
+    def count_faces(self):
+        path = self.image_manager.images[self.current_image]
+        indicator = dpg.add_loading_indicator(parent=self.ribbon)
+        count = detect(path)
+        dpg.set_value(f"{self.parent}_face_count", f"{count} face{'' if count == 1 else 's'} detected!")
+        dpg.delete_item(indicator)

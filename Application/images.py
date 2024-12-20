@@ -14,6 +14,7 @@ import PIL.Image as PImage
 import PIL.ImageOps as PImageOps
 
 from .utils import ShittyMultiThreading
+from .detect import detect
 
 logger = logging.getLogger("Core.Images")
 
@@ -125,7 +126,7 @@ class ImageManager:
         roll: str,
         main_image_dimensions,
         thumbnail_dimensions,
-        path: Optional[Path] = None,
+        path: Path
     ) -> None:
         if mode == "offline" and not Path:
             logging.error(
@@ -147,13 +148,7 @@ class ImageManager:
 
         Returns: list
         """
-        if self.path:
-            return sorted(list(self.path.iterdir()))
-        else:
-            # this may seem stupid right now, but this will replaced with a function
-            # call to get image ids from the server, as the images will not be
-            # renamed on the server.
-            return list(range(1, self.end_index + 1))
+        return sorted(list(self.path.iterdir()))
 
     def load(self, index):
         """
