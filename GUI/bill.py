@@ -14,7 +14,7 @@ logger = logging.getLogger("GUI.Bill")
 
 
 class BillingWindow:
-    def __init__(self, roll: str, path: Path):
+    def __init__(self, roll: str, path: Path, num_images: int):
         # List of things the BilledWindow knows about:
         # 1. The cam and roll that it is responsible for
 
@@ -23,7 +23,7 @@ class BillingWindow:
         # 2. Advances the billing process (loads the appropriate image)
 
         self.roll = roll
-        self.ids_per_roll = load(roll) or [collections.Counter() for _ in range(40)]
+        self.ids_per_roll = load(roll) or [collections.Counter() for _ in range(num_images)]
         self.search_machine = SearchMachine()
         self.current_index = 0
         self.path = path

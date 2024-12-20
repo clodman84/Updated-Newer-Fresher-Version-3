@@ -106,7 +106,6 @@ class ImageManager:
         current_index: The index of the image that is currently being displayed
     """
 
-    """Does what the name suggests, creates Images. Regardless of wherever it is from, the interface stays the same"""
 
     def __init__(
         self,

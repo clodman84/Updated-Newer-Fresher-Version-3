@@ -27,7 +27,6 @@ class ImageWindow:
         # 3. Has a preview for the next and previous image
 
         self.current_image: int = 0
-        self.billing_window = BillingWindow(roll=path.name, path=path)
         self.main_image_ratios = (0.55, 0.65)
         self.thumnail_ratios = (0.18, 0.32)
         self.window_ratios = (0.76, 0.79)
@@ -60,6 +59,7 @@ class ImageWindow:
             main_image_dimensions=self.main_image_dimensions,
             thumbnail_dimensions=self.thumnail_dimensions,
         )
+        self.billing_window = BillingWindow(roll=path.name, path=path, num_images=self.image_manager.end_index)
         self.setup()
         self.image_manager.load_in_background()
 
