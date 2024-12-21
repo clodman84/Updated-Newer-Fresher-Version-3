@@ -10,7 +10,7 @@ import GUI
 
 logger = logging.getLogger("Core.Main")
 
-DETECT_FACES = True
+DETECT_FACES = False 
 def toggle_detect_faces():
     global DETECT_FACES
     DETECT_FACES = not DETECT_FACES
