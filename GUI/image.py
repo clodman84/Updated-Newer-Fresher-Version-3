@@ -4,7 +4,7 @@ from pathlib import Path
 import dearpygui.dearpygui as dpg
 from screeninfo import get_monitors
 
-from Application import ImageManager
+from Application import ImageManager, detect, visualise
 from Application.utils import ShittyMultiThreading
 
 from .bill import BillingWindow
@@ -15,7 +15,7 @@ logger = logging.getLogger("GUI.Image")
 class ImageWindow:
     """imej"""
 
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, detect_faces: bool):
         # List of things the image window knows about:
         # 1. The roll that is currently being billed
         # 2. The images in the roll
@@ -31,6 +31,7 @@ class ImageWindow:
         self.thumnail_ratios = (0.18, 0.32)
         self.window_ratios = (0.76, 0.79)
         self.path = path
+        self.detect_faces = detect_faces
 
         monitors = get_monitors()
         for monitor in monitors:
@@ -77,6 +78,8 @@ class ImageWindow:
             ShittyMultiThreading(
                 self.image_manager.load, (0, 1, self.image_manager.end_index - 1)
             ).start()
+
+
             image = self.image_manager.load(0)
             logger.debug(image.dpg_texture[3].shape)
 
@@ -101,7 +104,7 @@ class ImageWindow:
                     tag=f"{self.parent}_Previous Image",
                 )
 
-            with dpg.group(horizontal=True):
+            with dpg.group(horizontal=True) as self.ribbon:
                 dpg.add_button(label="Next", callback=self.next)
                 dpg.add_button(label="Previous", callback=self.previous)
                 dpg.add_slider_int(
@@ -111,6 +114,8 @@ class ImageWindow:
                     callback=lambda _, a, u: self.open(a - 1),
                     tag=f"{self.parent}_Image Slider",
                 )
+                dpg.add_button(label="Count Faces", callback=self.count_faces, show=self.detect_faces)
+                dpg.add_text("", tag=f"{self.parent}_face_count")
 
             with dpg.group(horizontal=True):
                 with dpg.group():
@@ -118,6 +123,13 @@ class ImageWindow:
                     dpg.add_image(f"{self.parent}_Next Image")
                 dpg.add_image(f"{self.parent}_Main Image")
             dpg.delete_item(indicator)
+
+            # ultra shitty way to detect all the faces in the background (very bad)
+            if self.detect_faces:
+                ShittyMultiThreading(
+                    detect, self.image_manager.images, num_threads=1
+                ).start()
+
 
     def open(self, index: int):
         self.current_image = index
@@ -130,6 +142,8 @@ class ImageWindow:
         dpg.set_value(f"{self.parent}_Next Image", next.thumbnail[3])
         dpg.set_value(f"{self.parent}_Previous Image", previous.thumbnail[3])
         dpg.set_value(f"{self.parent}_Image Slider", self.current_image + 1)
+        dpg.set_value(f"{self.parent}_face_count", "")
+
         self.billing_window.load(index)
 
     def next(self):
@@ -143,3 +157,15 @@ class ImageWindow:
             self.open(self.current_image - 1)
         else:
             self.open(self.image_manager.end_index - 1)
+
+    def count_faces(self):
+        path = self.image_manager.images[self.current_image]
+        indicator = dpg.add_loading_indicator(parent=self.ribbon)
+        faces = detect(path)
+        if faces is not str and faces[1] is not None:
+            n_faces = len(faces[1])
+            dpg.set_value(f"{self.parent}_face_count", f"{n_faces} face{'' if n_faces==1 else 's'} detected")
+        dimensions = self.image_manager.load(self.current_image).dpg_texture[:2]
+        updated_image = visualise(path, faces, dimensions)
+        dpg.set_value(f"{self.parent}_Main Image", updated_image)
+        dpg.delete_item(indicator)

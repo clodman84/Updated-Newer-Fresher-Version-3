@@ -44,6 +44,8 @@ class Singleton(type):
 class ShittyMultiThreading:
     """terrible, utterly horrendous. doesn't even store the return values lmao"""
 
+    # TODO: every thread started by this godforsaken "threadpool" should be killed when dearpygui exits
+
     def __init__(self, work, tasks, num_threads=5) -> None:
         self.work = work
         self.num_threads = num_threads
