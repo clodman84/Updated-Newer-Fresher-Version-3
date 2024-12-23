@@ -8,7 +8,13 @@ from screeninfo import get_monitors
 import Application
 import GUI
 
+# Above code simply imports everything. Take note of the names
+
 logger = logging.getLogger("Core.Main")
+
+# Above is a logger, which is responsible for keeping track of all the processes happening within the code. We use this as opposed to print()
+# because a) it's easier to check the logger, rather than checking the terminal, b) you can basically log anything, and filter stuff based
+# on severity.
 
 
 def setup_db():
