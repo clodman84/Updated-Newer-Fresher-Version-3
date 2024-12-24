@@ -83,7 +83,7 @@ class ImageWindow:
             label=self.path.name,
             width=self.window_dimensions[0],
             height=self.window_dimensions[1],
-            on_close=self.billing_window.close,
+            on_close=self.billing_window.close,  # Close the billing window along with the image window
         )
 
         with dpg.child_window(parent=self.parent):
