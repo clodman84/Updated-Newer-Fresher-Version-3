@@ -83,10 +83,21 @@ class BillingWindow:
                                 user_data=row,
                             )
 
-                with dpg.child_window(width=250):
-                    with dpg.table(resizable=True) as self.ids_table:
-                        dpg.add_table_column(label="ID")
-                        dpg.add_table_column(label="Count")
+                with dpg.child_window(width=250) as billed_panel:
+                    self.billed_count = dpg.add_text("0 people billed")
+                    self.billed_table = TableManager9000(
+                        parent=billed_panel,
+                        rows=self.num_rows, # TODO: maybe this number should be different or TableManager9000 should be more flexible,
+                        headers=["ID", "Count", "Name"],
+                    )
+                    self.billed_table["Name"] = dpg.add_text, {"label": ""}
+                    self.billed_table["ID"] = dpg.add_text, {"label": ""}
+                    self.billed_table["Count"] = dpg.add_input_int, {
+                        "callback" : lambda s, a, u: self.set_id(u, a),
+                        "default_value": 0,
+                        "width": 80 
+                    }
+                    self.billed_table.construct()
             dpg.set_item_callback(input, self.suggest)
         self.show_selected_ids()
 
@@ -182,19 +193,30 @@ class BillingWindow:
 
     def show_selected_ids(self):
         counter = self.ids_per_roll[self.current_index]
-        self.clear()
-        for key, value in counter.items():
-            with dpg.table_row(parent=self.ids_table):
-                dpg.add_text(key)
-                dpg.add_input_int(
-                    default_value=value,
-                    callback=lambda s, a, u: self.set_id(u, a),
-                    user_data=key,
-                )
+        total_billed = sum(self.ids_per_roll[self.current_index].values())
+        dpg.set_value(self.billed_count, f"{total_billed} {'people' if total_billed != 1 else 'person'} billed")
 
-    def clear(self):
-        for item in dpg.get_item_children(self.ids_table)[1]:
-            dpg.delete_item(item)
+        for row, id in enumerate(counter):
+            if row == self.num_rows - 1:
+                break
+            for column in self.billed_table.headers:
+                if column == "Count":
+                    dpg.set_item_user_data(
+                        self.billed_table[row][column], id
+                    )
+                    dpg.set_value(self.billed_table[row][column], counter[id])
+                    dpg.show_item(self.billed_table[row][column])
+                elif column == "ID":
+                    dpg.set_value(self.billed_table[row][column], id)
+                    dpg.show_item(self.billed_table[row][column])
+                elif column == "Name":
+                    name, = db.get_name(id)
+                    dpg.set_value(self.billed_table[row][column], name)
+                    dpg.show_item(self.billed_table[row][column])
+
+        for row in range(len(counter), self.num_rows):
+            for column in self.billed_table.headers:
+                dpg.hide_item(self.billed_table[row][column])
 
     def load(self, index: int):
         self.current_index = index
