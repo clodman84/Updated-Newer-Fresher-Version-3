@@ -13,8 +13,8 @@ import numpy as np
 import PIL.Image as PImage
 import PIL.ImageOps as PImageOps
 
-from .utils import ShittyMultiThreading
 from .detect import detect
+from .utils import ShittyMultiThreading
 
 logger = logging.getLogger("Core.Images")
 
@@ -62,15 +62,18 @@ class Image:
             raw_image = PImage.open(path)
             raw_image.putalpha(255)
             thumbnail = PImageOps.pad(raw_image, thumbnail_dimensions, color="#000000")
-            dpg_texture = PImageOps.pad(raw_image, main_image_dimensions, color="#000000")
+            dpg_texture = PImageOps.pad(
+                raw_image, main_image_dimensions, color="#000000"
+            )
         except Exception:
             # I know that catching all exceptions is bad, but the range of errors is truly insane here
             logger.error(f"Something is seriously wrong with image: {str(path)}")
             raw_image = PImage.open("./dopylogofinal.png")
             raw_image.putalpha(255)
             thumbnail = PImageOps.pad(raw_image, thumbnail_dimensions, color="#000000")
-            dpg_texture = PImageOps.pad(raw_image, main_image_dimensions, color="#000000")
-
+            dpg_texture = PImageOps.pad(
+                raw_image, main_image_dimensions, color="#000000"
+            )
 
         # this frees up memory, PIL.Image.open() is lazy and does not load the image into memory till it needs to be
         try:
@@ -119,14 +122,14 @@ class ImageManager:
         current_index: The index of the image that is currently being displayed
     """
 
-
     def __init__(
         self,
         mode: Literal["online", "offline"],
         roll: str,
         main_image_dimensions,
         thumbnail_dimensions,
-        path: Path
+        path: Path,
+        files: Optional[list[Path]] = None,
     ) -> None:
         if mode == "offline" and not Path:
             logging.error(
@@ -139,7 +142,13 @@ class ImageManager:
         self.current_index = 0
         self.main_image_dimensions = main_image_dimensions
         self.thumbnail_dimensions = thumbnail_dimensions
-        self.end_index = len([name for name in os.listdir(path)])
+        self.files = files
+
+    @functools.cached_property
+    def end_index(self):
+        if self.files:
+            return len(self.files)
+        return len([name for name in os.listdir(self.path)])
 
     @functools.cached_property
     def images(self):
@@ -148,6 +157,8 @@ class ImageManager:
 
         Returns: list
         """
+        if self.files:
+            return self.files
         return sorted(list(self.path.iterdir()))
 
     def load(self, index):
@@ -163,10 +174,14 @@ class ImageManager:
         logger.debug(f"Loading image {self.images[index]}")
         if index >= self.end_index:
             print(self.end_index)
-            logger.error(f"Attempted to get image number > {self.end_index}, defaulted to 1")
+            logger.error(
+                f"Attempted to get image number > {self.end_index}, defaulted to 1"
+            )
             index = 0
         elif index < 0:
-            logger.error(f"Attempted to get image number < 1, defaulted to {self.end_index}")
+            logger.error(
+                f"Attempted to get image number < 1, defaulted to {self.end_index}"
+            )
             index = self.end_index - 1
         self.current_index = index
         if self.mode == "offline":

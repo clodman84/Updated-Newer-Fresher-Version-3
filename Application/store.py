@@ -4,6 +4,7 @@ import os
 from collections import Counter
 from pathlib import Path
 from shutil import copy
+from typing import Optional
 
 from .database import get_file_name
 
@@ -22,10 +23,15 @@ def load(roll: str):
             return [Counter(i) for i in json.load(file)]
 
 
-def copy_images(counters: list[Counter], path: Path):
+def copy_images(
+    counters: list[Counter], path: Path, source: Optional[list[Path]] = None
+):
     if not Path(f"./Data/{path.name}").exists():
         os.mkdir(Path(f"./Data/{path.name}"))
-    images = sorted(path.iterdir())
+    if not source:
+        images = sorted(path.iterdir())
+    else:
+        images = [i[0] for i in source]
     for index, image in enumerate(counters):
         for id, count in image.items():
             file_name_base = get_file_name(id)

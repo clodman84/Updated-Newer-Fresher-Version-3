@@ -78,7 +78,7 @@ def scan_mess_list(path: Path) -> list[dict[str, str]]:
     Verifies that the csv file is a messand returns which datatype of each column
     """
 
-    #TODO: There needs to be instruction in the docs to turn all NULL hoscodes to ps and all NULL roomnos to 0 (a roomno of 1 does not make sense)
+    # TODO: There needs to be instruction in the docs to turn all NULL hoscodes to ps and all NULL roomnos to 0 (a roomno of 1 does not make sense)
     with open(path) as file:
         reader = csv.reader(file)
         rows = [row for row in reader]
@@ -156,7 +156,7 @@ def read_mess_list(path: Path):
     with ConnectionPool() as db:
         vals = scan_mess_list(path)
         db.executemany(
-            "INSERT OR IGNORE INTO students (idno, name, gender, hoscode, roomno, nick) VALUES(:idno, :name, :gender, :hoscode, :roomno, :nick)",
+            "INSERT INTO students (idno, name, gender, hoscode, roomno, nick) VALUES(:idno, :name, :gender, :hoscode, :roomno, :nick) ON CONFLICT(idno) DO UPDATE SET hoscode=:hoscode, roomno=:roomno",
             vals,
         )
         db.commit()
@@ -182,6 +182,39 @@ def get_file_name(id):
         return f"{hoscode}_{roomno}_{'{}'}{'{:02}'}_{'{}'}_{id[2:4]}{id[-4:]}"
 
 
+def get_all_info(id):
+    """
+    Returns the file name skeleton which can be formated with the roll number. This
+    if the name of the output of the billing process.
+
+    Args:
+        id (): The complete ID of the person who's image is being saved.
+
+    Returns:
+        str of the form "hoscode_roomno_{}_YEARLAST4DIGITS"
+
+    """
+    with ConnectionPool() as db:
+        cursor = db.execute(
+            "SELECT idno, name, hoscode, roomno FROM students WHERE idno = ?", (id,)
+        )
+        return cursor.fetchone()
+
+
+def get_hoscode_roomno_from_short_id(id):
+    """
+    Basically only used to rename files in the event of a fuckup
+    """
+    with ConnectionPool() as db:
+        cursor = db.execute(
+            "SELECT hoscode, roomno, idno FROM students WHERE idno LIKE ?",
+            (f"%{id[:2]}%{id[2:]}",),
+        )
+        # change this after a thousand years I guess
+        bruh = cursor.fetchall()
+        return bruh
+
+
 def set_nick(nick, id):
     with ConnectionPool() as db:
         db.execute("UPDATE students SET nick = ? WHERE idno = ?", (nick, id))
@@ -193,11 +226,11 @@ def get_nick(id):
         cursor = db.execute("SELECT nick FROM students WHERE idno = ?", (id,))
         return cursor.fetchone()
 
+
 def get_name(id):
     with ConnectionPool() as db:
         cursor = db.execute("SELECT name FROM students WHERE idno = ?", (id,))
         return cursor.fetchone()
-
 
 
 def get_all_nicks():

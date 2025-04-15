@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+from typing import Optional
 
 import dearpygui.dearpygui as dpg
 from screeninfo import get_monitors
@@ -15,7 +16,13 @@ logger = logging.getLogger("GUI.Image")
 class ImageWindow:
     """imej"""
 
-    def __init__(self, path: Path, detect_faces: bool):
+    def __init__(
+        self,
+        path: Path,
+        detect_faces: bool,
+        image_manager: Optional[ImageManager] = None,
+        source: Optional[list[Path]] = None,
+    ):
         # List of things the image window knows about:
         # 1. The roll that is currently being billed
         # 2. The images in the roll
@@ -32,6 +39,7 @@ class ImageWindow:
         self.window_ratios = (0.76, 0.79)
         self.path = path
         self.detect_faces = detect_faces
+        self.source = source
 
         monitors = get_monitors()
         for monitor in monitors:
@@ -52,15 +60,22 @@ class ImageWindow:
                     int(j * i)
                     for i, j in zip(self.window_ratios, (monitor.width, monitor.height))
                 )
-
-        self.image_manager = ImageManager(
-            mode="offline",
+        if image_manager:
+            self.image_manager = image_manager
+        else:
+            self.image_manager = ImageManager(
+                mode="offline",
+                roll=path.name,
+                path=path,
+                main_image_dimensions=self.main_image_dimensions,
+                thumbnail_dimensions=self.thumnail_dimensions,
+            )
+        self.billing_window = BillingWindow(
             roll=path.name,
             path=path,
-            main_image_dimensions=self.main_image_dimensions,
-            thumbnail_dimensions=self.thumnail_dimensions,
+            num_images=self.image_manager.end_index,
+            source=self.source,
         )
-        self.billing_window = BillingWindow(roll=path.name, path=path, num_images=self.image_manager.end_index)
         self.setup()
         self.image_manager.load_in_background()
 
@@ -78,7 +93,6 @@ class ImageWindow:
             ShittyMultiThreading(
                 self.image_manager.load, (0, 1, self.image_manager.end_index - 1)
             ).start()
-
 
             image = self.image_manager.load(0)
             logger.debug(image.dpg_texture[3].shape)
@@ -114,7 +128,11 @@ class ImageWindow:
                     callback=lambda _, a, u: self.open(a - 1),
                     tag=f"{self.parent}_Image Slider",
                 )
-                dpg.add_button(label="Count Faces", callback=self.count_faces, show=self.detect_faces)
+                dpg.add_button(
+                    label="Count Faces",
+                    callback=self.count_faces,
+                    show=self.detect_faces,
+                )
                 dpg.add_text("", tag=f"{self.parent}_face_count")
 
             with dpg.group(horizontal=True):
@@ -129,7 +147,6 @@ class ImageWindow:
                 ShittyMultiThreading(
                     detect, self.image_manager.images, num_threads=1
                 ).start()
-
 
     def open(self, index: int):
         self.current_image = index
@@ -164,7 +181,10 @@ class ImageWindow:
         faces = detect(path)
         if faces is not str and faces[1] is not None:
             n_faces = len(faces[1])
-            dpg.set_value(f"{self.parent}_face_count", f"{n_faces} face{'' if n_faces==1 else 's'} detected")
+            dpg.set_value(
+                f"{self.parent}_face_count",
+                f"{n_faces} face{'' if n_faces==1 else 's'} detected",
+            )
         dimensions = self.image_manager.load(self.current_image).dpg_texture[:2]
         updated_image = visualise(path, faces, dimensions)
         dpg.set_value(f"{self.parent}_Main Image", updated_image)

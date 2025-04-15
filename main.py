@@ -7,14 +7,18 @@ from screeninfo import get_monitors
 
 import Application
 import GUI
+from GUI.fuckups import Genie
 
 logger = logging.getLogger("Core.Main")
 
-DETECT_FACES = False 
+DETECT_FACES = False
+
+
 def toggle_detect_faces():
     global DETECT_FACES
     DETECT_FACES = not DETECT_FACES
     logger.info(f"Face detection set to {DETECT_FACES}")
+
 
 def setup_db():
     """
@@ -91,6 +95,11 @@ def main():
                     label="Load Mess List",
                     callback=lambda: dpg.show_item("mess_list_file_dialog"),
                 )
+                dpg.add_menu_item(
+                    label="Genie",
+                    callback=lambda: Genie(),
+                )
+
                 dpg.add_menu_item(label="Show Nicknames", callback=GUI.show_all_nicks)
                 dpg.add_menu_item(
                     label="Show Performance Metrics", callback=dpg.show_metrics

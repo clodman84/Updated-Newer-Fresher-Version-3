@@ -1,6 +1,7 @@
 import collections
 import logging
 from pathlib import Path
+from typing import Optional
 
 import dearpygui.dearpygui as dpg
 
@@ -13,7 +14,13 @@ logger = logging.getLogger("GUI.Bill")
 
 
 class BillingWindow:
-    def __init__(self, roll: str, path: Path, num_images: int):
+    def __init__(
+        self,
+        roll: str,
+        path: Path,
+        num_images: int,
+        source: Optional[list[Path]] = None,
+    ):
         # List of things the BilledWindow knows about:
         # 1. The cam and roll that it is responsible for
 
@@ -22,12 +29,15 @@ class BillingWindow:
         # 2. Advances the billing process (loads the appropriate image)
 
         self.roll = roll
-        self.ids_per_roll = load(roll) or [collections.Counter() for _ in range(num_images)]
+        self.ids_per_roll = load(roll) or [
+            collections.Counter() for _ in range(num_images)
+        ]
         self.search_machine = SearchMachine()
         self.current_index = 0
         self.path = path
         self.num_rows = 45
         self.total_snaps = 0
+        self.source = source
 
         with dpg.window(
             width=625,
@@ -87,22 +97,22 @@ class BillingWindow:
                     self.billed_count = dpg.add_text("0 people billed")
                     self.billed_table = TableManager9000(
                         parent=billed_panel,
-                        rows=self.num_rows, # TODO: maybe this number should be different or TableManager9000 should be more flexible,
+                        rows=self.num_rows,  # TODO: maybe this number should be different or TableManager9000 should be more flexible,
                         headers=["ID", "Count", "Name"],
                     )
                     self.billed_table["Name"] = dpg.add_text, {"label": ""}
                     self.billed_table["ID"] = dpg.add_text, {"label": ""}
                     self.billed_table["Count"] = dpg.add_input_int, {
-                        "callback" : lambda s, a, u: self.set_id(u, a),
+                        "callback": lambda s, a, u: self.set_id(u, a),
                         "default_value": 0,
-                        "width": 80 
+                        "width": 80,
                     }
                     self.billed_table.construct()
             dpg.set_item_callback(input, self.suggest)
         self.show_selected_ids()
 
     def export(self):
-        copy_images(self.ids_per_roll, self.path)
+        copy_images(self.ids_per_roll, self.path, self.source)
         modal_message(
             "Roll Exported!\nBilled Snaps = {}".format(self.update_total_snaps()),
             checkbox=False,
@@ -194,23 +204,24 @@ class BillingWindow:
     def show_selected_ids(self):
         counter = self.ids_per_roll[self.current_index]
         total_billed = sum(self.ids_per_roll[self.current_index].values())
-        dpg.set_value(self.billed_count, f"{total_billed} {'people' if total_billed != 1 else 'person'} billed")
+        dpg.set_value(
+            self.billed_count,
+            f"{total_billed} {'people' if total_billed != 1 else 'person'} billed",
+        )
 
         for row, id in enumerate(counter):
             if row == self.num_rows - 1:
                 break
             for column in self.billed_table.headers:
                 if column == "Count":
-                    dpg.set_item_user_data(
-                        self.billed_table[row][column], id
-                    )
+                    dpg.set_item_user_data(self.billed_table[row][column], id)
                     dpg.set_value(self.billed_table[row][column], counter[id])
                     dpg.show_item(self.billed_table[row][column])
                 elif column == "ID":
                     dpg.set_value(self.billed_table[row][column], id)
                     dpg.show_item(self.billed_table[row][column])
                 elif column == "Name":
-                    name, = db.get_name(id)
+                    (name,) = db.get_name(id)
                     dpg.set_value(self.billed_table[row][column], name)
                     dpg.show_item(self.billed_table[row][column])
 
