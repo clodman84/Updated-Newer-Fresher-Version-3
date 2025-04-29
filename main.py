@@ -1,4 +1,6 @@
+import csv
 import logging
+from collections import Counter
 from pathlib import Path
 
 import dearpygui.dearpygui as dpg
@@ -48,6 +50,18 @@ def load_mess_list(sender, app_data, user_data):
     GUI.modal_message("Mess list loaded successfully!")
 
 
+def generate_bill(sender, app_data, user_data):
+    path = Path(app_data["file_path_name"])
+    bill = Application.generate_bill(path, Counter())
+    with open("./Data/bill.csv", "w", newline="") as csvfile:
+        csv_writer = csv.writer(csvfile)
+        csv_writer.writerow(["Item", "Count"])
+        for item, count in bill.items():
+            id, name, hoscode, roomno = Application.db.get_all_info(item)
+            csv_writer.writerow([id, name, hoscode, roomno, count])
+    GUI.modal_message("Bill Generated, check the data folder for a CSV!")
+
+
 def main():
     setup_db()
     dpg.create_context()
@@ -85,6 +99,14 @@ def main():
             height=400,
         )
 
+        dpg.add_file_dialog(
+            directory_selector=True,
+            show=False,
+            tag="crc_bill_dialog",
+            callback=generate_bill,
+            height=400,
+        )
+
         with dpg.menu_bar():
             with dpg.menu(label="Tools"):
                 dpg.add_menu_item(
@@ -94,6 +116,10 @@ def main():
                 dpg.add_menu_item(
                     label="Load Mess List",
                     callback=lambda: dpg.show_item("mess_list_file_dialog"),
+                )
+                dpg.add_menu_item(
+                    label="Generate Bill",
+                    callback=lambda: dpg.show_item("crc_bill_dialog"),
                 )
                 dpg.add_menu_item(
                     label="Genie",

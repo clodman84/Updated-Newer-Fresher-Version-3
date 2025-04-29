@@ -239,3 +239,12 @@ def get_all_nicks():
             "SELECT name, idno, nick FROM students WHERE nick IS NOT NULL"
         )
         return cursor.fetchall()
+
+
+def resolve_id(id_last_four, bhawan, roomno):
+    with ConnectionPool() as db:
+        cursor = db.execute(
+            "SELECT idno FROM students WHERE idno LIKE ? AND hoscode = ? AND roomno = ?",
+            ("%" + id_last_four, bhawan, roomno),
+        )
+        return cursor.fetchone()

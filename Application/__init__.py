@@ -1,5 +1,6 @@
 import Application.database as db
 
+from .billing import generate_bill
 from .detect import detect, visualise
 from .images import Image, ImageManager
 from .music import DJ
