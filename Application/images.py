@@ -5,16 +5,14 @@ This can be extended to receiving images from the DoPy server when it becomes a 
 
 import functools
 import logging
-import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, Optional, Tuple
+from typing import Literal, Tuple
 
 import numpy as np
 import PIL.Image as PImage
 import PIL.ImageOps as PImageOps
 
-from .detect import detect
 from .utils import ShittyMultiThreading
 
 logger = logging.getLogger("Core.Images")
@@ -115,52 +113,45 @@ class Image:
 class ImageManager:
     """
     Does what the name suggests, creates Images. Regardless of wherever it is from, the interface stays the same
-
-    Attributes:
-        mode: Whether the images are being created from a local file or via the server
-        path: Path to the folder containing all the images (This has to be there if it is loading images in offline mode)
-        roll: The roll number
-        current_index: The index of the image that is currently being displayed
     """
 
     def __init__(
         self,
         mode: Literal["online", "offline"],
-        roll: str,
         main_image_dimensions,
         thumbnail_dimensions,
-        path: Path,
-        files: Optional[list[Path]] = None,
     ) -> None:
         if mode == "offline" and not Path:
             logging.error(
                 "ImageManager initialised in offline mode, but no path was specified!"
             )
         self.mode = mode
-        self.path = path
-        logger.debug(path)
-        self.roll = roll
         self.current_index = 0
         self.main_image_dimensions = main_image_dimensions
         self.thumbnail_dimensions = thumbnail_dimensions
-        self.files = files
+        self.images: list[Path] = []
+
+    @classmethod
+    def from_path(cls, path: Path, main_image_dimensions, thumbnail_dimensions):
+        image_manager = cls("offline", main_image_dimensions, thumbnail_dimensions)
+        image_manager.images = sorted(list(path.iterdir()))
+        return image_manager
+
+    @classmethod
+    def from_file_list(
+        cls, files: list[Path], main_image_dimensions, thumbnail_dimensions
+    ):
+        image_manager = cls("offline", main_image_dimensions, thumbnail_dimensions)
+        image_manager.images = files
+        return image_manager
+
+    @classmethod
+    def from_server(cls, url):
+        return NotImplementedError
 
     @functools.cached_property
     def end_index(self):
-        if self.files:
-            return len(self.files)
-        return len([name for name in os.listdir(self.path)])
-
-    @functools.cached_property
-    def images(self):
-        """
-        A sorted list of all the images
-
-        Returns: list
-        """
-        if self.files:
-            return self.files
-        return sorted(list(self.path.iterdir()))
+        return len(self.images)
 
     def load(self, index):
         """
@@ -190,7 +181,6 @@ class ImageManager:
             return Image.frompath(
                 image_path, self.main_image_dimensions, self.thumbnail_dimensions
             )
-        return Image.fromserver(roll=self.roll, id=self.images[index])
 
     def load_in_background(self):
         """

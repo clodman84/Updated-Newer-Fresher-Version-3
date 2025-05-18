@@ -24,6 +24,7 @@ def rename_images(sender, app_data, user_data):
     if still_fucked:
         main_image_ratios = (0.55, 0.65)
         thumnail_ratios = (0.18, 0.32)
+        window_ratios = (0.76, 0.79)
         monitors = get_monitors()
         for monitor in monitors:
             if monitor.is_primary:
@@ -35,6 +36,10 @@ def rename_images(sender, app_data, user_data):
                     int(j * i)
                     for i, j in zip(thumnail_ratios, (monitor.width, monitor.height))
                 )
+                window_dimensions = tuple(
+                    int(j * i)
+                    for i, j in zip(window_ratios, (monitor.width, monitor.height))
+                )
 
                 ids_per_image = [
                     collections.Counter() for _ in range(len(still_fucked))
@@ -44,19 +49,18 @@ def rename_images(sender, app_data, user_data):
                         ids_per_image[i][id] = 1
                 write(ids_per_image, "rename_recovery")
 
-                manager = ImageManager(
-                    mode="offline",
-                    roll="rename_recovery",
-                    path=Path("rename_recovery"),
-                    files=[i[0] for i in still_fucked],
-                    main_image_dimensions=main_image_dimensions,
-                    thumbnail_dimensions=thumbnail_dimensions,
+                manager = ImageManager.from_file_list(
+                    [i[0] for i in still_fucked],
+                    main_image_dimensions,
+                    thumbnail_dimensions,
                 )
                 ImageWindow(
-                    Path("rename_recovery"),
+                    "rename_recovery",
                     False,
-                    image_manager=manager,
-                    source=still_fucked,
+                    manager,
+                    main_image_dimensions,
+                    thumbnail_dimensions,
+                    window_dimensions,
                 )
 
     modal_message(

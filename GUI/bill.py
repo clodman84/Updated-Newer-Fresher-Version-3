@@ -1,7 +1,6 @@
 import collections
 import logging
 from pathlib import Path
-from typing import Optional
 
 import dearpygui.dearpygui as dpg
 
@@ -16,25 +15,23 @@ logger = logging.getLogger("GUI.Bill")
 class BillingWindow:
     def __init__(
         self,
-        roll: str,
-        path: Path,
-        num_images: int,
-        source: Optional[list[Path]] = None,
+        roll: str,  # this is how we decide what autosave file we need to open
+        source: list[Path],  # it's your job to give the billingwindow images to bill
     ):
         # List of things the BilledWindow knows about:
-        # 1. The cam and roll that it is responsible for
+        # 1. The roll that it is responsible for
 
         # What does the BilledWindow do?
         # 1. Writes the ID and details of all the students into the database (autosave)
         # 2. Advances the billing process (loads the appropriate image)
 
         self.roll = roll
+        self.num_images = len(source)
         self.ids_per_roll = load(roll) or [
-            collections.Counter() for _ in range(num_images)
+            collections.Counter() for _ in range(self.num_images)
         ]
         self.search_machine = SearchMachine()
         self.current_index = 0
-        self.path = path
         self.num_rows = 45
         self.total_snaps = 0
         self.source = source
@@ -42,7 +39,7 @@ class BillingWindow:
         with dpg.window(
             width=625,
             height=436,
-            label=f"Billing Window {self.path.name}",
+            label=f"Billing Window {self.roll}",
             no_resize=True,
             no_close=True,
         ) as self.window:
@@ -112,7 +109,7 @@ class BillingWindow:
         self.show_selected_ids()
 
     def export(self):
-        copy_images(self.ids_per_roll, self.path, self.source)
+        copy_images(self.ids_per_roll, Path("./Data/") / self.roll, self.source)
         modal_message(
             "Roll Exported!\nBilled Snaps = {}".format(self.update_total_snaps()),
             checkbox=False,
@@ -231,12 +228,9 @@ class BillingWindow:
 
     def load(self, index: int):
         self.current_index = index
-        same_as_default = index if index != 0 else 30
+        same_as_default = index if index != 0 else self.num_images
         dpg.set_value(self.same_as_input, same_as_default)
         self.show_selected_ids()
-
-    def save(self):
-        pass
 
     def same_as(self, index):
         index = dpg.get_value(self.same_as_input)
