@@ -33,13 +33,42 @@ def setup_db():
     connection.close()
 
 
-def make_image_window(path: Path):
-    GUI.ImageWindow(path, DETECT_FACES)
+def start_billing(path: Path):
+    main_image_ratios = (0.55, 0.65)
+    thumnail_ratios = (0.18, 0.32)
+    window_ratios = (0.76, 0.79)
+    monitors = get_monitors()
+    for monitor in monitors:
+        if monitor.is_primary:
+            main_image_dimensions = tuple(
+                int(j * i)
+                for i, j in zip(main_image_ratios, (monitor.width, monitor.height))
+            )
+            thumnail_dimensions = tuple(
+                int(j * i)
+                for i, j in zip(thumnail_ratios, (monitor.width, monitor.height))
+            )
+            window_dimensions = tuple(
+                int(j * i)
+                for i, j in zip(window_ratios, (monitor.width, monitor.height))
+            )
+
+            image_manager = Application.ImageManager.from_path(
+                path, main_image_dimensions, thumnail_dimensions
+            )
+            GUI.ImageWindow(
+                roll=path.name,
+                detect_faces=DETECT_FACES,
+                image_manager=image_manager,
+                main_image_dimensions=main_image_dimensions,
+                thumnail_dimensions=thumnail_dimensions,
+                window_dimensions=window_dimensions,
+            )
 
 
 def load_image_folder(sender, app_data, user_data):
     path = Path(app_data["file_path_name"])
-    make_image_window(path)
+    start_billing(path)
 
 
 def load_mess_list(sender, app_data, user_data):
@@ -139,9 +168,7 @@ def main():
             with dpg.menu(label="Dev"):
                 dpg.add_menu_item(
                     label="Spawn Billing Window",
-                    callback=lambda: GUI.BillingWindow(
-                        roll="Dev", path=Path("Data/Dev"), num_images=40
-                    ),
+                    callback=lambda: GUI.BillingWindow(roll="Dev", source=[]),
                 )
                 dpg.add_menu_item(label="Show GUI Demo", callback=demo.show_demo)
             dpg.add_button(

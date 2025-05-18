@@ -1,9 +1,6 @@
 import logging
-from pathlib import Path
-from typing import Optional
 
 import dearpygui.dearpygui as dpg
-from screeninfo import get_monitors
 
 from Application import ImageManager, detect, visualise
 from Application.utils import ShittyMultiThreading
@@ -18,10 +15,12 @@ class ImageWindow:
 
     def __init__(
         self,
-        path: Path,
+        roll: str,
         detect_faces: bool,
-        image_manager: Optional[ImageManager] = None,
-        source: Optional[list[Path]] = None,
+        image_manager: ImageManager,
+        main_image_dimensions,
+        thumnail_dimensions,
+        window_dimensions,
     ):
         # List of things the image window knows about:
         # 1. The roll that is currently being billed
@@ -34,54 +33,22 @@ class ImageWindow:
         # 3. Has a preview for the next and previous image
 
         self.current_image: int = 0
-        self.main_image_ratios = (0.55, 0.65)
-        self.thumnail_ratios = (0.18, 0.32)
-        self.window_ratios = (0.76, 0.79)
-        self.path = path
         self.detect_faces = detect_faces
-        self.source = source
+        self.roll = roll
 
-        monitors = get_monitors()
-        for monitor in monitors:
-            if monitor.is_primary:
-                self.main_image_dimensions = tuple(
-                    int(j * i)
-                    for i, j in zip(
-                        self.main_image_ratios, (monitor.width, monitor.height)
-                    )
-                )
-                self.thumnail_dimensions = tuple(
-                    int(j * i)
-                    for i, j in zip(
-                        self.thumnail_ratios, (monitor.width, monitor.height)
-                    )
-                )
-                self.window_dimensions = tuple(
-                    int(j * i)
-                    for i, j in zip(self.window_ratios, (monitor.width, monitor.height))
-                )
-        if image_manager:
-            self.image_manager = image_manager
-        else:
-            self.image_manager = ImageManager(
-                mode="offline",
-                roll=path.name,
-                path=path,
-                main_image_dimensions=self.main_image_dimensions,
-                thumbnail_dimensions=self.thumnail_dimensions,
-            )
+        self.image_manager = image_manager
         self.billing_window = BillingWindow(
-            roll=path.name,
-            path=path,
-            num_images=self.image_manager.end_index,
-            source=self.source,
+            roll=self.roll, source=self.image_manager.images
         )
+        self.main_image_dimensions = main_image_dimensions
+        self.thumnail_dimensions = thumnail_dimensions
+        self.window_dimensions = window_dimensions
         self.setup()
         self.image_manager.load_in_background()
 
     def setup(self):
         self.parent = dpg.add_window(
-            label=self.path.name,
+            label=self.roll,
             width=self.window_dimensions[0],
             height=self.window_dimensions[1],
             on_close=self.billing_window.close,
