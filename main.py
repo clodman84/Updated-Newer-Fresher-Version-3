@@ -10,11 +10,15 @@ import GUI
 
 logger = logging.getLogger("Core.Main")
 
-DETECT_FACES = False 
+
+DETECT_FACES = False
+
+
 def toggle_detect_faces():
     global DETECT_FACES
     DETECT_FACES = not DETECT_FACES
     logger.info(f"Face detection set to {DETECT_FACES}")
+
 
 def setup_db():
     """

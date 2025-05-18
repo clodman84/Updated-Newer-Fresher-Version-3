@@ -78,7 +78,7 @@ def scan_mess_list(path: Path) -> list[dict[str, str]]:
     Verifies that the csv file is a messand returns which datatype of each column
     """
 
-    #TODO: There needs to be instruction in the docs to turn all NULL hoscodes to ps and all NULL roomnos to 0 (a roomno of 1 does not make sense)
+    # TODO: There needs to be instruction in the docs to turn all NULL hoscodes to ps and all NULL roomnos to 0 (a roomno of 1 does not make sense)
     with open(path) as file:
         reader = csv.reader(file)
         rows = [row for row in reader]
@@ -193,11 +193,11 @@ def get_nick(id):
         cursor = db.execute("SELECT nick FROM students WHERE idno = ?", (id,))
         return cursor.fetchone()
 
+
 def get_name(id):
     with ConnectionPool() as db:
         cursor = db.execute("SELECT name FROM students WHERE idno = ?", (id,))
         return cursor.fetchone()
-
 
 
 def get_all_nicks():
