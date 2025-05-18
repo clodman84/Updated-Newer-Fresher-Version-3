@@ -1,6 +1,7 @@
 import collections
 import logging
 from pathlib import Path
+from typing import Optional
 
 import dearpygui.dearpygui as dpg
 
@@ -13,10 +14,13 @@ logger = logging.getLogger("GUI.Bill")
 
 
 class BillingWindow:
-    def __init__(self, roll: str, path: Path, num_images: int):
-        """
-        This is supposed to be docs
-        """
+    def __init__(
+        self,
+        roll: str,
+        path: Path,
+        num_images: int,
+        source: Optional[list[Path]] = None,
+    ):
         # List of things the BilledWindow knows about:
         # 1. The cam and roll that it is responsible for
 
@@ -33,6 +37,7 @@ class BillingWindow:
         self.path = path
         self.num_rows = 45
         self.total_snaps = 0
+        self.source = source
 
         with dpg.window(
             width=625,
@@ -107,7 +112,7 @@ class BillingWindow:
         self.show_selected_ids()
 
     def export(self):
-        copy_images(self.ids_per_roll, self.path)
+        copy_images(self.ids_per_roll, self.path, self.source)
         modal_message(
             "Roll Exported!\nBilled Snaps = {}".format(self.update_total_snaps()),
             checkbox=False,
