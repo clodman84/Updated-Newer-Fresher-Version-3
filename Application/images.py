@@ -2,6 +2,7 @@
 This is responsible for serving images to the GUI.
 This can be extended to receiving images from the DoPy server when it becomes a reality.
 """
+
 import functools
 import logging
 import os
