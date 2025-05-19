@@ -171,6 +171,12 @@ def main():
                     callback=lambda: GUI.BillingWindow(roll="Dev", source=[]),
                 )
                 dpg.add_menu_item(label="Show GUI Demo", callback=demo.show_demo)
+                dpg.add_menu_item(
+                    label="Spawn Image Editor",
+                    callback=lambda: GUI.EditingWindow(
+                        [i for i in Path("./Data/18R/").iterdir()]
+                    ),
+                )
             dpg.add_button(
                 label="Music",
                 callback=lambda: GUI.MusicVisualiser(

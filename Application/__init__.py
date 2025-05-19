@@ -2,6 +2,7 @@ import Application.database as db
 
 from .billing import generate_bill
 from .detect import detect, visualise
+from .image_processing import get_histogram
 from .images import Image, ImageManager
 from .music import DJ
 from .rename_rolls import rename_rolls
