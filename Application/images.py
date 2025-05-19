@@ -33,7 +33,7 @@ class Image:
     """
 
     name: str
-    raw_image: PImage.Image  # does raw_image even need to exist?
+    raw_image: PImage.Image
     dpg_texture: Tuple[int, int, int, np.ndarray]
     thumbnail: Tuple[int, int, int, np.ndarray]
 
@@ -176,11 +176,10 @@ class ImageManager:
             )
             index = self.end_index - 1
         self.current_index = index
-        if self.mode == "offline":
-            image_path = self.images[index]
-            return Image.frompath(
-                image_path, self.main_image_dimensions, self.thumbnail_dimensions
-            )
+        image_path = self.images[index]
+        return Image.frompath(
+            image_path, self.main_image_dimensions, self.thumbnail_dimensions
+        )
 
     def load_in_background(self):
         """
