@@ -12,20 +12,25 @@ logger = logging.getLogger("GUI.Editor")
 
 
 class Node(ABC):
+    # TODO: IMPLEMENT GETATTR AND SETATTR LOGIC TO MAKE NODE ATTRIBUTES LESS CRAP
     def __init__(self, label: str, parent: str) -> None:
         """
         Its the job of the subclass to implement the attributes for a node
 
         """
         self.id = dpg.add_node(label=label, parent=parent)
-        self.incoming = []
-        self.outgoing = []
+        self.label = label
+        self.incoming = []  # lists all incoming nodes
+        self.outgoing = []  # lists all outgoing links
 
     def process(self):
         """
         process all incoming data and give out an output to go onto the next node
         """
-        pass
+        logger.debug(f"Processing node {self.label} {self.id}")
+        inputs = self._gather_inputs()
+        outputs = self._process_inputs(inputs)
+        self._outputs = outputs
 
     @property
     def attributes(self):
@@ -35,6 +40,24 @@ class Node(ABC):
         return True
 
     def pull_attribute(self, attibute):
+        """
+        Nodes that get it's input from this, call this function to pull attributes
+        """
+        pass
+
+    def _gather_inputs(self):
+        """
+        Goes through all incoming nodes and tries to pull data from them
+        """
+        inputs = {}
+        for incoming_node in self.incoming:
+            for attr in self.attributes:
+                data = incoming_node.pull_attribute(attr)
+                if data is not None:
+                    inputs[attr] = data
+        return inputs
+
+    def _process_inputs(self, inputs):
         pass
 
 
@@ -105,6 +128,7 @@ class EditingWindow:
         self.attribute_lookup = (
             {}
         )  # dict of attribute ids and their corresponding nodes
+        self.links = []
         with dpg.window(label="Image Editor", width=500, height=500):
             with dpg.menu_bar():
                 with dpg.menu(label="Inspect"):
@@ -148,3 +172,11 @@ class EditingWindow:
             label="Image", parent="Image Editor", image=self.image_manager.load(0)
         )
         self.add_node(image)
+
+    def evaluate(self):
+        # TODO: there are two ways of doing this
+        # 1. perform a topological sort and evaluate nodes
+        # 2. start from the ending nodes and evaluate edges recursively
+
+        # TODO: CHECK FOR CYCLES WHILE YOU ARE AT IT, if we are gonna check for cycles anyways, might as well sort it tbh
+        pass
