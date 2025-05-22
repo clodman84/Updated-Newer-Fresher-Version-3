@@ -1,7 +1,8 @@
 import logging
-from abc import ABC
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Type
+from typing import Any
 
 import dearpygui.dearpygui as dpg
 
@@ -11,54 +12,55 @@ from Application import Image, ImageManager
 logger = logging.getLogger("GUI.Editor")
 
 
-class Node(ABC):
-    # TODO: IMPLEMENT GETATTR AND SETATTR LOGIC TO MAKE NODE ATTRIBUTES LESS CRAP
-    def __init__(self, label: str, parent: str) -> None:
-        """
-        Its the job of the subclass to implement the attributes for a node
+@dataclass
+class Edge:
+    incoming: "Node"
+    outgoing: "Node"
+    incoming_attribute: str | int
+    outgoing_attribute: str | int
+    link_id: str | int
+    data: Any
 
-        """
+    def delete(self):
+        self.incoming.attributes[self.incoming_attribute].remove(self)
+        self.outgoing.attributes[self.outgoing_attribute].remove(self)
+
+
+class Node(ABC):
+    def __init__(self, label: str, parent: str) -> None:
         self.id = dpg.add_node(label=label, parent=parent)
         self.label = label
-        self.incoming = []  # lists all incoming nodes
-        self.outgoing = []  # lists all outgoing links
+        self.attributes = {}
+        self.attribute_lookup = {}
 
+    @abstractmethod
     def process(self):
         """
         process all incoming data and give out an output to go onto the next node
         """
-        logger.debug(f"Processing node {self.label} {self.id}")
-        inputs = self._gather_inputs()
-        outputs = self._process_inputs(inputs)
-        self._outputs = outputs
+        logger.debug(f"Processing {self.label} Node {self.id}")
 
-    @property
-    def attributes(self):
-        return []
+    @abstractmethod
+    def connect_input(self, edge: Edge, attribute) -> bool:
+        if not attribute in self.attributes:
+            # initialise a list of attributes
+            self.attributes[attribute] = [
+                edge,
+            ]
+        else:
+            # appaned to the list of connected vertices for that attribute
+            self.attributes[attribute].append(edge)
 
-    def register_link(self, source, destination, attibute) -> bool:
-        return True
-
-    def pull_attribute(self, attibute):
-        """
-        Nodes that get it's input from this, call this function to pull attributes
-        """
-        pass
-
-    def _gather_inputs(self):
-        """
-        Goes through all incoming nodes and tries to pull data from them
-        """
-        inputs = {}
-        for incoming_node in self.incoming:
-            for attr in self.attributes:
-                data = incoming_node.pull_attribute(attr)
-                if data is not None:
-                    inputs[attr] = data
-        return inputs
-
-    def _process_inputs(self, inputs):
-        pass
+    @abstractmethod
+    def connect_output(self, edge: Edge, attribute) -> bool:
+        if not attribute in self.attributes:
+            # initialise a list of attributes
+            self.attributes[attribute] = [
+                edge,
+            ]
+        else:
+            # appaned to the list of connected vertices for that attribute
+            self.attributes[attribute].append(edge)
 
 
 class HistogramNode(Node):
@@ -67,21 +69,26 @@ class HistogramNode(Node):
         with dpg.node_attribute(
             shape=dpg.mvNode_PinShape_TriangleFilled,
             parent=self.id,
-        ) as self.histogram_attribute:
+        ) as self.image_attribute:
             dpg.add_text("Hello Chat")
-            # TODO: Implement actual data transport and histograms
+        self.attribute_lookup[self.image_attribute] = "Image Source"
 
-    @property
-    def attributes(self):
-        return [
-            self.histogram_attribute,
-        ]
+    def process(self):
+        return super().process()
 
-    def register_link(self, source, destination, attibute) -> bool:
-        if not self.incoming:
-            self.incoming.append(destination)
+    def connect_input(self, edge: Edge, attribute) -> bool:
+        if (
+            self.image_attribute not in self.attributes
+            or not self.attributes[attribute]
+        ):
+            self.attributes[self.image_attribute] = [
+                edge,
+            ]
             return True
         return False
+
+    def connect_output(self, edge: Edge, attribute) -> bool:
+        return super().connect_output(edge, attribute)
 
 
 class ImageNode(Node):
@@ -98,6 +105,7 @@ class ImageNode(Node):
                 tag=f"{self.id}_image",
             )
             logger.debug("added entry to texture_registry")
+
         with dpg.node_attribute(
             shape=dpg.mvNode_PinShape_TriangleFilled,
             parent=self.id,
@@ -107,16 +115,16 @@ class ImageNode(Node):
             with dpg.child_window(width=200, height=200):
                 dpg.add_image(f"{self.id}_image")
                 logger.debug("Added image to node")
+        self.attribute_lookup[self.image_attribute] = "Image Source"
 
-    @property
-    def attributes(self):
-        return [
-            self.image_attribute,
-        ]
+    def process(self):
+        return super().process()
 
-    def register_link(self, source, destination, attibute) -> bool:
-        self.outgoing.append(destination)
-        return True
+    def connect_output(self, edge: Edge, attribute) -> bool:
+        return super().connect_output(edge, attribute)
+
+    def connect_input(self, edge: Edge, attribute) -> bool:
+        return super().connect_input(edge, attribute)
 
 
 class EditingWindow:
@@ -124,11 +132,11 @@ class EditingWindow:
         self.image_manager = ImageManager.from_file_list(
             source, (600, 600), thumbnail_dimensions=(200, 200)
         )
+
         self.adjaceny_list = []
-        self.attribute_lookup = (
-            {}
-        )  # dict of attribute ids and their corresponding nodes
-        self.links = []
+        self.attribute_lookup = {}
+        self.edge_lookup = {}
+
         with dpg.window(label="Image Editor", width=500, height=500):
             with dpg.menu_bar():
                 with dpg.menu(label="Inspect"):
@@ -145,23 +153,35 @@ class EditingWindow:
     def link(self, sender, app_data):
         from_node = self.attribute_lookup[app_data[0]]
         to_node = self.attribute_lookup[app_data[1]]
-        if from_node.register_link(
-            from_node, to_node, app_data[0]
-        ) and to_node.register_link(from_node, to_node, app_data[1]):
-            dpg.add_node_link(app_data[0], app_data[1], parent=sender)
-            logger.debug(
-                f"Connected {from_node}({app_data[0]}) to {to_node}({app_data[1]})"
-            )
+        edge_id = dpg.add_node_link(app_data[0], app_data[1], parent=sender)
+        edge = Edge(app_data[0], app_data[1], from_node, to_node, edge_id, None)
+
+        # validate the connection
+        if not from_node.connect_output(edge, app_data[0]) and to_node.connect_input(
+            edge, app_data[1]
+        ):
+            dpg.delete_item(edge_id)
+            self.attribute_lookup[from_node].disconnect_edge(edge)
+            self.attribute_lookup[to_node].disconnect_edge(edge)
+            logger.debug(f"Did not connect edge!")
+            return
+
+        self.edge_lookup[edge_id] = edge
+        logger.debug(
+            f"Connected {from_node} ({app_data[0]}) to {to_node} ({app_data[1]}) via edge: {edge_id}"
+        )
 
     def delink(self, sender, app_data):
         # TODO: implement node deletion
         logger.debug(f"{sender} {app_data}")
+        self.edge_lookup[app_data].delete()
         dpg.delete_item(app_data)
 
     def add_node(self, node: Node):
         self.adjaceny_list.append(node)
-        for attribute in node.attributes:
+        for attribute in node.attribute_lookup.keys():
             self.attribute_lookup[attribute] = node
+        logger.debug(node.attribute_lookup)
 
     def add_histogram_node(self):
         histogram = HistogramNode(label="Histogram", parent="Image Editor")
