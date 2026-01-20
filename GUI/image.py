@@ -47,6 +47,7 @@ class ImageWindow:
         self.image_manager.load_in_background()
 
     def setup(self):
+        logger.debug("Setting Up Image Window")
         self.parent = dpg.add_window(
             label=self.roll,
             width=self.window_dimensions[0],

@@ -46,7 +46,7 @@ class BillingWindow:
             with dpg.group(horizontal=True):
                 dpg.add_text("Search")
                 input = dpg.add_input_text(width=250)
-                self.same_as_input = dpg.add_input_int(default_value=30, width=80)
+                self.same_as_input = dpg.add_input_int(default_value=30, width=100)
                 dpg.add_button(label="Same As", callback=self.same_as)
                 dpg.add_button(label="Export", callback=self.export)
 
