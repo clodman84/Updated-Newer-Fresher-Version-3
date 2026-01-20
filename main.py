@@ -10,6 +10,7 @@ from screeninfo import get_monitors
 import Application
 import GUI
 from GUI.fuckups import Genie
+from themes import create_gruvbox_dark_theme
 
 logger = logging.getLogger("Core.Main")
 
@@ -38,37 +39,39 @@ def start_billing(path: Path):
     thumnail_ratios = (0.18, 0.32)
     window_ratios = (0.76, 0.79)
     monitors = get_monitors()
+    logger.debug(monitors)
     for monitor in monitors:
-        if monitor.is_primary:
-            main_image_dimensions = tuple(
-                int(j * i)
-                for i, j in zip(main_image_ratios, (monitor.width, monitor.height))
-            )
-            thumnail_dimensions = tuple(
-                int(j * i)
-                for i, j in zip(thumnail_ratios, (monitor.width, monitor.height))
-            )
-            window_dimensions = tuple(
-                int(j * i)
-                for i, j in zip(window_ratios, (monitor.width, monitor.height))
-            )
-
-            image_manager = Application.ImageManager.from_path(
-                path, main_image_dimensions, thumnail_dimensions
-            )
-            GUI.ImageWindow(
-                roll=path.name,
-                detect_faces=DETECT_FACES,
-                image_manager=image_manager,
-                main_image_dimensions=main_image_dimensions,
-                thumnail_dimensions=thumnail_dimensions,
-                window_dimensions=window_dimensions,
-            )
+        main_image_dimensions = tuple(
+            int(j * i)
+            for i, j in zip(main_image_ratios, (monitor.width, monitor.height))
+        )
+        thumnail_dimensions = tuple(
+            int(j * i) for i, j in zip(thumnail_ratios, (monitor.width, monitor.height))
+        )
+        window_dimensions = tuple(
+            int(j * i) for i, j in zip(window_ratios, (monitor.width, monitor.height))
+        )
+        logger.debug("Making ImageManager")
+        image_manager = Application.ImageManager.from_path(
+            path, main_image_dimensions, thumnail_dimensions
+        )
+        logger.debug("Made ImageManager")
+        GUI.ImageWindow(
+            roll=path.name,
+            detect_faces=DETECT_FACES,
+            image_manager=image_manager,
+            main_image_dimensions=main_image_dimensions,
+            thumnail_dimensions=thumnail_dimensions,
+            window_dimensions=window_dimensions,
+        )
 
 
 def load_image_folder(sender, app_data, user_data):
     path = Path(app_data["file_path_name"])
+
+    logger.debug("Called Start Billing")
     start_billing(path)
+    logger.debug("Starting Billing")
 
 
 def load_mess_list(sender, app_data, user_data):
@@ -94,6 +97,7 @@ def generate_bill(sender, app_data, user_data):
 def main():
     setup_db()
     dpg.create_context()
+    create_gruvbox_dark_theme()
     dpg.create_viewport(title="DoPy")
     core_logger = logging.getLogger("Core")
     gui_logger = logging.getLogger("GUI")
@@ -137,7 +141,7 @@ def main():
         )
 
         with dpg.menu_bar():
-            with dpg.menu(label="Tools"):
+            with dpg.menu(label="File"):
                 dpg.add_menu_item(
                     label="Load Roll",
                     callback=lambda: dpg.show_item("roll_folder_dialog"),
@@ -150,33 +154,23 @@ def main():
                     label="Generate Bill",
                     callback=lambda: dpg.show_item("crc_bill_dialog"),
                 )
-                dpg.add_menu_item(
-                    label="Genie",
-                    callback=lambda: Genie(),
-                )
 
+            with dpg.menu(label="Tools"):
+                dpg.add_menu_item(label="Genie", callback=lambda: Genie())
                 dpg.add_menu_item(label="Show Nicknames", callback=GUI.show_all_nicks)
                 dpg.add_menu_item(
                     label="Show Performance Metrics", callback=dpg.show_metrics
                 )
                 dpg.add_menu_item(
-                    label="Logger Stress Test", callback=GUI.logger_stress_test
-                )
-                dpg.add_menu_item(
                     label="Toggle Face Detection", callback=toggle_detect_faces
                 )
-            with dpg.menu(label="Dev"):
+            with dpg.menu(label="Music"):
                 dpg.add_menu_item(
-                    label="Spawn Billing Window",
-                    callback=lambda: GUI.BillingWindow(roll="Dev", source=[]),
+                    label="Play Visualizer",
+                    callback=lambda: GUI.MusicVisualiser(
+                        "./Data/Audio/clodman.mp3"
+                    ).start(),
                 )
-                dpg.add_menu_item(label="Show GUI Demo", callback=demo.show_demo)
-            dpg.add_button(
-                label="Music",
-                callback=lambda: GUI.MusicVisualiser(
-                    "./Data/Audio/clodman.mp3"
-                ).start(),
-            )
 
     log = GUI.Logger()
     log.setFormatter(formatter)
