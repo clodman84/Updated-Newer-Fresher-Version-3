@@ -4,7 +4,6 @@ from collections import Counter
 from pathlib import Path
 
 import dearpygui.dearpygui as dpg
-from dearpygui import demo
 from screeninfo import get_monitors
 
 import Application
@@ -108,11 +107,6 @@ def main():
         "%H:%M:%S",
         style="{",
     )
-
-    monitors = get_monitors()
-    for monitor in monitors:
-        if monitor.is_primary and monitor.width > 1366:
-            dpg.set_global_font_scale(1.25)
 
     with dpg.window(tag="Primary Window"):
         with dpg.file_dialog(

@@ -17,6 +17,7 @@ class BillingWindow:
         self,
         roll: str,  # this is how we decide what autosave file we need to open
         source: list[Path],  # it's your job to give the billingwindow images to bill
+        parent: str | int,
     ):
         # List of things the BilledWindow knows about:
         # 1. The roll that it is responsible for
@@ -35,27 +36,28 @@ class BillingWindow:
         self.num_rows = 45
         self.total_snaps = 0
         self.source = source
+        self.parent = parent
 
-        with dpg.window(
-            width=625,
-            height=436,
+        with dpg.child_window(
+            width=400,
+            height=-1,
             label=f"Billing Window {self.roll}",
-            no_resize=True,
-            no_close=True,
+            parent=self.parent,
         ) as self.window:
             with dpg.group(horizontal=True):
-                dpg.add_text("Search")
-                input = dpg.add_input_text(width=250)
-                self.same_as_input = dpg.add_input_int(default_value=30, width=100)
-                dpg.add_button(label="Same As", callback=self.same_as)
+                input = dpg.add_input_text(width=150)
+                dpg.add_button(label="Same As:", callback=self.same_as)
+                self.same_as_input = dpg.add_input_int(default_value=30, width=93)
                 dpg.add_button(label="Export", callback=self.export)
 
-            with dpg.group(horizontal=True) as parent:
-                self.suggestions_panel = dpg.add_child_window(width=350, parent=parent)
+            with dpg.group(horizontal=False) as parent:
+                self.suggestions_panel = dpg.add_child_window(
+                    width=400, height=300, parent=parent
+                )
                 self.suggestion_table = TableManager9000(
                     parent=self.suggestions_panel,
                     rows=self.num_rows,
-                    headers=["Name", "ID", "Bhawan", "Room"],
+                    headers=["Name", "ID", "BWN", "Room"],
                 )
                 self.suggestion_table["Name"] = dpg.add_text, {"label": ""}
                 self.suggestion_table["ID"] = dpg.add_button, {
@@ -63,7 +65,7 @@ class BillingWindow:
                     "show": False,
                     "callback": lambda s, a, u: self.add_id(u),
                 }
-                self.suggestion_table["Bhawan"] = dpg.add_text, {"label": ""}
+                self.suggestion_table["BWN"] = dpg.add_text, {"label": ""}
                 self.suggestion_table["Room"] = dpg.add_text, {"label": ""}
                 self.suggestion_table.construct()
 
@@ -90,7 +92,7 @@ class BillingWindow:
                                 user_data=row,
                             )
 
-                with dpg.child_window(width=250) as billed_panel:
+                with dpg.child_window(width=400) as billed_panel:
                     self.billed_count = dpg.add_text("0 people billed")
                     self.billed_table = TableManager9000(
                         parent=billed_panel,

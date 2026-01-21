@@ -37,26 +37,27 @@ class ImageWindow:
         self.roll = roll
 
         self.image_manager = image_manager
-        self.billing_window = BillingWindow(
-            roll=self.roll, source=self.image_manager.images
-        )
+
         self.main_image_dimensions = main_image_dimensions
         self.thumnail_dimensions = thumnail_dimensions
         self.window_dimensions = window_dimensions
-        self.setup()
+
+        with dpg.window(
+            label=self.roll,
+            width=self.window_dimensions[0],
+            height=self.window_dimensions[1],
+        ):
+            with dpg.group(horizontal=True) as self.parent:
+                self.billing_window = BillingWindow(
+                    roll=self.roll, source=self.image_manager.images, parent=self.parent
+                )
+                self.setup()
         self.image_manager.load_in_background()
 
     def setup(self):
         logger.debug("Setting Up Image Window")
-        self.parent = dpg.add_window(
-            label=self.roll,
-            width=self.window_dimensions[0],
-            height=self.window_dimensions[1],
-            on_close=self.billing_window.close,
-        )
-        with dpg.child_window(parent=self.parent):
+        with dpg.child_window():
             indicator = dpg.add_loading_indicator()
-
             # this is an abomination, but it makes the window load 2 seconds faster
             ShittyMultiThreading(
                 self.image_manager.load, (0, 1, self.image_manager.end_index - 1)
@@ -64,7 +65,6 @@ class ImageWindow:
 
             image = self.image_manager.load(0)
             logger.debug(image.dpg_texture[3].shape)
-
             with dpg.texture_registry():
                 # TODO: The next and previous image viewer could be changed into a scrollable selector
                 # with all the images in them
@@ -103,11 +103,11 @@ class ImageWindow:
                 )
                 dpg.add_text("", tag=f"{self.parent}_face_count")
 
-            with dpg.group(horizontal=True):
-                with dpg.group():
-                    dpg.add_image(f"{self.parent}_Previous Image")
-                    dpg.add_image(f"{self.parent}_Next Image")
+            with dpg.group(horizontal=False):
                 dpg.add_image(f"{self.parent}_Main Image")
+                # with dpg.group(horizontal=True):
+                #     dpg.add_image(f"{self.parent}_Previous Image")
+                #     dpg.add_image(f"{self.parent}_Next Image")
             dpg.delete_item(indicator)
 
             # ultra shitty way to detect all the faces in the background (very bad)
@@ -118,7 +118,6 @@ class ImageWindow:
 
     def open(self, index: int):
         self.current_image = index
-
         image = self.image_manager.load(index)
         previous = self.image_manager.previous()
         next = self.image_manager.next()
