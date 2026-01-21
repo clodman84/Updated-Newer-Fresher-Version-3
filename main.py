@@ -98,6 +98,8 @@ def main():
     dpg.create_context()
     create_gruvbox_dark_theme()
     dpg.create_viewport(title="DoPy")
+    dpg.set_viewport_small_icon("./dopylogofinal.ico")
+    dpg.set_viewport_large_icon("./dopylogofinal.ico")
     core_logger = logging.getLogger("Core")
     gui_logger = logging.getLogger("GUI")
     core_logger.setLevel(logging.DEBUG)
@@ -175,6 +177,16 @@ def main():
     dpg.set_primary_window("Primary Window", True)
     dpg.set_viewport_vsync(False)
     dpg.show_viewport(maximized=True)
+
+    import sys
+
+    if sys.platform == "win32":
+        from ctypes import windll
+        import pywinstyles
+
+        hwnd = windll.user32.FindWindowW(None, "DoPy")
+        pywinstyles.change_header_color(hwnd, color="black")
+
     dpg.start_dearpygui()
     dpg.destroy_context()
 
