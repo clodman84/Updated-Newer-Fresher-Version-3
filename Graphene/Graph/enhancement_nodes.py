@@ -1,7 +1,6 @@
 import logging
 import dearpygui.dearpygui as dpg
 from PIL import ImageEnhance
-from line_profiler import profile
 
 from Application import Image
 
@@ -51,7 +50,6 @@ class EnhanceNode(Node):
             return False
         return True
 
-    @profile
     def process(self, is_final=False):
         super().process(is_final=is_final)
         if self.input_attributes[self.image_attribute]:
@@ -61,7 +59,7 @@ class EnhanceNode(Node):
                 enhancer = self.enhancement(image.raw_image)
                 factor = dpg.get_value(self.slider)
                 updated_image = enhancer.enhance(factor=factor)
-                image = Image("NA", updated_image, (600, 600), (200, 200))
+                image = Image(image.name, updated_image, (600, 600), (200, 200))
 
             for edge in self.output_attributes[self.image_output_attribute]:
                 edge.data = image

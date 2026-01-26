@@ -123,7 +123,7 @@ class Levels(Node):
                     )
 
                 updated_image = levels(image.raw_image, black, white, gamma)
-                image = Image("NA", updated_image, (600, 600), (200, 200))
+                image = Image(image.name, updated_image, (600, 600), (200, 200))
 
             for edge in self.output_attributes[self.image_output_attribute]:
                 edge.data = image

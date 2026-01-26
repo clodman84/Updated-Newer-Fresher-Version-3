@@ -193,7 +193,7 @@ class PreviewNode(Node):
             if image:
                 self.image = image
             if is_final:
-                self.image.raw_image.save(f"./Data/{self.id}.png")
+                self.image.save()
                 logger.debug(f"Saved output to {self.id}.png")
 
             for edge in self.output_attributes[self.image_output_attribute]:

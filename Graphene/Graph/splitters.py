@@ -84,7 +84,7 @@ class Splitter(Node):
                 )
             channel_attr = self.channel_outs[channel_name]
             for edge in self.output_attributes[channel_attr]:
-                edge.data = Image("N/A", channel, (600, 600), (200, 200))
+                edge.data = Image(image.name, channel, (600, 600), (200, 200))
 
         logger.debug(f"Processed histogram in histogram node {self.id}")
 

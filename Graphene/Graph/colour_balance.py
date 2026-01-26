@@ -1,7 +1,6 @@
 import logging
 
 import dearpygui.dearpygui as dpg
-from line_profiler import profile
 
 from Application import Image, colour_balance
 
@@ -121,7 +120,6 @@ class ColourBalance(Node):
             self.settings["highlights"] = [dr_h, dg_h, db_h]
             self.settings["preserve_luminance"] = preserve
 
-    @profile
     def process(self, is_final=False):
         super().process(is_final)
         if self.input_attributes[self.image_attribute]:
@@ -132,7 +130,7 @@ class ColourBalance(Node):
                     image.raw_image,
                     *self.settings.values(),
                 )
-                image = Image("NA", updated_image, (600, 600), (200, 200))
+                image = Image(image.name, updated_image, (600, 600), (200, 200))
             for edge in self.output_attributes[self.image_output_attribute]:
                 edge.data = image
                 logger.debug(f"Populated edge {edge.id} with image from {self.id}")

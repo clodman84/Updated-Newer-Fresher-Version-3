@@ -22,17 +22,11 @@ class Image:
     Dataclass that stores images that are served by the ImageManager. Dearpygui cannot display PImage.Image from Pillow
     directly, so this converts the image into a numpy array that dearpygui can display as a texture. The image is also padded
     with black borders if it's aspect ratio doesn't fit the ImageWindow.
-
-    Attributes:
-        name: The name of the image file
-        raw_image: PImage.Image object
-        dpg_texture: A scaled image that is shown in the bigger display, stored in a form that dearpygui accepts
-        thumbnail: A scaled thumbnail that is shown in the preview displays, stored in a form that dearpygui accepts
     """
 
     def __init__(
         self,
-        name: str,
+        name: Path,
         raw_image: PImage.Image,
         main_image_dimensions,
         thumbnail_dimensions,
@@ -42,6 +36,9 @@ class Image:
         self.raw_image.putalpha(255)
         self.main_image_dimensions = main_image_dimensions
         self.thumbnail_dimensions = thumbnail_dimensions
+
+    def save(self):
+        print(self.name)
 
     @functools.cached_property
     def dpg_texture(self):
@@ -64,7 +61,7 @@ class Image:
     @functools.cache
     def get_scaled_image(self, factor=0.15):
         return Image(
-            f"{self.name}_{factor:.2f}",
+            self.name,
             PImageOps.scale(self.raw_image, factor),
             self.main_image_dimensions,
             self.thumbnail_dimensions,
@@ -97,7 +94,7 @@ class Image:
             raw_image = PImage.open("./dopylogofinal.png")
 
         logger.debug(f"Image made from path: {str(path)}")
-        return Image(path.name, raw_image, main_image_dimensions, thumbnail_dimensions)
+        return Image(path, raw_image, main_image_dimensions, thumbnail_dimensions)
 
     @classmethod
     @functools.lru_cache(maxsize=40)
@@ -167,7 +164,6 @@ class ImageManager:
         Returns:
 
         """
-        print(index)
         logger.debug(f"Loading image {self.images[index]}")
         if index >= self.end_index:
             print(self.end_index)
