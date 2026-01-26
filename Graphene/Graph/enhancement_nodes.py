@@ -59,7 +59,7 @@ class EnhanceNode(Node):
                 enhancer = self.enhancement(image.raw_image)
                 factor = dpg.get_value(self.slider)
                 updated_image = enhancer.enhance(factor=factor)
-                image = Image(image.name, updated_image, (600, 600), (200, 200))
+                image = Image(image.path, updated_image, (600, 600), (200, 200))
 
             for edge in self.output_attributes[self.image_output_attribute]:
                 edge.data = image

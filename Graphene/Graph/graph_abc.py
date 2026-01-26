@@ -378,6 +378,13 @@ class Graph:
                 node.process(is_final=is_final)
                 node.state = 0
 
+        # now reactivate the whole graph and run it again with scaled down values so that we can make sure that the app doesn't crash
+        logger.info("Graph Executed! Rerunning with scaled down values")
+        if is_final:
+            for node in self.topological_sort(ignore_state=True):
+                node.state = 1
+            self.evaluate()
+
     def save(self, filename: str):
         """
         Saves the graph structure to a form that can be loaded

@@ -6,6 +6,8 @@ This can be extended to receiving images from the DoPy server when it becomes a 
 import functools
 import logging
 from pathlib import Path
+from collections import defaultdict
+import shutil
 from typing import Literal, Tuple
 
 import numpy as np
@@ -17,6 +19,22 @@ from .utils import ShittyMultiThreading
 logger = logging.getLogger("Core.Images")
 
 
+def next_available_path(path: Path) -> Path:
+    if not path.exists():
+        return path
+
+    stem = path.stem
+    suffix = path.suffix
+    parent = path.parent
+
+    i = 1
+    while True:
+        candidate = parent / f"{stem}_{i}{suffix}"
+        if not candidate.exists():
+            return candidate
+        i += 1
+
+
 class Image:
     """
     Dataclass that stores images that are served by the ImageManager. Dearpygui cannot display PImage.Image from Pillow
@@ -24,21 +42,30 @@ class Image:
     with black borders if it's aspect ratio doesn't fit the ImageWindow.
     """
 
+    _version = defaultdict(int)
+
     def __init__(
         self,
-        name: Path,
+        path: Path,
         raw_image: PImage.Image,
         main_image_dimensions,
         thumbnail_dimensions,
     ) -> None:
-        self.name = name
+        self.path = path
         self.raw_image = raw_image
         self.raw_image.putalpha(255)
         self.main_image_dimensions = main_image_dimensions
         self.thumbnail_dimensions = thumbnail_dimensions
 
     def save(self):
-        print(self.name)
+        new_dir = self.path.parents[1] / f"{self.path.parent.name}_original"
+        new_dir.mkdir(parents=True, exist_ok=True)
+        new_path = new_dir / self.path.name
+        new_path = next_available_path(new_path)
+        shutil.copy(self.path, new_path)
+        with open(self.path, "wb") as file:
+            self.raw_image = self.raw_image.convert("RGB")
+            self.raw_image.save(file)
 
     @functools.cached_property
     def dpg_texture(self):
@@ -61,7 +88,7 @@ class Image:
     @functools.cache
     def get_scaled_image(self, factor=0.15):
         return Image(
-            self.name,
+            self.path,
             PImageOps.scale(self.raw_image, factor),
             self.main_image_dimensions,
             self.thumbnail_dimensions,
@@ -74,6 +101,7 @@ class Image:
         path: Path,
         main_image_dimensions: Tuple[int, int],
         thumbnail_dimensions: Tuple[int, int],
+        _version=None,
     ):
         """
         Creates an Image object from the path of the image.
@@ -94,7 +122,12 @@ class Image:
             raw_image = PImage.open("./dopylogofinal.png")
 
         logger.debug(f"Image made from path: {str(path)}")
-        return Image(path, raw_image, main_image_dimensions, thumbnail_dimensions)
+        return Image(
+            path,
+            raw_image,
+            main_image_dimensions,
+            thumbnail_dimensions,
+        )
 
     @classmethod
     @functools.lru_cache(maxsize=40)
@@ -154,7 +187,7 @@ class ImageManager:
     def end_index(self):
         return len(self.images)
 
-    def load(self, index):
+    def load(self, index, force_reload=False):
         """
         Returns an Image object, given an index
 
@@ -178,8 +211,14 @@ class ImageManager:
             index = self.end_index - 1
         self.current_index = index
         image_path = self.images[index]
+        if force_reload:
+            Image._version[image_path] += 1
+
         return Image.frompath(
-            image_path, self.main_image_dimensions, self.thumbnail_dimensions
+            image_path,
+            self.main_image_dimensions,
+            self.thumbnail_dimensions,
+            Image._version[image_path],
         )
 
     def load_in_background(self):

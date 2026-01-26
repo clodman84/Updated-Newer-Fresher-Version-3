@@ -3,6 +3,7 @@ import logging
 import functools
 from collections import defaultdict
 from pathlib import Path
+from typing import Callable
 
 import dearpygui.dearpygui as dpg
 
@@ -14,10 +15,10 @@ logger = logging.getLogger("GUI.Editor")
 
 
 class EditingWindow:
-    def __init__(self, image: Image) -> None:
+    def __init__(self, image: Image, on_close: Callable) -> None:
         self.graph = Graph()
         self.image = image
-        with dpg.window(label="Image Editor", width=500, height=500):
+        with dpg.window(label="Image Editor", width=500, height=500, on_close=on_close):
             with dpg.menu_bar():
                 with dpg.menu(label="Tools"):
                     dpg.add_menu_item(label="Save", callback=self.save_graph)

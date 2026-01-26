@@ -137,5 +137,5 @@ def levels(img: PImage.Image, black, white, gamma):
     arr = np.power(arr, 1 / gamma)
     arr = arr * 255
     arr = np.clip(arr, 0, 255)
-    out = PImage.fromarray(arr.astype(np.uint8), "RGBA")
+    out = PImage.fromarray(arr.astype(np.uint8))
     return out

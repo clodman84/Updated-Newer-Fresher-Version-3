@@ -33,7 +33,7 @@ class Merge(Node):
         if not all(images):
             return
         out = Image(
-            images[0].name,
+            images[0].path,
             merge(image.raw_image for image in images),
             (600, 600),
             (200, 200),

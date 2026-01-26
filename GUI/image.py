@@ -100,7 +100,10 @@ class ImageWindow:
                 dpg.add_button(
                     label="Edit",
                     callback=lambda: EditingWindow(
-                        self.image_manager.load(self.image_manager.current_index)
+                        self.image_manager.load(self.image_manager.current_index),
+                        on_close=lambda: self.open(
+                            self.image_manager.current_index, force_reload=True
+                        ),
                     ),
                 )
                 dpg.add_button(
@@ -117,15 +120,9 @@ class ImageWindow:
                 #     dpg.add_image(f"{self.parent}_Next Image")
             dpg.delete_item(indicator)
 
-            # ultra shitty way to detect all the faces in the background (very bad)
-            if self.detect_faces:
-                ShittyMultiThreading(
-                    detect, self.image_manager.images, num_threads=1
-                ).start()
-
-    def open(self, index: int):
+    def open(self, index: int, force_reload=False):
         self.current_image = index
-        image = self.image_manager.load(index)
+        image = self.image_manager.load(index, force_reload=force_reload)
         # previous = self.image_manager.previous()
         # next = self.image_manager.next()
 

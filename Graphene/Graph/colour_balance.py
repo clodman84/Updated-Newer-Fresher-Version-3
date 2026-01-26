@@ -130,7 +130,7 @@ class ColourBalance(Node):
                     image.raw_image,
                     *self.settings.values(),
                 )
-                image = Image(image.name, updated_image, (600, 600), (200, 200))
+                image = Image(image.path, updated_image, (600, 600), (200, 200))
             for edge in self.output_attributes[self.image_output_attribute]:
                 edge.data = image
                 logger.debug(f"Populated edge {edge.id} with image from {self.id}")
