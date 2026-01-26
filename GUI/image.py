@@ -4,6 +4,7 @@ import dearpygui.dearpygui as dpg
 
 from Application import ImageManager, detect, visualise
 from Application.utils import ShittyMultiThreading
+from Graphene.image_editor import EditingWindow
 
 from .bill import BillingWindow
 
@@ -64,27 +65,27 @@ class ImageWindow:
             ).start()
 
             image = self.image_manager.load(0)
-            logger.debug(image.dpg_texture[3].shape)
+            logger.debug(image.dpg_texture.shape)
             with dpg.texture_registry():
                 # TODO: The next and previous image viewer could be changed into a scrollable selector
                 # with all the images in them
                 dpg.add_dynamic_texture(
                     *self.main_image_dimensions,
-                    default_value=image.dpg_texture[3],
+                    default_value=image.dpg_texture,
                     tag=f"{self.parent}_Main Image",
                 )
-                next = self.image_manager.next()
-                previous = self.image_manager.previous()
-                dpg.add_dynamic_texture(
-                    *self.thumnail_dimensions,
-                    default_value=next.thumbnail[3],
-                    tag=f"{self.parent}_Next Image",
-                )
-                dpg.add_dynamic_texture(
-                    *self.thumnail_dimensions,
-                    default_value=previous.thumbnail[3],
-                    tag=f"{self.parent}_Previous Image",
-                )
+                # next = self.image_manager.next()
+                # previous = self.image_manager.previous()
+                # dpg.add_dynamic_texture(
+                #     *self.thumnail_dimensions,
+                #     default_value=next.thumbnail,
+                #     tag=f"{self.parent}_Next Image",
+                # )
+                # dpg.add_dynamic_texture(
+                #     *self.thumnail_dimensions,
+                #     default_value=previous.thumbnail,
+                #     tag=f"{self.parent}_Previous Image",
+                # )
 
             with dpg.group(horizontal=True) as self.ribbon:
                 dpg.add_button(label="Next", callback=self.next)
@@ -97,7 +98,13 @@ class ImageWindow:
                     tag=f"{self.parent}_Image Slider",
                 )
                 dpg.add_button(
-                    label="Count Faces",
+                    label="Edit",
+                    callback=lambda: EditingWindow(
+                        self.image_manager.load(self.image_manager.current_index)
+                    ),
+                )
+                dpg.add_button(
+                    label="Count",
                     callback=self.count_faces,
                     show=self.detect_faces,
                 )
@@ -119,12 +126,12 @@ class ImageWindow:
     def open(self, index: int):
         self.current_image = index
         image = self.image_manager.load(index)
-        previous = self.image_manager.previous()
-        next = self.image_manager.next()
+        # previous = self.image_manager.previous()
+        # next = self.image_manager.next()
 
-        dpg.set_value(f"{self.parent}_Main Image", image.dpg_texture[3])
-        dpg.set_value(f"{self.parent}_Next Image", next.thumbnail[3])
-        dpg.set_value(f"{self.parent}_Previous Image", previous.thumbnail[3])
+        dpg.set_value(f"{self.parent}_Main Image", image.dpg_texture)
+        # dpg.set_value(f"{self.parent}_Next Image", next.thumbnail[3])
+        # dpg.set_value(f"{self.parent}_Previous Image", previous.thumbnail[3])
         dpg.set_value(f"{self.parent}_Image Slider", self.current_image + 1)
         dpg.set_value(f"{self.parent}_face_count", "")
 
@@ -152,7 +159,7 @@ class ImageWindow:
                 f"{self.parent}_face_count",
                 f"{n_faces} face{'' if n_faces==1 else 's'} detected",
             )
-        dimensions = self.image_manager.load(self.current_image).dpg_texture[:2]
+        dimensions = self.main_image_dimensions
         updated_image = visualise(path, faces, dimensions)
         dpg.set_value(f"{self.parent}_Main Image", updated_image)
         dpg.delete_item(indicator)

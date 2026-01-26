@@ -13,7 +13,7 @@ from themes import create_gruvbox_dark_theme
 
 logger = logging.getLogger("Core.Main")
 
-DETECT_FACES = False
+DETECT_FACES = True
 
 
 def toggle_detect_faces():
@@ -35,7 +35,6 @@ def setup_db():
 
 def start_billing(path: Path):
     main_image_ratios = (0.55, 0.65)
-    thumnail_ratios = (0.18, 0.32)
     window_ratios = (0.76, 0.79)
     monitors = get_monitors()
     logger.debug(monitors)
@@ -44,9 +43,7 @@ def start_billing(path: Path):
             int(j * i)
             for i, j in zip(main_image_ratios, (monitor.width, monitor.height))
         )
-        thumnail_dimensions = tuple(
-            int(j * i) for i, j in zip(thumnail_ratios, (monitor.width, monitor.height))
-        )
+        thumnail_dimensions = (200, 200)
         window_dimensions = tuple(
             int(j * i) for i, j in zip(window_ratios, (monitor.width, monitor.height))
         )
@@ -110,6 +107,25 @@ def main():
         style="{",
     )
 
+    with dpg.colormap_registry():
+        dpg.add_colormap(
+            [[0, 255, 255], [255, 0, 0]],
+            False,
+            tag="red",
+        )
+
+        dpg.add_colormap(
+            [[255, 0, 255], [0, 255, 0]],
+            False,
+            tag="green",
+        )
+
+        dpg.add_colormap(
+            [[255, 255, 0], [0, 0, 255]],
+            False,
+            tag="blue",
+        )
+
     with dpg.window(tag="Primary Window"):
         with dpg.file_dialog(
             directory_selector=False,
@@ -160,6 +176,7 @@ def main():
                 dpg.add_menu_item(
                     label="Toggle Face Detection", callback=toggle_detect_faces
                 )
+
             with dpg.menu(label="Music"):
                 dpg.add_menu_item(
                     label="Play Visualizer",
