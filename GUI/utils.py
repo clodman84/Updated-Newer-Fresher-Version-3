@@ -130,6 +130,15 @@ class Logger(logging.Handler, metaclass=Singleton):
         if self._auto_scroll:
             dpg.set_y_scroll(self.child_id, -1.0)
 
+    def write(self, message):
+        # if statement reduces the amount of newlines that are
+        # printed to the logger
+        if message != "\n":
+            self._log(message, 50)
+
+    def flush(self):
+        pass
+
     def emit(self, record):
         string = self.format(record)
         self._log(string, record.levelno)

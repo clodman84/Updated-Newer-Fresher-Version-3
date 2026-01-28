@@ -197,6 +197,8 @@ def main():
 
     import sys
 
+    sys.stderr = log
+
     if sys.platform == "win32":
         from ctypes import windll
         import pywinstyles
