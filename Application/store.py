@@ -3,7 +3,6 @@ import logging
 import os
 from collections import Counter
 from pathlib import Path
-from shutil import copy
 from PIL import Image, ImageFont, ImageDraw
 
 from .database import get_file_name

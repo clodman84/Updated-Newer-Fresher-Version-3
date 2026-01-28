@@ -48,7 +48,9 @@ class BillingWindow:
                 input = dpg.add_input_text(hint="Search...", width=150)
                 dpg.add_button(label="Same As:", callback=self.same_as)
                 self.same_as_input = dpg.add_input_int(default_value=30, width=93)
-                dpg.add_button(label="Export", callback=self.export)
+                self.export_button = dpg.add_button(
+                    label="Export", callback=self.export
+                )
 
             with dpg.group(horizontal=False) as parent:
                 self.suggestions_panel = dpg.add_child_window(
@@ -111,11 +113,13 @@ class BillingWindow:
         self.show_selected_ids()
 
     def export(self):
+        dpg.hide_item(self.export_button)
         copy_images(self.ids_per_roll, Path("./Data/") / self.roll, self.source)
         modal_message(
             "Roll Exported!\nBilled Snaps = {}".format(self.update_total_snaps()),
             checkbox=False,
         )
+        dpg.show_item(self.export_button)
 
     def suggest(self, sender, app_data, user_data):
         if len(app_data) > 0:
