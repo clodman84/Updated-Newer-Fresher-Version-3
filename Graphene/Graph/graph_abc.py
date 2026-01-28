@@ -389,8 +389,6 @@ class Graph:
         """
         Saves the graph structure to a form that can be loaded
         """
-        for i in self.get_visible_nodes():
-            print(i.uuid)
         graph = {
             "Nodes": {i.uuid: i.to_dict() for i in self.get_visible_nodes()},
         }

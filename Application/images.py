@@ -199,7 +199,6 @@ class ImageManager:
         """
         logger.debug(f"Loading image {self.images[index]}")
         if index >= self.end_index:
-            print(self.end_index)
             logger.error(
                 f"Attempted to get image number > {self.end_index}, defaulted to 1"
             )

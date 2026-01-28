@@ -13,7 +13,6 @@ logger = logging.getLogger("GUI.Utils")
 
 def modal_message(message, checkbox=True):
     """When you need a popup"""
-    print(message)
     if message in MODAL_HIDDEN_LIST:
         return
     with dpg.mutex():

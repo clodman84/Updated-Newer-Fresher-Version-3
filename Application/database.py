@@ -179,7 +179,11 @@ def get_file_name(id):
             "SELECT hoscode, roomno FROM students WHERE idno = ?", (id,)
         )
         hoscode, roomno = cursor.fetchone()
-        return f"{hoscode}_{roomno}_{'{}'}{'{:02}'}_{'{}'}_{id[2:4]}{id[-4:]}"
+        return (
+            f"{hoscode}_{roomno}_{'{}'}{'{:02}'}_{'{}'}_{id[2:4]}{id[-4:]}",
+            hoscode,
+            roomno,
+        )
 
 
 def get_all_info(id):

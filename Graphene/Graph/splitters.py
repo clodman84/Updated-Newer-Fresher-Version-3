@@ -103,7 +103,7 @@ class RGBSplitter(Splitter):
         self,
         label="RGB Splitter",
         splitter_func=split_rgb,
-        channel_labels=["R", "G", "B"],
+        channel_labels=["Red", "Green", "Blue"],
         **kwargs,
     ):
         super().__init__(label, splitter_func, channel_labels, **kwargs)

@@ -162,6 +162,7 @@ cython_debug/
 
 # test rollbook
 30R/
+30R_original/
 # billed rolls
 Data/*
 !Data/Audio

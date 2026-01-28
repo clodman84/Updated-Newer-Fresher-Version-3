@@ -52,7 +52,7 @@ class BillingWindow:
 
             with dpg.group(horizontal=False) as parent:
                 self.suggestions_panel = dpg.add_child_window(
-                    width=-1, height=300, parent=parent
+                    width=-1, height=430, parent=parent
                 )
                 self.suggestion_table = TableManager9000(
                     parent=self.suggestions_panel,

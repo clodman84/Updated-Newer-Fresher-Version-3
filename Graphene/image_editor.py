@@ -23,14 +23,25 @@ class EditingWindow:
             with dpg.menu_bar():
                 with dpg.menu(label="Tools"):
                     dpg.add_menu_item(label="Save", callback=self.save_graph)
+                    with dpg.tooltip(dpg.last_item()):
+                        dpg.add_text("Save graph as a workflow")
                     dpg.add_menu_item(label="Load", callback=self.load_graph_window)
-                with dpg.menu(label="File"):
+                    with dpg.tooltip(dpg.last_item()):
+                        dpg.add_text("Load workflow")
                     dpg.add_menu_item(
-                        label="Import Image",
+                        label="Image",
                         callback=self.add_image_node,
                     )
                     with dpg.tooltip(dpg.last_item()):
-                        dpg.add_text("Add an image source node from your file list.")
+                        dpg.add_text("Add an image source node")
+                    dpg.add_menu_item(
+                        label="Evaluate",
+                        callback=lambda: self.graph.evaluate(is_final=True),
+                    )
+                    with dpg.tooltip(dpg.last_item()):
+                        dpg.add_text(
+                            "Run the entire node graph and update all outputs."
+                        )
 
                 with dpg.menu(label="Adjustments"):
                     dpg.add_menu_item(
@@ -91,24 +102,14 @@ class EditingWindow:
                 with dpg.menu(label="View"):
                     dpg.add_menu_item(label="Preview", callback=self.add_preview_node)
                     with dpg.tooltip(dpg.last_item()):
-                        dpg.add_text("Render and view the final processed image.")
+                        dpg.add_text("Renders and saves the processed image.")
 
                     dpg.add_menu_item(
                         label="Histogram", callback=self.add_histogram_node
                     )
                     with dpg.tooltip(dpg.last_item()):
                         dpg.add_text(
-                            "Display tonal distribution of the connected image."
-                        )
-
-                with dpg.menu(label="Graph"):
-                    dpg.add_menu_item(
-                        label="Evaluate Graph",
-                        callback=lambda: self.graph.evaluate(is_final=True),
-                    )
-                    with dpg.tooltip(dpg.last_item()):
-                        dpg.add_text(
-                            "Run the entire node graph and update all outputs."
+                            "Displays RGB distribution of the connected image."
                         )
                 dpg.add_menu_item(label="Auto Layout", callback=self.auto_arrange)
 
