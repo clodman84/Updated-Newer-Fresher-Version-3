@@ -199,12 +199,26 @@ class EditingWindow:
             self.graph.node_lookup_by_attribute_id.pop(attr_id, None)
 
     def save_graph(self):
-        with dpg.window(label="Name Him, Name Your Son!", width=500, height=100):
-            with dpg.group(horizontal=True):
-                text = dpg.add_input_text()
+        with dpg.window(
+            label="Name Him, Name Your Son!",
+            width=300,
+            height=120,
+            no_move=True,
+            no_resize=True,
+            modal=True,
+        ) as saviour:
+            with dpg.group():
+                text = dpg.add_input_text(hint="Name Him...", width=-1)
                 dpg.add_button(
-                    label="Save", callback=lambda: self.graph.save(dpg.get_value(text))
+                    label="Save",
+                    callback=lambda: self.graph.save(dpg.get_value(text)),
+                    width=-1,
                 )
+        dpg.split_frame()
+        modal_dimensions = dpg.get_item_rect_size(saviour)
+        window_dimensions = dpg.get_item_rect_size("Primary Window")
+        newPos = [(window_dimensions[i] - modal_dimensions[i]) / 2 for i in range(2)]
+        dpg.configure_item(saviour, pos=newPos)
 
     def load_graph_window(self):
         with dpg.window(
