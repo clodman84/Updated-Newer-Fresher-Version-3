@@ -76,8 +76,7 @@ class Levels(Node):
                     )
 
                 self.gamma = dpg.add_input_float(
-                    label="Gamma",
-                    width=50,
+                    width=-1,
                     default_value=self.settings["gamma"],
                     max_clamped=True,
                     min_clamped=True,

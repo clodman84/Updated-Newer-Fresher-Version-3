@@ -39,20 +39,20 @@ class BillingWindow:
         self.parent = parent
 
         with dpg.child_window(
-            width=400,
+            width=420,
             height=-1,
             label=f"Billing Window {self.roll}",
             parent=self.parent,
         ) as self.window:
             with dpg.group(horizontal=True):
-                input = dpg.add_input_text(width=150)
+                input = dpg.add_input_text(hint="Search...", width=150)
                 dpg.add_button(label="Same As:", callback=self.same_as)
                 self.same_as_input = dpg.add_input_int(default_value=30, width=93)
                 dpg.add_button(label="Export", callback=self.export)
 
             with dpg.group(horizontal=False) as parent:
                 self.suggestions_panel = dpg.add_child_window(
-                    width=400, height=300, parent=parent
+                    width=-1, height=300, parent=parent
                 )
                 self.suggestion_table = TableManager9000(
                     parent=self.suggestions_panel,
@@ -92,7 +92,7 @@ class BillingWindow:
                                 user_data=row,
                             )
 
-                with dpg.child_window(width=400) as billed_panel:
+                with dpg.child_window(width=-1) as billed_panel:
                     self.billed_count = dpg.add_text("0 people billed")
                     self.billed_table = TableManager9000(
                         parent=billed_panel,

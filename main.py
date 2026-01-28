@@ -34,19 +34,15 @@ def setup_db():
 
 
 def start_billing(path: Path):
-    main_image_ratios = (0.55, 0.65)
-    window_ratios = (0.76, 0.79)
+    main_image_ratio = 0.7
     monitors = get_monitors()
     logger.debug(monitors)
     for monitor in monitors:
-        main_image_dimensions = tuple(
-            int(j * i)
-            for i, j in zip(main_image_ratios, (monitor.width, monitor.height))
-        )
+        image_width = int(monitor.width * main_image_ratio)
+        main_image_dimensions = (image_width, int(image_width * 2 / 3))
         thumnail_dimensions = (200, 200)
-        window_dimensions = tuple(
-            int(j * i) for i, j in zip(window_ratios, (monitor.width, monitor.height))
-        )
+        image_x, image_y = main_image_dimensions
+        window_dimensions = (image_x + 460, image_y + 100)
         logger.debug("Making ImageManager")
         image_manager = Application.ImageManager.from_path(
             path, main_image_dimensions, thumnail_dimensions
