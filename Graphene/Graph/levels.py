@@ -2,7 +2,6 @@ import functools
 import logging
 
 import dearpygui.dearpygui as dpg
-from line_profiler import profile
 
 from Application import Image, get_rgb_histogram, levels
 
@@ -100,7 +99,6 @@ class Levels(Node):
             self.settings["white_level"] = dpg.get_value(self.white_level) / 255
             self.settings["gamma"] = dpg.get_value(self.gamma)
 
-    @profile
     def process(self, is_final=False):
         super().process(is_final)
         if self.input_attributes[self.image_attribute]:

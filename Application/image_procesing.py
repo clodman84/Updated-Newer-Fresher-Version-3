@@ -2,7 +2,6 @@ import itertools
 import logging
 
 import numpy as np
-from line_profiler import profile
 from PIL import Image as PImage
 from PIL import ImageMath
 
@@ -130,7 +129,6 @@ def colour_balance(
     return out
 
 
-@profile
 def levels(img: PImage.Image, black, white, gamma):
     arr = np.asarray(img, dtype=np.float32) / 255
     arr = (arr - black) / (white - black)
