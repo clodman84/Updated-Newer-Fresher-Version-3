@@ -3,7 +3,7 @@
 #include <vector>
 #define _CRT_SECURE_NO_WARNINGS
 #define STB_IMAGE_IMPLEMENTATION
-#include "image.h"
+#include "application.h"
 #include "imgui.h"
 #include "stb_image.h"
 #include <SDL3/SDL.h>

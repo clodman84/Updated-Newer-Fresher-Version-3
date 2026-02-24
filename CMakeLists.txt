@@ -18,7 +18,6 @@ add_library(imgui STATIC
     vendored/imgui/backends/imgui_impl_sdl3.cpp
     vendored/imgui/backends/imgui_impl_sdlgpu3.cpp
 )
-
 target_include_directories(imgui PUBLIC
     vendored/imgui
     vendored/imgui/backends
@@ -32,6 +31,16 @@ add_executable(UNFV3
     src/Application/image.cpp
 )
 
+# SQLite
+add_library(sqlite STATIC
+    vendored/sqlite-amalgamation-3510200/sqlite3.c
+)
+
+target_include_directories(sqlite INTERFACE
+    vendored/sqlite-amalgamation-3510200
+)
+
+
 target_include_directories(UNFV3 PRIVATE
     src/Application
     vendored/SDL/include
@@ -40,4 +49,5 @@ target_include_directories(UNFV3 PRIVATE
 target_link_libraries(UNFV3 PRIVATE
     imgui
     SDL3::SDL3
+    sqlite
 )
