@@ -8,8 +8,6 @@
 #include "stb_image.h"
 #include <SDL3/SDL.h>
 
-#define MAX(A, B) (((A) >= (B)) ? (A) : (B))
-
 bool LoadTextureFromMemory(const void *data, size_t data_size,
                            SDL_GPUDevice *device, SDL_GPUTexture **out_texture,
                            int *out_width, int *out_height) {

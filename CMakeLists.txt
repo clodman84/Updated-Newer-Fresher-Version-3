@@ -29,6 +29,7 @@ target_link_libraries(imgui PUBLIC SDL3::SDL3)
 add_executable(UNFV3
     src/main.cpp
     src/Application/image.cpp
+    src/Application/database.cpp
 )
 
 # SQLite
@@ -40,6 +41,9 @@ target_include_directories(sqlite INTERFACE
     vendored/sqlite-amalgamation-3510200
 )
 
+target_compile_definitions(sqlite PRIVATE
+    SQLITE_ENABLE_FTS5
+)
 
 target_include_directories(UNFV3 PRIVATE
     src/Application

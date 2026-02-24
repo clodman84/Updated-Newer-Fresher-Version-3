@@ -2,10 +2,12 @@
 #define IMAGE_H
 
 #define _CRT_SECURE_NO_WARNINGS
+
 #include "imgui.h"
 #include <SDL3/SDL.h>
 #include <string>
 #include <vector>
+#define MAX(A, B) (((A) >= (B)) ? (A) : (B))
 
 bool LoadTextureFromMemory(const void *data, size_t data_size,
                            SDL_GPUDevice *device, SDL_GPUTexture **out_texture,
@@ -49,6 +51,6 @@ private:
   SDL_GPUDevice *device;
 };
 
-void prepare_database(const char *sql_file);
+void prepare_database();
 
 #endif // !IMAGE_H
