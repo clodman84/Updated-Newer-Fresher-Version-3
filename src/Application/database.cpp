@@ -31,10 +31,9 @@ Database::Database() {
   // Enable foreign keys (recommended)
   sqlite3_exec(db, "PRAGMA foreign_keys = ON;", nullptr, nullptr, nullptr);
   const char *sql =
-      "SELECT name, idno, hoscode, roomno FROM students WHERE rowid IN (SELECT "
-      "* from (SELECT rowid FROM students_fts WHERE name MATCH :query ORDER BY "
-      "rank) UNION SELECT * from (SELECT rowid FROM students_fts WHERE nick "
-      "MATCH :query ORDER BY rank))";
+      "SELECT s.idno, s.name, s.hoscode, s.roomno FROM students "
+      "s JOIN students_fts f ON s.rowid = f.rowid WHERE students_fts match "
+      ":query ORDER BY s.idno";
   if (sqlite3_prepare_v2(db, sql, -1, &fts_search, nullptr) != SQLITE_OK)
     throw std::runtime_error(sqlite3_errmsg(db));
 }
@@ -106,7 +105,6 @@ void Database::insert_data() {
 
 void Database::search() {
   ScopedTimer timer(processing_time);
-
   sqlite3_bind_text(fts_search,
                     sqlite3_bind_parameter_index(fts_search, ":query"),
                     search_query.c_str(), -1, SQLITE_TRANSIENT);
@@ -210,8 +208,8 @@ void Database::render_searcher() {
   ImGui::Text("Searched in %s", processing_time.c_str());
   ImGui::BeginTable("##", 4,
                     ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingFixedFit);
-  ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthStretch, 2.0f);
   ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_WidthFixed, 120.0f);
+  ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthStretch, 2.0f);
   ImGui::TableSetupColumn("Bhawan", ImGuiTableColumnFlags_WidthFixed, 50.0f);
   ImGui::TableSetupColumn("Room", ImGuiTableColumnFlags_WidthFixed, 40.0f);
 

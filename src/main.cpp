@@ -5,7 +5,6 @@
 #include <SDL3/SDL.h>
 #include <stdio.h>  // printf, fprintf
 #include <stdlib.h> // abort
-#include <string>
 
 int main(int, char **) {
 
