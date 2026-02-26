@@ -4,9 +4,11 @@
 #define _CRT_SECURE_NO_WARNINGS
 
 #include "imgui.h"
+#include "sqlite3.h"
 #include <SDL3/SDL.h>
 #include <string>
 #include <vector>
+
 #define MAX(A, B) (((A) >= (B)) ? (A) : (B))
 
 bool LoadTextureFromMemory(const void *data, size_t data_size,
@@ -52,5 +54,20 @@ private:
 };
 
 void prepare_database();
+
+class Database {
+public:
+  Database();
+  ~Database();
+  void read_csv(const std::string &filename);
+  void show_loaded_csv(); // call this after reading a csv to verify the state
+  void store_loaded_csv();
+  void insert_data();
+
+private:
+  std::string db_filename = "./Data/database.db";
+  std::vector<std::vector<std::string>> loaded;
+  sqlite3 *db;
+};
 
 #endif // !IMAGE_H

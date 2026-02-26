@@ -17,6 +17,7 @@ add_library(imgui STATIC
     vendored/imgui/imgui_demo.cpp
     vendored/imgui/backends/imgui_impl_sdl3.cpp
     vendored/imgui/backends/imgui_impl_sdlgpu3.cpp
+    vendored/imgui/misc/cpp/imgui_stdlib.cpp
 )
 target_include_directories(imgui PUBLIC
     vendored/imgui

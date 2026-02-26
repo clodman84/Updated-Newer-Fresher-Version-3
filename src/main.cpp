@@ -5,11 +5,14 @@
 #include <SDL3/SDL.h>
 #include <stdio.h>  // printf, fprintf
 #include <stdlib.h> // abort
+#include <string>
 
 int main(int, char **) {
 
   // Prepare the database
   prepare_database();
+  Database db = Database();
+  db.read_csv("./Data/messlist.csv");
 
   if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD)) {
     printf("Error: SDL_Init(): %s\n", SDL_GetError());
@@ -101,6 +104,7 @@ int main(int, char **) {
       ImGui::ShowDemoWindow(&show_demo_window);
 
     manager.drawManager(&io);
+    db.show_loaded_csv();
 
     ImGui::Render();
     ImDrawData *draw_data = ImGui::GetDrawData();
