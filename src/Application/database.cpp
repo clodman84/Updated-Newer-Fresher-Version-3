@@ -30,6 +30,13 @@ Database::Database() {
   }
   // Enable foreign keys (recommended)
   sqlite3_exec(db, "PRAGMA foreign_keys = ON;", nullptr, nullptr, nullptr);
+  const char *sql =
+      "SELECT name, idno, hoscode, roomno FROM students WHERE rowid IN (SELECT "
+      "* from (SELECT rowid FROM students_fts WHERE name MATCH :query ORDER BY "
+      "rank) UNION SELECT * from (SELECT rowid FROM students_fts WHERE nick "
+      "MATCH :query ORDER BY rank))";
+  if (sqlite3_prepare_v2(db, sql, -1, &fts_search, nullptr) != SQLITE_OK)
+    throw std::runtime_error(sqlite3_errmsg(db));
 }
 
 Database::~Database() {
@@ -61,6 +68,7 @@ void Database::read_csv(const std::string &filename) {
 }
 
 void Database::insert_data() {
+  ScopedTimer timer(processing_time);
   const char *sql = "INSERT INTO students "
                     "(idno, name, gender, hoscode, roomno, nick) "
                     "VALUES (:idno, :name, :gender, :hoscode, :roomno, NULL) "
@@ -74,28 +82,20 @@ void Database::insert_data() {
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
     throw std::runtime_error(sqlite3_errmsg(db));
 
-  // Start transaction for speed
   sqlite3_exec(db, "BEGIN TRANSACTION;", nullptr, nullptr, nullptr);
-
   for (const auto &row : loaded) {
     sqlite3_bind_text(stmt, sqlite3_bind_parameter_index(stmt, ":idno"),
                       row[0].c_str(), -1, SQLITE_TRANSIENT);
-
     sqlite3_bind_text(stmt, sqlite3_bind_parameter_index(stmt, ":name"),
                       row[1].c_str(), -1, SQLITE_TRANSIENT);
-
     sqlite3_bind_text(stmt, sqlite3_bind_parameter_index(stmt, ":gender"),
                       row[2].c_str(), -1, SQLITE_TRANSIENT);
-
     sqlite3_bind_text(stmt, sqlite3_bind_parameter_index(stmt, ":hoscode"),
                       row[3].c_str(), -1, SQLITE_TRANSIENT);
-
     sqlite3_bind_text(stmt, sqlite3_bind_parameter_index(stmt, ":roomno"),
                       row[4].c_str(), -1, SQLITE_TRANSIENT);
-
     if (sqlite3_step(stmt) != SQLITE_DONE)
       throw std::runtime_error(sqlite3_errmsg(db));
-
     sqlite3_reset(stmt);
     sqlite3_clear_bindings(stmt);
   }
@@ -104,23 +104,56 @@ void Database::insert_data() {
   sqlite3_finalize(stmt);
 }
 
-void Database::show_loaded_csv() {
-  ImGui::Begin("Loaded Mess List");
+void Database::search() {
+  ScopedTimer timer(processing_time);
+
+  sqlite3_bind_text(fts_search,
+                    sqlite3_bind_parameter_index(fts_search, ":query"),
+                    search_query.c_str(), -1, SQLITE_TRANSIENT);
+  fts_results.clear();
+  while (true) {
+    int rc = sqlite3_step(fts_search);
+    if (rc == SQLITE_ROW) {
+      std::vector<std::string> line;
+      for (int i = 0; i < 4; i++) {
+        const unsigned char *text = sqlite3_column_text(fts_search, i);
+
+        line.push_back(text ? std::string(reinterpret_cast<const char *>(text))
+                            : "");
+      }
+      fts_results.push_back(line);
+    } else if (rc == SQLITE_DONE) {
+      break;
+    } else {
+      std::cerr << "Step error: " << sqlite3_errmsg(db) << "\n";
+      break;
+    }
+  }
+  sqlite3_reset(fts_search);
+}
+
+void Database::render_loaded_csv() {
+  if (!show_loaded_csv)
+    return;
+  if (!ImGui::Begin("Loaded Mess List", &show_loaded_csv)) {
+    ImGui::End();
+    return;
+  }
   ImGui::Text(
       "%lu lines of csv parsed, scroll to the bottom to load this mess list",
       loaded.size());
-  ImGui::BeginTable("loaded", 5,
+  ImGui::BeginTable("##", 5,
                     ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingFixedFit);
   ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_WidthFixed, 120.0f);
   ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthStretch, 2.0f);
-  ImGui::TableSetupColumn("Gender", ImGuiTableColumnFlags_WidthFixed, 80.0f);
-  ImGui::TableSetupColumn("Bhawan", ImGuiTableColumnFlags_WidthFixed, 80.0f);
-  ImGui::TableSetupColumn("Room No", ImGuiTableColumnFlags_WidthFixed, 80.0f);
+  ImGui::TableSetupColumn("Sex", ImGuiTableColumnFlags_WidthFixed, 40.0f);
+  ImGui::TableSetupColumn("Bhawan", ImGuiTableColumnFlags_WidthFixed, 50.0f);
+  ImGui::TableSetupColumn("Room", ImGuiTableColumnFlags_WidthFixed, 40.0f);
 
   ImGui::TableHeadersRow();
-  for (std::vector<std::string> line : loaded) {
+  for (const auto &line : loaded) {
     ImGui::TableNextRow();
-    for (std::string item : line) {
+    for (const auto &item : line) {
       ImGui::TableNextColumn();
       ImGui::TextUnformatted(item.c_str());
     }
@@ -128,6 +161,11 @@ void Database::show_loaded_csv() {
   ImGui::EndTable();
   if (ImGui::Button("Looks good to me, load this messlist"))
     this->insert_data();
+  if (!processing_time.empty()) {
+    ImGui::SameLine();
+    ImGui::Text("Loaded in %s!", processing_time.c_str());
+  }
+
   ImGui::End();
 }
 
@@ -162,4 +200,29 @@ void prepare_database() {
   }
 
   sqlite3_close(DB);
+}
+
+void Database::render_searcher() {
+  ImGui::Begin("Search Window");
+  if (ImGui::InputText("##", &search_query))
+    this->search();
+  ImGui::SameLine();
+  ImGui::Text("Searched in %s", processing_time.c_str());
+  ImGui::BeginTable("##", 4,
+                    ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingFixedFit);
+  ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthStretch, 2.0f);
+  ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_WidthFixed, 120.0f);
+  ImGui::TableSetupColumn("Bhawan", ImGuiTableColumnFlags_WidthFixed, 50.0f);
+  ImGui::TableSetupColumn("Room", ImGuiTableColumnFlags_WidthFixed, 40.0f);
+
+  ImGui::TableHeadersRow();
+  for (const auto &line : fts_results) {
+    ImGui::TableNextRow();
+    for (const auto &item : line) {
+      ImGui::TableNextColumn();
+      ImGui::TextUnformatted(item.c_str());
+    }
+  }
+  ImGui::EndTable();
+  ImGui::End();
 }

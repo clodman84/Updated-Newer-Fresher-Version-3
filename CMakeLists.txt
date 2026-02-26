@@ -25,6 +25,9 @@ target_include_directories(imgui PUBLIC
     vendored/SDL/include
 )
 
+set(SDL_SHARED OFF CACHE BOOL "Build shared SDL" FORCE)
+set(SDL_STATIC ON CACHE BOOL "Build static SDL" FORCE)
+
 target_link_libraries(imgui PUBLIC SDL3::SDL3)
 
 add_executable(UNFV3

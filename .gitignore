@@ -2,3 +2,4 @@ build/
 .cache/
 test/
 Data/database.db
+Data/messlist.csv
