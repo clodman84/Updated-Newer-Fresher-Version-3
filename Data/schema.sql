@@ -8,8 +8,9 @@ CREATE TABLE IF NOT EXISTS students(
 );
 
 -- full text search capabilities for students
-DROP table IF EXISTS students_fts;
-CREATE VIRTUAL TABLE students_fts USING fts5(NAME, NICK, IDNO UNINDEXED, content='students', tokenize='trigram');
+CREATE VIRTUAL TABLE IF NOT EXISTS students_fts USING fts5(NAME, NICK, IDNO UNINDEXED, content='', tokenize='trigram');
+
+CREATE INDEX IF NOT EXISTS idx_students_idno ON students(IDNO);
 
 DROP TRIGGER IF EXISTS students_ai;
 DROP TRIGGER IF EXISTS students_ad;
@@ -27,4 +28,3 @@ CREATE TRIGGER students_au AFTER UPDATE ON students BEGIN
   INSERT INTO students_fts(rowid, NAME, NICK, IDNO) VALUES (new.rowid, new.NAME, new.NICK, new.IDNO);
 END;
 
-INSERT INTO students_fts(students_fts) VALUES('rebuild');

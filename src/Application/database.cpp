@@ -30,11 +30,25 @@ Database::Database() {
   }
   // Enable foreign keys (recommended)
   sqlite3_exec(db, "PRAGMA foreign_keys = ON;", nullptr, nullptr, nullptr);
-  const char *sql =
-      "SELECT s.idno, s.name, s.hoscode, s.roomno FROM students "
-      "s JOIN students_fts f ON s.rowid = f.rowid WHERE students_fts match "
+  const char *fts_sql =
+      "SELECT s.idno, s.name, s.hoscode, s.roomno FROM students_fts "
+      "f JOIN students s ON s.rowid = f.rowid WHERE students_fts match "
       ":query ORDER BY s.idno";
-  if (sqlite3_prepare_v2(db, sql, -1, &fts_search, nullptr) != SQLITE_OK)
+
+  const char *bhawan_sql =
+      "SELECT idno, name, hoscode, roomno FROM students WHERE hoscode = :query";
+
+  const char *id_sql = "SELECT idno, name, hoscode, roomno FROM students WHERE "
+                       "idno LIKE :query";
+
+  if (sqlite3_prepare_v2(db, fts_sql, -1, &fts_search, nullptr) != SQLITE_OK)
+    throw std::runtime_error(sqlite3_errmsg(db));
+
+  if (sqlite3_prepare_v2(db, bhawan_sql, -1, &bhawan_search, nullptr) !=
+      SQLITE_OK)
+    throw std::runtime_error(sqlite3_errmsg(db));
+
+  if (sqlite3_prepare_v2(db, id_sql, -1, &id_search, nullptr) != SQLITE_OK)
     throw std::runtime_error(sqlite3_errmsg(db));
 }
 
@@ -103,21 +117,33 @@ void Database::insert_data() {
   sqlite3_finalize(stmt);
 }
 
-void Database::search() {
+void Database::search(SearchType search_type) {
   ScopedTimer timer(processing_time);
-  sqlite3_bind_text(fts_search,
-                    sqlite3_bind_parameter_index(fts_search, ":query"),
+  sqlite3_stmt *stmt;
+
+  switch (search_type) {
+  case FTS_SEARCH:
+    stmt = fts_search;
+    break;
+  case BHAWAN_SEARCH:
+    stmt = bhawan_search;
+    break;
+  case ID_SEARCH:
+    stmt = id_search;
+    break;
+  }
+
+  sqlite3_bind_text(stmt, sqlite3_bind_parameter_index(stmt, ":query"),
                     search_query.c_str(), -1, SQLITE_TRANSIENT);
   fts_results.clear();
   while (true) {
-    int rc = sqlite3_step(fts_search);
+    int rc = sqlite3_step(stmt);
     if (rc == SQLITE_ROW) {
-      std::vector<std::string> line;
+      std::array<std::string, 4> line;
       for (int i = 0; i < 4; i++) {
-        const unsigned char *text = sqlite3_column_text(fts_search, i);
+        const unsigned char *text = sqlite3_column_text(stmt, i);
 
-        line.push_back(text ? std::string(reinterpret_cast<const char *>(text))
-                            : "");
+        line[i] = text ? std::string(reinterpret_cast<const char *>(text)) : "";
       }
       fts_results.push_back(line);
     } else if (rc == SQLITE_DONE) {
@@ -127,7 +153,7 @@ void Database::search() {
       break;
     }
   }
-  sqlite3_reset(fts_search);
+  sqlite3_reset(stmt);
 }
 
 void Database::render_loaded_csv() {
@@ -203,7 +229,7 @@ void prepare_database() {
 void Database::render_searcher() {
   ImGui::Begin("Search Window");
   if (ImGui::InputText("##", &search_query))
-    this->search();
+    this->search(ID_SEARCH);
   ImGui::SameLine();
   ImGui::Text("Searched in %s", processing_time.c_str());
   ImGui::BeginTable("##", 4,

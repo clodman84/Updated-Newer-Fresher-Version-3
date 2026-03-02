@@ -6,6 +6,7 @@
 #include "imgui.h"
 #include "sqlite3.h"
 #include <SDL3/SDL.h>
+#include <array>
 #include <chrono>
 #include <string>
 #include <vector>
@@ -101,6 +102,8 @@ private:
 // the overflowing laundro bag
 void prepare_database();
 
+enum SearchType { FTS_SEARCH, BHAWAN_SEARCH, ID_SEARCH };
+
 class Database {
 public:
   Database();
@@ -110,7 +113,7 @@ public:
   void store_loaded_csv();
   void insert_data();
   void render_searcher();
-  void search();
+  void search(SearchType search_type);
 
 private:
   std::string db_filename = "./Data/database.db";
@@ -119,7 +122,9 @@ private:
   std::string processing_time;
   std::string search_query;
   sqlite3_stmt *fts_search = nullptr;
-  std::vector<std::vector<std::string>> fts_results;
+  sqlite3_stmt *bhawan_search = nullptr;
+  sqlite3_stmt *id_search = nullptr;
+  std::vector<std::array<std::string, 4>> fts_results;
   bool show_loaded_csv = true;
 };
 
