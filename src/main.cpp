@@ -1,5 +1,7 @@
 #include "Application/application.h"
 #include "SDL3/SDL_dialog.h"
+#include "SDL3/SDL_log.h"
+#include "SDL3/SDL_video.h"
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
 #include "imgui_impl_sdlgpu3.h"
@@ -39,7 +41,6 @@ static void SDLCALL mess_list_callback(void *userdata,
 
   while (*filelist) {
     std::string filename(*filelist);
-    std::cout << filename << '\n';
     SDL_Log("Full path to selected file: '%s'", *filelist);
     filelist++;
     Database *db = (Database *)userdata;
@@ -101,8 +102,9 @@ int main(int, char **) {
   float main_scale = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
   SDL_WindowFlags window_flags =
       SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY;
-  SDL_Window *window = SDL_CreateWindow("Gredit", (int)(1280 * main_scale),
+  SDL_Window *window = SDL_CreateWindow("UNFV3", (int)(1080 * main_scale),
                                         (int)(800 * main_scale), window_flags);
+  SDL_Log("Window Driver: %s\n", SDL_GetCurrentVideoDriver());
   if (window == nullptr) {
     printf("Error: SDL_CreateWindow(): %s\n", SDL_GetError());
     return 1;

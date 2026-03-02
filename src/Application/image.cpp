@@ -177,8 +177,34 @@ Image *ImageManager::loadPrevious() {
   return loadImage();
 }
 
+inline ImVec2 operator+(const ImVec2 &a, const ImVec2 &b) {
+  return ImVec2(a.x + b.x, a.y + b.y);
+}
+
+inline ImVec2 operator-(const ImVec2 &a, const ImVec2 &b) {
+  return ImVec2(a.x - b.x, a.y - b.y);
+}
+
+inline ImVec2 operator*(const ImVec2 &a, float s) {
+  return ImVec2(a.x * s, a.y * s);
+}
+
+inline ImVec2 operator/(const ImVec2 &a, float s) {
+  return ImVec2(a.x / s, a.y / s);
+}
+
+inline ImVec2 &operator+=(ImVec2 &a, const ImVec2 &b) {
+  a.x += b.x;
+  a.y += b.y;
+  return a;
+}
+
+inline ImVec2 &operator-=(ImVec2 &a, const ImVec2 &b) {
+  a.x -= b.x;
+  a.y -= b.y;
+  return a;
+}
 void ImageManager::drawManager(ImGuiIO *io) {
-  // The image manager can be rendered onto the screen for reference
   ImGui::BeginChild(imageFolder);
   if (ImGui::Button("Previous")) {
     loadPrevious();
@@ -193,41 +219,88 @@ void ImageManager::drawManager(ImGuiIO *io) {
   };
 
   ImTextureRef texture_id = current_image->texture;
-  float display_width = 720.0f;
-  float display_height = 480.0f;
 
-  {
-    ImVec2 pos = ImGui::GetCursorScreenPos();
-    ImVec2 uv_min = ImVec2(0.0f, 0.0f); // Top-left
-    ImVec2 uv_max = ImVec2(1.0f, 1.0f); // Lower-right
-    ImGui::PushStyleVar(ImGuiStyleVar_ImageBorderSize,
-                        MAX(1.0f, ImGui::GetStyle().ImageBorderSize));
-    ImGui::ImageWithBg(texture_id, ImVec2(display_width, display_height),
-                       uv_min, uv_max, ImVec4(0.0f, 0.0f, 0.0f, 1.0f));
-    if (ImGui::BeginItemTooltip()) {
-      float region_sz = 32.0f;
-      float region_x = io->MousePos.x - pos.x - region_sz * 0.5f;
-      float region_y = io->MousePos.y - pos.y - region_sz * 0.5f;
-      float zoom = 4.0f;
-      if (region_x < 0.0f) {
-        region_x = 0.0f;
-      } else if (region_x > display_width - region_sz) {
-        region_x = display_width - region_sz;
-      }
-      if (region_y < 0.0f) {
-        region_y = 0.0f;
-      } else if (region_y > display_height - region_sz) {
-        region_y = display_height - region_sz;
-      }
-      ImVec2 uv0 =
-          ImVec2((region_x) / display_width, (region_y) / display_height);
-      ImVec2 uv1 = ImVec2((region_x + region_sz) / display_width,
-                          (region_y + region_sz) / display_height);
-      ImGui::ImageWithBg(texture_id, ImVec2(region_sz * zoom, region_sz * zoom),
-                         uv0, uv1, ImVec4(0.0f, 0.0f, 0.0f, 1.0f));
-      ImGui::EndTooltip();
-    }
-    ImGui::PopStyleVar();
+  ImVec2 canvas_pos = ImGui::GetCursorScreenPos();
+  ImVec2 canvas_size = ImGui::GetContentRegionAvail();
+
+  float base_width = 720.0f;
+  float base_height = 480.0f;
+
+  ImGui::InvisibleButton("canvas", canvas_size,
+                         ImGuiButtonFlags_MouseButtonLeft);
+
+  bool hovered = ImGui::IsItemHovered();
+  bool active = ImGui::IsItemActive();
+
+  if (hovered && io->MouseWheel != 0.0f) {
+    float old_zoom = zoom;
+    zoom *= powf(1.1f, io->MouseWheel);
+
+    if (zoom < 0.1f)
+      zoom = 0.1f;
+    if (zoom > 20.0f)
+      zoom = 20.0f;
+
+    // Zoom toward mouse
+    ImVec2 mouse = io->MousePos;
+    ImVec2 mouse_local;
+    mouse_local.x = mouse.x - canvas_pos.x - pan.x;
+    mouse_local.y = mouse.y - canvas_pos.y - pan.y;
+
+    float scale = zoom / old_zoom - 1.0f;
+    pan.x -= mouse_local.x * scale;
+    pan.y -= mouse_local.y * scale;
   }
+
+  if (active && ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
+    pan.x += io->MouseDelta.x;
+    pan.y += io->MouseDelta.y;
+  }
+
+  ImVec2 image_size;
+  image_size.x = base_width * zoom;
+  image_size.y = base_height * zoom;
+
+  if (image_size.x <= canvas_size.x) {
+    // center horizontally
+    pan.x = (canvas_size.x - image_size.x) * 0.5f;
+  } else {
+    float min_x = canvas_size.x - image_size.x;
+    float max_x = 0.0f;
+    if (pan.x < min_x)
+      pan.x = min_x;
+    if (pan.x > max_x)
+      pan.x = max_x;
+  }
+
+  if (image_size.y <= canvas_size.y) {
+    // center vertically
+    pan.y = (canvas_size.y - image_size.y) * 0.5f;
+  } else {
+    float min_y = canvas_size.y - image_size.y;
+    float max_y = 0.0f;
+    if (pan.y < min_y)
+      pan.y = min_y;
+    if (pan.y > max_y)
+      pan.y = max_y;
+  }
+
+  ImDrawList *draw_list = ImGui::GetWindowDrawList();
+
+  draw_list->PushClipRect(
+      canvas_pos,
+      ImVec2(canvas_pos.x + canvas_size.x, canvas_pos.y + canvas_size.y), true);
+
+  ImVec2 image_pos;
+  image_pos.x = canvas_pos.x + pan.x;
+  image_pos.y = canvas_pos.y + pan.y;
+
+  draw_list->AddImage(
+      texture_id, image_pos,
+      ImVec2(image_pos.x + image_size.x, image_pos.y + image_size.y),
+      ImVec2(0, 0), ImVec2(1, 1));
+
+  draw_list->PopClipRect();
+
   ImGui::EndChild();
 }

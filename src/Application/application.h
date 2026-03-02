@@ -97,6 +97,9 @@ private:
   void loadFolder(const char *);
   std::vector<std::string> images;
   SDL_GPUDevice *device;
+  // Persistent state
+  float zoom = 1.0f;
+  ImVec2 pan = ImVec2(0, 0);
 };
 
 // the overflowing laundro bag
