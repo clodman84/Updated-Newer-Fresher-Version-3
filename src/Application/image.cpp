@@ -179,7 +179,7 @@ Image *ImageManager::loadPrevious() {
 
 void ImageManager::drawManager(ImGuiIO *io) {
   // The image manager can be rendered onto the screen for reference
-  ImGui::Begin(imageFolder);
+  ImGui::BeginChild(imageFolder);
   if (ImGui::Button("Previous")) {
     loadPrevious();
   }
@@ -229,5 +229,5 @@ void ImageManager::drawManager(ImGuiIO *io) {
     }
     ImGui::PopStyleVar();
   }
-  ImGui::End();
+  ImGui::EndChild();
 }

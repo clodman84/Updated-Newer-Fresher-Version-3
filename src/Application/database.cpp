@@ -270,12 +270,12 @@ void prepare_database() {
 }
 
 void Session::render_searcher() {
-  ImGui::Begin("Search Window");
+  ImGui::BeginChild("Search Window", {450.0f, 0.0f});
   if (ImGui::InputText("##", &search_query))
     this->database->search(ID_SEARCH, search_query, search_results);
   ImGui::BeginTable("##", 4,
                     ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingFixedFit);
-  ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_WidthFixed, 120.0f);
+  ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_WidthFixed, 110.0f);
   ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthStretch, 2.0f);
   ImGui::TableSetupColumn("Bhawan", ImGuiTableColumnFlags_WidthFixed, 50.0f);
   ImGui::TableSetupColumn("Room", ImGuiTableColumnFlags_WidthFixed, 40.0f);
@@ -289,5 +289,5 @@ void Session::render_searcher() {
     }
   }
   ImGui::EndTable();
-  ImGui::End();
+  ImGui::EndChild();
 }

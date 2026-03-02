@@ -5,11 +5,16 @@
 #include "imgui_impl_sdlgpu3.h"
 #include <SDL3/SDL.h>
 #include <deque>
+#include <filesystem>
 #include <iostream>
 #include <memory>
 #include <mutex>
 #include <stdio.h>  // printf, fprintf
 #include <stdlib.h> // abort
+
+std::string get_folder_name(const char *full_path) {
+  return std::filesystem::path(full_path).filename().string();
+}
 
 typedef struct FolderDialogData {
   Database *database;
@@ -144,7 +149,6 @@ int main(int, char **) {
   style.FontSizeBase = 20.0f;
   ImFont *font = io.Fonts->AddFontFromFileTTF("./Data/Quantico-Regular.ttf");
   IM_ASSERT(font != nullptr);
-  bool show_demo_window = true;
   ImVec4 clear_color = ImVec4(0.0f, 0.0f, 0.0f, 1.00f);
   bool done = false;
 
@@ -187,18 +191,55 @@ int main(int, char **) {
 
     ImGui::EndMainMenuBar();
 
-    if (db.show_loaded_csv)
-      db.render_loaded_csv();
-
     std::lock_guard lock(mutex);
-    for (auto &session : sessions) {
-      session.render_searcher();
-      if (!session.manager.current_image)
-        session.manager.loadImage();
-      session.manager.drawManager(&io);
+
+    if (!sessions.empty()) {
+      ImGuiViewport *viewport = ImGui::GetMainViewport();
+      float menu_bar_height = ImGui::GetFrameHeight();
+
+      // Position below menu bar
+      ImGui::SetNextWindowPos(
+          ImVec2(viewport->Pos.x, viewport->Pos.y + menu_bar_height));
+
+      // Fill remaining space
+      ImGui::SetNextWindowSize(
+          ImVec2(viewport->Size.x, viewport->Size.y - menu_bar_height));
+
+      ImGuiWindowFlags flags =
+          ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+          ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse;
+
+      ImGui::Begin("SessionTabsHost", nullptr, flags);
+
+      // ONE tab bar
+      if (ImGui::BeginTabBar("SessionsTabBar",
+                             ImGuiTabBarFlags_Reorderable |
+                                 ImGuiTabBarFlags_AutoSelectNewTabs)) {
+        for (auto &session : sessions) {
+          // Each session = one tab
+          if (ImGui::BeginTabItem(
+                  get_folder_name(session.manager.imageFolder).c_str())) {
+            session.render_searcher();
+
+            if (!session.manager.current_image)
+              session.manager.loadImage();
+
+            ImGui::SameLine();
+
+            session.manager.drawManager(&io);
+
+            ImGui::EndTabItem();
+          }
+        }
+
+        ImGui::EndTabBar();
+      }
+
+      ImGui::End();
     }
 
-    ImGui::ShowDemoWindow(&show_demo_window);
+    if (db.show_loaded_csv)
+      db.render_loaded_csv();
     ImGui::Render();
 
     ImDrawData *draw_data = ImGui::GetDrawData();
