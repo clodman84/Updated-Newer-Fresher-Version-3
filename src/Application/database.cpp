@@ -2,10 +2,11 @@
 #include "imgui.h"
 #include "misc/cpp/imgui_stdlib.h"
 #include "sqlite3.h"
+#include <algorithm>
+#include <array>
 #include <fstream>
 #include <iostream>
 #include <sstream>
-#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -35,11 +36,11 @@ Database::Database() {
       "f JOIN students s ON s.rowid = f.rowid WHERE students_fts match "
       ":query ORDER BY s.idno";
 
-  const char *bhawan_sql =
-      "SELECT idno, name, hoscode, roomno FROM students WHERE hoscode = :query";
+  const char *bhawan_sql = "SELECT idno, name, hoscode, roomno FROM students "
+                           "WHERE hoscode = :query ORDER BY idno";
 
   const char *id_sql = "SELECT idno, name, hoscode, roomno FROM students WHERE "
-                       "idno LIKE :query";
+                       "idno LIKE :query ORDER BY idno";
 
   if (sqlite3_prepare_v2(db, fts_sql, -1, &fts_search, nullptr) != SQLITE_OK)
     throw std::runtime_error(sqlite3_errmsg(db));
@@ -117,25 +118,68 @@ void Database::insert_data() {
   sqlite3_finalize(stmt);
 }
 
-void Database::search(SearchType search_type) {
+std::string Database::modify_query_for_id(std::string s) {
+  auto is_digit = [](const std::string &str) {
+    return std::all_of(str.begin(), str.end(),
+                       [](unsigned char c) { return std::isdigit(c); });
+  };
+
+  switch (s.length()) {
+  case 2:
+    if (is_digit(s))
+      s = "20" + s + "%";
+    else
+      s = "%" + s + "%";
+    break;
+
+  case 3:
+    s = "%" + s + "%";
+    break;
+
+  case 4:
+    if (is_digit(s))
+      s = "%" + s;
+    else
+      s = "%" + s + "%";
+    break;
+
+  case 6:
+    if (is_digit(s))
+      s = "%" + s.substr(0, 2) + "%" + s.substr(2);
+    else
+      s = "20" + s + "%";
+    break;
+
+  default:
+    s = "%";
+    break;
+  }
+  return s;
+}
+
+void Database::search(SearchType search_type, std::string &search_query,
+                      std::vector<std::array<std::string, 4>> &search_results) {
   ScopedTimer timer(processing_time);
   sqlite3_stmt *stmt;
-
+  std::string query;
   switch (search_type) {
   case FTS_SEARCH:
+    query = search_query;
     stmt = fts_search;
     break;
   case BHAWAN_SEARCH:
+    query = search_query;
     stmt = bhawan_search;
     break;
   case ID_SEARCH:
+    query = modify_query_for_id(search_query);
     stmt = id_search;
     break;
   }
 
   sqlite3_bind_text(stmt, sqlite3_bind_parameter_index(stmt, ":query"),
-                    search_query.c_str(), -1, SQLITE_TRANSIENT);
-  fts_results.clear();
+                    query.c_str(), -1, SQLITE_TRANSIENT);
+  search_results.clear();
   while (true) {
     int rc = sqlite3_step(stmt);
     if (rc == SQLITE_ROW) {
@@ -145,7 +189,7 @@ void Database::search(SearchType search_type) {
 
         line[i] = text ? std::string(reinterpret_cast<const char *>(text)) : "";
       }
-      fts_results.push_back(line);
+      search_results.push_back(line);
     } else if (rc == SQLITE_DONE) {
       break;
     } else {
@@ -218,7 +262,6 @@ void prepare_database() {
     } else {
       std::cout << "SQL script executed successfully!" << std::endl;
     }
-
   } catch (const std::runtime_error &e) {
     std::cerr << e.what() << std::endl;
   }
@@ -226,12 +269,10 @@ void prepare_database() {
   sqlite3_close(DB);
 }
 
-void Database::render_searcher() {
+void Session::render_searcher() {
   ImGui::Begin("Search Window");
   if (ImGui::InputText("##", &search_query))
-    this->search(ID_SEARCH);
-  ImGui::SameLine();
-  ImGui::Text("Searched in %s", processing_time.c_str());
+    this->database->search(ID_SEARCH, search_query, search_results);
   ImGui::BeginTable("##", 4,
                     ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingFixedFit);
   ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_WidthFixed, 120.0f);
@@ -240,7 +281,7 @@ void Database::render_searcher() {
   ImGui::TableSetupColumn("Room", ImGuiTableColumnFlags_WidthFixed, 40.0f);
 
   ImGui::TableHeadersRow();
-  for (const auto &line : fts_results) {
+  for (const auto &line : search_results) {
     ImGui::TableNextRow();
     for (const auto &item : line) {
       ImGui::TableNextColumn();

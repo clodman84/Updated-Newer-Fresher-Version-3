@@ -131,7 +131,7 @@ static SDL_EnumerationResult enumerate_cb(void *userdata, const char *dirname,
 }
 
 ImageManager::ImageManager(SDL_GPUDevice *device, const char *imageFolder)
-    : device(device), index(-1), current_image(nullptr),
+    : device(device), index(0), current_image(nullptr),
       imageFolder(imageFolder) {
   loadFolder(imageFolder);
 }
@@ -164,14 +164,16 @@ Image *ImageManager::loadImage() {
 Image *ImageManager::loadNext() {
   if (index == images.size() - 1)
     index = 0;
-  index += 1;
+  else
+    index += 1;
   return loadImage();
 }
 
 Image *ImageManager::loadPrevious() {
   if (index == 0)
     index = images.size() - 1;
-  index -= 1;
+  else
+    index -= 1;
   return loadImage();
 }
 

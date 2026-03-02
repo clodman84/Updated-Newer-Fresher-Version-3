@@ -1,23 +1,98 @@
 #include "Application/application.h"
+#include "SDL3/SDL_dialog.h"
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
 #include "imgui_impl_sdlgpu3.h"
 #include <SDL3/SDL.h>
+#include <deque>
+#include <iostream>
+#include <memory>
+#include <mutex>
 #include <stdio.h>  // printf, fprintf
 #include <stdlib.h> // abort
 
+typedef struct FolderDialogData {
+  Database *database;
+  SDL_GPUDevice *device;
+  std::deque<Session> *session_list;
+  std::mutex *session_queue_mutex;
+} FolderDialogData;
+
+static const SDL_DialogFileFilter csv_filters[] = {{"CSV files", "csv"}};
+
+static void SDLCALL mess_list_callback(void *userdata,
+                                       const char *const *filelist,
+                                       int filter) {
+  if (!filelist) {
+    SDL_Log("An error occured: %s", SDL_GetError());
+    return;
+  } else if (!*filelist) {
+    SDL_Log("The user did not select any file.");
+    SDL_Log("Most likely, the dialog was canceled.");
+    return;
+  }
+
+  while (*filelist) {
+    std::string filename(*filelist);
+    std::cout << filename << '\n';
+    SDL_Log("Full path to selected file: '%s'", *filelist);
+    filelist++;
+    Database *db = (Database *)userdata;
+    db->read_csv(filename);
+    db->show_loaded_csv = true;
+  }
+
+  if (filter < 0) {
+    SDL_Log("The current platform does not support fetching "
+            "the selected filter, or the user did not select"
+            " any filter.");
+  } else if (filter < SDL_arraysize(csv_filters)) {
+    SDL_Log("The filter selected by the user is '%s' (%s).",
+            csv_filters[filter].pattern, csv_filters[filter].name);
+  }
+}
+
+static void SDLCALL load_roll_callback(void *userdata,
+                                       const char *const *filelist,
+                                       int filter) {
+
+  std::unique_ptr<FolderDialogData> data(
+      static_cast<FolderDialogData *>(userdata));
+
+  if (!filelist) {
+    SDL_Log("An error occured: %s", SDL_GetError());
+    return;
+  } else if (!*filelist) {
+    SDL_Log("The user did not select any file.");
+    SDL_Log("Most likely, the dialog was canceled.");
+    return;
+  }
+
+  while (*filelist) {
+    std::string path(*filelist);
+    std::cout << path << '\n';
+    SDL_Log("Full path to selected folder: '%s'", *filelist);
+    filelist++;
+    FolderDialogData *data = (FolderDialogData *)userdata;
+
+    Database *db = data->database;
+    SDL_GPUDevice *device = data->device;
+    std::deque<Session> *sessions = data->session_list;
+    std::mutex *session_queue_mutex = data->session_queue_mutex;
+
+    Session new_session = Session(data->database, path, data->device);
+
+    std::lock_guard lock(*session_queue_mutex);
+    data->session_list->emplace_back(new_session);
+  }
+}
+
 int main(int, char **) {
-
-  // Prepare the database
-  prepare_database();
-  Database db = Database();
-  db.read_csv("./Data/messlist.csv");
-
+  // SDL UI Related Shenanigans
   if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD)) {
     printf("Error: SDL_Init(): %s\n", SDL_GetError());
     return 1;
   }
-
   float main_scale = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
   SDL_WindowFlags window_flags =
       SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY;
@@ -29,7 +104,6 @@ int main(int, char **) {
   }
   SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
   SDL_ShowWindow(window);
-
   SDL_GPUDevice *gpu_device = SDL_CreateGPUDevice(
       SDL_GPU_SHADERFORMAT_SPIRV | SDL_GPU_SHADERFORMAT_DXIL |
           SDL_GPU_SHADERFORMAT_MSL | SDL_GPU_SHADERFORMAT_METALLIB,
@@ -47,6 +121,7 @@ int main(int, char **) {
                                 SDL_GPU_SWAPCHAINCOMPOSITION_SDR,
                                 SDL_GPU_PRESENTMODE_VSYNC);
 
+  // ImGUI setup
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
   ImGuiIO &io = ImGui::GetIO();
@@ -55,7 +130,6 @@ int main(int, char **) {
       ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
   io.ConfigFlags |=
       ImGuiConfigFlags_NavEnableGamepad; // Enable Gamepad Controls
-
   ImGui::StyleColorsDark();
   ImGuiStyle &style = ImGui::GetStyle();
   style.ScaleAllSizes(main_scale);
@@ -67,19 +141,17 @@ int main(int, char **) {
       SDL_GetGPUSwapchainTextureFormat(gpu_device, window);
   init_info.PresentMode = SDL_GPU_PRESENTMODE_VSYNC;
   ImGui_ImplSDLGPU3_Init(&init_info);
-
   style.FontSizeBase = 20.0f;
   ImFont *font = io.Fonts->AddFontFromFileTTF("./Data/Quantico-Regular.ttf");
   IM_ASSERT(font != nullptr);
-
   bool show_demo_window = true;
-  ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-
-  ImageManager manager = ImageManager(gpu_device, "./test/");
-  manager.index = 0;
-  Image *my_image = manager.loadImage();
-
+  ImVec4 clear_color = ImVec4(0.0f, 0.0f, 0.0f, 1.00f);
   bool done = false;
+
+  Database db = Database();
+  std::mutex mutex;
+  std::deque<Session> sessions;
+
   while (!done) {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
@@ -98,15 +170,37 @@ int main(int, char **) {
     ImGui_ImplSDL3_NewFrame();
 
     ImGui::NewFrame();
+    ImGui::BeginMainMenuBar();
 
-    if (show_demo_window)
-      ImGui::ShowDemoWindow(&show_demo_window);
+    if (ImGui::BeginMenu("Tools")) {
+      if (ImGui::MenuItem("Load Roll")) {
+        auto *data = new FolderDialogData{&db, gpu_device, &sessions, &mutex};
 
-    manager.drawManager(&io);
-    db.render_loaded_csv();
-    db.render_searcher();
+        SDL_ShowOpenFolderDialog(load_roll_callback, data, window, ".", false);
+      };
+      if (ImGui::MenuItem("Load Mess List")) {
+        SDL_ShowOpenFileDialog(mess_list_callback, &db, window, csv_filters, 1,
+                               ".", false);
+      };
+      ImGui::EndMenu();
+    }
 
+    ImGui::EndMainMenuBar();
+
+    if (db.show_loaded_csv)
+      db.render_loaded_csv();
+
+    std::lock_guard lock(mutex);
+    for (auto &session : sessions) {
+      session.render_searcher();
+      if (!session.manager.current_image)
+        session.manager.loadImage();
+      session.manager.drawManager(&io);
+    }
+
+    ImGui::ShowDemoWindow(&show_demo_window);
     ImGui::Render();
+
     ImDrawData *draw_data = ImGui::GetDrawData();
     const bool is_minimized =
         (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f);

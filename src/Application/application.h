@@ -89,9 +89,9 @@ public:
   int size;
   void drawManager(ImGuiIO *io);
   const char *imageFolder;
+  Image *current_image;
 
 private:
-  Image *current_image;
   Image *previous_image;
   Image *next_image;
   void loadFolder(const char *);
@@ -110,22 +110,37 @@ public:
   ~Database();
   void read_csv(const std::string &filename);
   void render_loaded_csv(); // call this after reading a csv to verify the state
-  void store_loaded_csv();
   void insert_data();
-  void render_searcher();
-  void search(SearchType search_type);
+  void search(SearchType search_type, std::string &search_query,
+              std::vector<std::array<std::string, 4>> &search_results);
+  bool show_loaded_csv = false;
 
 private:
   std::string db_filename = "./Data/database.db";
   std::vector<std::vector<std::string>> loaded;
   sqlite3 *db = nullptr;
   std::string processing_time;
-  std::string search_query;
   sqlite3_stmt *fts_search = nullptr;
   sqlite3_stmt *bhawan_search = nullptr;
   sqlite3_stmt *id_search = nullptr;
-  std::vector<std::array<std::string, 4>> fts_results;
-  bool show_loaded_csv = true;
+  std::string modify_query_for_id(std::string query);
+  void store_loaded_csv();
+};
+
+class Session {
+public:
+  Session(Database *database, std::string path, SDL_GPUDevice *device)
+      : database(database), path(path), manager(device, path.c_str()) {};
+
+  ~Session() {};
+  void render_searcher();
+  ImageManager manager;
+
+private:
+  Database *database;
+  std::string path;
+  std::string search_query = "";
+  std::vector<std::array<std::string, 4>> search_results;
 };
 
 #endif // !IMAGE_H

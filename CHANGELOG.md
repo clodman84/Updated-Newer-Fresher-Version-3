@@ -7,6 +7,7 @@
 * Added keyboard integrations, you no longer have to use the mouse for everything
 * Added clipboard integration, copy paste into the search bar straight from WhatsApp
 * Added support for system file manager for everything
+* Added helper to show what bhawan codes are available
 * Added DOOM
 
 ## Subtractions
@@ -16,6 +17,7 @@
 * Removed genie
 * Removed audio player
 * Removed inbuilt file manager
+* Removed nickname management
 
 ## Technical 
 * Rewrote program in C++
