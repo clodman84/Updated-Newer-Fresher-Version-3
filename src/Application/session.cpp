@@ -18,26 +18,27 @@ void Session::render_searcher() {
     this->manager.loadNext();
   }
 
-  ImGui::BeginTable("##", 4,
-                    ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingFixedFit);
-  ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_WidthFixed, 110.0f);
-  ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthStretch, 2.0f);
-  ImGui::TableSetupColumn("Bhawan", ImGuiTableColumnFlags_WidthFixed, 50.0f);
-  ImGui::TableSetupColumn("Room", ImGuiTableColumnFlags_WidthFixed, 40.0f);
+  if (ImGui::BeginTable(
+          "##", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingFixedFit)) {
+    ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_WidthFixed, 110.0f);
+    ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthStretch, 2.0f);
+    ImGui::TableSetupColumn("Bhawan", ImGuiTableColumnFlags_WidthFixed, 50.0f);
+    ImGui::TableSetupColumn("Room", ImGuiTableColumnFlags_WidthFixed, 40.0f);
 
-  ImGui::TableHeadersRow();
-  for (const auto &line : search_results) {
-    ImGui::TableNextRow();
-    for (int i = 0; i < 4; i++) {
-      ImGui::TableNextColumn();
-      if (i == 0) {
-        if (ImGui::Button(line[i].c_str()))
-          increment_for_id(line[i], line[i + 1]);
-      } else
-        ImGui::TextUnformatted(line[i].c_str());
+    ImGui::TableHeadersRow();
+    for (const auto &line : search_results) {
+      ImGui::TableNextRow();
+      for (int i = 0; i < 4; i++) {
+        ImGui::TableNextColumn();
+        if (i == 0) {
+          if (ImGui::Button(line[i].c_str()))
+            increment_for_id(line[i], line[i + 1]);
+        } else
+          ImGui::TextUnformatted(line[i].c_str());
+      }
     }
+    ImGui::EndTable();
   }
-  ImGui::EndTable();
   ImGui::EndChild();
 }
 
@@ -48,31 +49,32 @@ void Session::render_billed() {
     ImGui::EndChild();
     return;
   }
-  ImGui::BeginTable("##", 3,
-                    ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingFixedFit);
-  ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_WidthFixed, 110.0f);
-  ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthStretch, 2.0f);
-  ImGui::TableSetupColumn("Count", ImGuiTableColumnFlags_WidthFixed, 100.0f);
+  if (ImGui::BeginTable(
+          "##", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingFixedFit)) {
+    ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_WidthFixed, 110.0f);
+    ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthStretch, 2.0f);
+    ImGui::TableSetupColumn("Count", ImGuiTableColumnFlags_WidthFixed, 100.0f);
 
-  ImGui::TableHeadersRow();
+    ImGui::TableHeadersRow();
 
-  for (const auto &line : bill[current_file]) {
-    if (line.second.count < 1)
-      continue;
-    ImGui::PushID(line.first.c_str());
-    ImGui::TableNextRow();
-    ImGui::TableNextColumn();
-    ImGui::TextUnformatted(line.first.c_str());
-    ImGui::TableNextColumn();
-    ImGui::TextUnformatted(line.second.name.c_str());
-    ImGui::TableNextColumn();
-    ImGui::PushItemWidth(100.0f);
-    if (ImGui::InputInt("##xx", (int *)&line.second.count))
-      autosave();
-    ImGui::PopItemWidth();
-    ImGui::PopID();
+    for (const auto &line : bill[current_file]) {
+      if (line.second.count < 1)
+        continue;
+      ImGui::PushID(line.first.c_str());
+      ImGui::TableNextRow();
+      ImGui::TableNextColumn();
+      ImGui::TextUnformatted(line.first.c_str());
+      ImGui::TableNextColumn();
+      ImGui::TextUnformatted(line.second.name.c_str());
+      ImGui::TableNextColumn();
+      ImGui::PushItemWidth(100.0f);
+      if (ImGui::InputInt("##xx", (int *)&line.second.count))
+        autosave();
+      ImGui::PopItemWidth();
+      ImGui::PopID();
+    }
+    ImGui::EndTable();
   }
-  ImGui::EndTable();
   ImGui::EndChild();
 }
 
