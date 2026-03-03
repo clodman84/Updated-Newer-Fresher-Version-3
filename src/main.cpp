@@ -8,7 +8,6 @@
 #include <SDL3/SDL.h>
 #include <deque>
 #include <filesystem>
-#include <iostream>
 #include <memory>
 #include <mutex>
 #include <stdio.h>  // printf, fprintf

@@ -153,7 +153,8 @@ private:
   std::string search_query = "";
   std::vector<std::array<std::string, 4>> search_results;
   std::unordered_map<std::string, std::map<std::string, BillEntry>> bill;
-  void log_id(std::string, std::string);
+  void increment_for_id(std::string, std::string);
+  void autosave();
 };
 
 #endif // !IMAGE_H
