@@ -7,6 +7,9 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # SDL3
 add_subdirectory(vendored/SDL)
+set(SDL_SHARED OFF CACHE BOOL "Build shared SDL" FORCE)
+set(SDL_STATIC ON CACHE BOOL "Build static SDL" FORCE)
+
 
 # ImGui
 add_library(imgui STATIC
@@ -19,14 +22,12 @@ add_library(imgui STATIC
     vendored/imgui/backends/imgui_impl_sdlgpu3.cpp
     vendored/imgui/misc/cpp/imgui_stdlib.cpp
 )
+
 target_include_directories(imgui PUBLIC
     vendored/imgui
     vendored/imgui/backends
     vendored/SDL/include
 )
-
-set(SDL_SHARED OFF CACHE BOOL "Build shared SDL" FORCE)
-set(SDL_STATIC ON CACHE BOOL "Build static SDL" FORCE)
 
 target_link_libraries(imgui PUBLIC SDL3::SDL3)
 
@@ -34,6 +35,7 @@ add_executable(UNFV3
     src/main.cpp
     src/Application/image.cpp
     src/Application/database.cpp
+    src/Application/session.cpp
 )
 
 # SQLite
@@ -51,11 +53,19 @@ target_compile_definitions(sqlite PRIVATE
 
 target_include_directories(UNFV3 PRIVATE
     src/Application
-    vendored/SDL/include
 )
+
+# JSON
+
+add_library(nlohmann_json INTERFACE)
+target_include_directories(nlohmann_json INTERFACE
+    vendored/json
+)
+
 
 target_link_libraries(UNFV3 PRIVATE
     imgui
     SDL3::SDL3
     sqlite
+    nlohmann_json
 )

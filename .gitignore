@@ -3,4 +3,4 @@ build/
 test/
 Data/database.db
 Data/messlist.csv
-core/
+core.*

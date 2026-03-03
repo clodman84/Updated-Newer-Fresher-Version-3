@@ -1,6 +1,8 @@
 #ifndef IMAGE_H
 #define IMAGE_H
 
+#include <map>
+#include <unordered_map>
 #define _CRT_SECURE_NO_WARNINGS
 
 #include "imgui.h"
@@ -72,9 +74,9 @@ public:
   SDL_GPUTexture *texture;
   int width;
   int height;
+  const char *filename;
 
 private:
-  const char *filename;
   SDL_GPUDevice *device;
 };
 
@@ -130,6 +132,11 @@ private:
   void store_loaded_csv();
 };
 
+typedef struct {
+  std::string name;
+  int count;
+} BillEntry;
+
 class Session {
 public:
   Session(Database *database, std::string path, SDL_GPUDevice *device)
@@ -137,6 +144,7 @@ public:
 
   ~Session() {};
   void render_searcher();
+  void render_billed();
   ImageManager manager;
 
 private:
@@ -144,6 +152,8 @@ private:
   std::string path;
   std::string search_query = "";
   std::vector<std::array<std::string, 4>> search_results;
+  std::unordered_map<std::string, std::map<std::string, BillEntry>> bill;
+  void log_id(std::string, std::string);
 };
 
 #endif // !IMAGE_H

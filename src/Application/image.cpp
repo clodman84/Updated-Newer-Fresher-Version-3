@@ -206,25 +206,17 @@ inline ImVec2 &operator-=(ImVec2 &a, const ImVec2 &b) {
 }
 void ImageManager::drawManager(ImGuiIO *io) {
   ImGui::BeginChild(imageFolder);
-  if (ImGui::Button("Previous")) {
-    loadPrevious();
-  }
-  ImGui::SameLine();
-  if (ImGui::Button("Next")) {
-    loadNext();
-  }
-  ImGui::SameLine();
-  if (ImGui::SliderInt("##", &index, 0, size - 1, "%d")) {
+  if (ImGui::SliderInt("##", &index, 0, size - 1, "%d",
+                       ImGuiSliderFlags_AlwaysClamp)) {
     loadImage();
   };
-
   ImTextureRef texture_id = current_image->texture;
 
   ImVec2 canvas_pos = ImGui::GetCursorScreenPos();
   ImVec2 canvas_size = ImGui::GetContentRegionAvail();
 
-  float base_width = 720.0f;
-  float base_height = 480.0f;
+  float base_width = current_image->width;
+  float base_height = current_image->height;
 
   ImGui::InvisibleButton("canvas", canvas_size,
                          ImGuiButtonFlags_MouseButtonLeft);

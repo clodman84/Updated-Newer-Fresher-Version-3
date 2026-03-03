@@ -76,7 +76,6 @@ static void SDLCALL load_roll_callback(void *userdata,
 
   while (*filelist) {
     std::string path(*filelist);
-    std::cout << path << '\n';
     SDL_Log("Full path to selected folder: '%s'", *filelist);
     filelist++;
     FolderDialogData *data = (FolderDialogData *)userdata;
@@ -221,13 +220,18 @@ int main(int, char **) {
           // Each session = one tab
           if (ImGui::BeginTabItem(
                   get_folder_name(session.manager.imageFolder).c_str())) {
-            session.render_searcher();
 
+            // Remember that the image in the ImageManager is Null before you do
+            // this
             if (!session.manager.current_image)
               session.manager.loadImage();
 
-            ImGui::SameLine();
+            ImGui::BeginGroup();
+            session.render_searcher();
+            session.render_billed();
+            ImGui::EndGroup();
 
+            ImGui::SameLine();
             session.manager.drawManager(&io);
 
             ImGui::EndTabItem();

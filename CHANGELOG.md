@@ -21,5 +21,5 @@
 
 ## Technical 
 * Rewrote program in C++
-* Image caching has been removed in favour of faster loading straight from disk, RAM usage down by 90-200%
+* Image caching has been optimised, RAM usage down by 90-200%
 * Better utilisation of the GPU
