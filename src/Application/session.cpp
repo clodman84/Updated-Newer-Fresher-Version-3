@@ -6,8 +6,7 @@
 #include <string>
 
 void Session::render_searcher() {
-  ImGui::BeginChild("Search Window", {450.0f, 650.0f},
-                    ImGuiChildFlags_ResizeY | ImGuiChildFlags_ResizeX);
+  ImGui::BeginChild("Search Window", {0.0f, 650.0f}, ImGuiChildFlags_ResizeY);
   if (ImGui::InputTextWithHint("##", "Search", &search_query))
     this->database->search(ID_SEARCH, search_query, search_results);
   ImGui::SameLine();
@@ -43,7 +42,7 @@ void Session::render_searcher() {
 }
 
 void Session::render_billed() {
-  ImGui::BeginChild("Billed Window", {450.0f, 0.0f});
+  ImGui::BeginChild("Billed Window", {0.0f, 0.0f});
   const char *current_file = this->manager.current_image->filename;
   if (bill.count(current_file) == 0) {
     ImGui::EndChild();
