@@ -5,9 +5,7 @@
 * Added stable macOS builds
 * Added simpler image editor
 * Added keyboard integrations, you no longer have to use the mouse for everything
-* Added clipboard integration, copy paste into the search bar straight from WhatsApp
 * Added support for system file manager for everything
-* Added helper to show what bhawan codes are available
 * Added DOOM
 
 ## Subtractions
@@ -21,5 +19,10 @@
 
 ## Technical 
 * Rewrote program in C++
-* Image caching has been optimised, RAM usage down by 90-200%
+* Image caching has been optimised, RAM usage down by 90-200;:
 * Better utilisation of the GPU
+
+## Planned For Next Release
+
+* Add clipboard integration, copy paste into the search bar straight from WhatsApp
+* Add helper to show what bhawan codes are available

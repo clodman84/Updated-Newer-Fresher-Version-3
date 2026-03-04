@@ -283,6 +283,8 @@ int main(int, char **) {
     SDL_SubmitGPUCommandBuffer(command_buffer);
   }
 
+  sessions.clear();
+
   SDL_WaitForGPUIdle(gpu_device);
   ImGui_ImplSDL3_Shutdown();
   ImGui_ImplSDLGPU3_Shutdown();
