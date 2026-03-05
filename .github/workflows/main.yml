@@ -48,6 +48,7 @@ jobs:
             libxfixes-dev \
             libxi-dev \
             libxss-dev \
+            libxtst-dev \
             libwayland-dev \
             wayland-protocols \
             libxkbcommon-dev \
@@ -167,6 +168,7 @@ jobs:
             libxfixes-dev \
             libxi-dev \
             libxss-dev \
+            libxtst-dev \
             libwayland-dev \
             wayland-protocols \
             libxkbcommon-dev \
@@ -182,15 +184,17 @@ jobs:
       - name: Build
         run: cmake --build build --config Release --parallel
 
-      - name: Package binary
+      - name: Package binary and runtime data
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p dist
+          mkdir -p dist/package
 
           BIN="build/UNFV3"
+          BIN_NAME="UNFV3"
           if [ "${{ runner.os }}" = "Windows" ]; then
             BIN="build/UNFV3.exe"
+            BIN_NAME="UNFV3.exe"
           fi
 
           if [ ! -f "$BIN" ]; then
@@ -198,8 +202,16 @@ jobs:
             exit 1
           fi
 
+          if [ ! -d "Data" ]; then
+            echo "Data directory not found at repository root" >&2
+            exit 1
+          fi
+
+          cp "$BIN" "dist/package/$BIN_NAME"
+          cp -R Data "dist/package/Data"
+
           ARCHIVE="dist/UNFV3-${{ github.ref_name }}-${{ runner.os }}.zip"
-          cmake -E tar cf "$ARCHIVE" --format=zip "$BIN"
+          cmake -E tar cf "$ARCHIVE" --format=zip -- "dist/package/$BIN_NAME" "dist/package/Data"
 
       - name: Upload packaged binary artifact
         uses: actions/upload-artifact@v4
@@ -232,3 +244,4 @@ jobs:
         with:
           body_path: CHANGELOG.md
           files: release-assets/*.zip
+
