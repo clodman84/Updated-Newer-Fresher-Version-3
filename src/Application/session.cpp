@@ -11,11 +11,11 @@ void Session::render_searcher() {
     this->database->search(ID_SEARCH, search_query, search_results);
   ImGui::SameLine();
   if (ImGui::ArrowButton("Previous", ImGuiDir_Left)) {
-    this->manager.loadPrevious();
+    this->manager.load_previous();
   }
   ImGui::SameLine(0.0f, 0.0f);
   if (ImGui::ArrowButton("Next", ImGuiDir_Right)) {
-    this->manager.loadNext();
+    this->manager.load_next();
   }
 
   if (ImGui::BeginTable(

@@ -223,7 +223,7 @@ int main(int, char **) {
             // Remember that the image in the ImageManager is Null before you do
             // this
             if (!session.manager.current_image)
-              session.manager.loadImage();
+              session.manager.load_image();
 
             const float available_width = ImGui::GetContentRegionAvail().x;
             const float default_left_width = available_width * 0.38f;
@@ -234,7 +234,7 @@ int main(int, char **) {
             ImGui::EndChild();
 
             ImGui::SameLine();
-            session.manager.drawManager(&io);
+            session.manager.draw_manager(&io);
 
             ImGui::EndTabItem();
           }

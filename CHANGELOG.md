@@ -19,7 +19,7 @@
 
 ## Technical 
 * Rewrote program in C++
-* Image caching has been optimised, RAM usage down by 90-200;:
+* Image caching has been optimised, RAM usage down by 90-200%
 * Better utilisation of the GPU
 
 ## Planned For Next Release

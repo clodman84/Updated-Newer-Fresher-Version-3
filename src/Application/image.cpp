@@ -1,25 +1,40 @@
-#include <algorithm>
+#include "SDL3/SDL_gpu.h"
+#include <complex>
 #include <string>
 #include <vector>
 #define _CRT_SECURE_NO_WARNINGS
 #define STB_IMAGE_IMPLEMENTATION
+#define STB_IMAGE_RESIZE_IMPLEMENTATION
 #include "application.h"
 #include "imgui.h"
 #include "stb_image.h"
 #include <SDL3/SDL.h>
+#include <stb_image_resize.h>
 
-bool LoadTextureFromMemory(const void *data, size_t data_size,
-                           SDL_GPUDevice *device, SDL_GPUTexture **out_texture,
-                           int *out_width, int *out_height) {
-  // Load from disk into a raw RGBA buffer
-  int width = 0;
-  int height = 0;
+unsigned char *LoadTextureDataFromFile(const char *file_name, int *width,
+                                       int *height) {
+  FILE *f = fopen(file_name, "rb");
+  if (f == NULL)
+    return nullptr;
+  fseek(f, 0, SEEK_END);
+  size_t file_size = (size_t)ftell(f);
+  if (file_size == -1)
+    return nullptr;
+  fseek(f, 0, SEEK_SET);
+  void *file_data = IM_ALLOC(file_size);
+  fread(file_data, 1, file_size, f);
+  fclose(f);
+
+  size_t data_size;
   unsigned char *image_data = stbi_load_from_memory(
-      (const unsigned char *)data, (int)data_size, &width, &height, NULL, 4);
+      (const unsigned char *)file_data, (int)data_size, width, height, NULL, 4);
+  IM_FREE(file_data);
+  return image_data;
+}
 
-  if (image_data == NULL)
-    return false;
-
+bool UploadTextureDataToGPU(unsigned char *image_data, int width, int height,
+                            SDL_GPUDevice *device,
+                            SDL_GPUTexture **out_texture) {
   // Create texture
   SDL_GPUTextureCreateInfo texture_info = {};
   texture_info.type = SDL_GPU_TEXTURETYPE_2D;
@@ -67,42 +82,25 @@ bool LoadTextureFromMemory(const void *data, size_t data_size,
   SDL_UploadToGPUTexture(copy_pass, &transfer_info, &texture_region, false);
   SDL_EndGPUCopyPass(copy_pass);
   SDL_SubmitGPUCommandBuffer(cmd);
-
   SDL_ReleaseGPUTransferBuffer(device, transferbuffer);
+
   stbi_image_free(image_data);
-
   *out_texture = texture;
-  *out_width = width;
-  *out_height = height;
   return true;
-}
-
-// Open and read a file, then forward to LoadTextureFromMemory()
-bool LoadTextureFromFile(const char *file_name, SDL_GPUDevice *device,
-                         SDL_GPUTexture **out_texture, int *out_width,
-                         int *out_height) {
-  FILE *f = fopen(file_name, "rb");
-  if (f == NULL)
-    return false;
-  fseek(f, 0, SEEK_END);
-  size_t file_size = (size_t)ftell(f);
-  if (file_size == -1)
-    return false;
-  fseek(f, 0, SEEK_SET);
-  void *file_data = IM_ALLOC(file_size);
-  fread(file_data, 1, file_size, f);
-  fclose(f);
-  bool ret = LoadTextureFromMemory(file_data, file_size, device, out_texture,
-                                   out_width, out_height);
-  IM_FREE(file_data);
-  return ret;
 }
 
 Image::Image(SDL_GPUDevice *device, const char *filename)
     : device(device), texture(nullptr), filename(filename) {
-  bool ok = LoadTextureFromFile(filename, device, &texture, &width, &height);
-  if (!ok)
+  unsigned char *image_data =
+      LoadTextureDataFromFile(filename, &width, &height);
+  if (!image_data) {
     texture = nullptr;
+    return;
+  }
+  bool ok = UploadTextureDataToGPU(image_data, width, height, device, &texture);
+  if (!ok) {
+    texture = nullptr;
+  }
 }
 
 Image::~Image() {
@@ -125,32 +123,31 @@ static SDL_EnumerationResult enumerate_cb(void *userdata, const char *dirname,
     return SDL_ENUM_CONTINUE;
   if (!is_image_file(fname))
     return SDL_ENUM_CONTINUE;
-  auto *paths = (std::vector<std::string> *)userdata;
-  paths->push_back(std::string(dirname) + fname);
+
+  auto *image_names = (std::vector<std::string> *)userdata;
+  image_names->push_back(std::string(dirname) + fname);
   return SDL_ENUM_CONTINUE;
 }
 
 ImageManager::ImageManager(SDL_GPUDevice *device, const char *imageFolder)
     : device(device), index(0), current_image(nullptr),
       imageFolder(imageFolder) {
-  loadFolder(imageFolder);
+  load_folder(imageFolder);
 }
 
 ImageManager::~ImageManager() { delete current_image; }
 
-void ImageManager::loadFolder(const char *folder) {
-  images.clear();
-  SDL_EnumerateDirectory(folder, enumerate_cb, &images);
-  std::sort(images.begin(), images.end());
-  size = images.size();
+void ImageManager::load_folder(const char *folder) {
+  SDL_EnumerateDirectory(folder, enumerate_cb, &image_names);
+  size = image_names.size();
 }
 
-Image *ImageManager::loadImage() {
-  if (images.empty() || index < 0 || index >= (int)images.size())
+Image *ImageManager::load_image() {
+  if (image_names.empty() || index < 0 || index >= (int)image_names.size())
     return nullptr;
 
   delete current_image;
-  current_image = new Image(device, images[index].c_str());
+  current_image = new Image(device, image_names[index].c_str());
 
   if (!current_image->texture) {
     delete current_image;
@@ -161,20 +158,20 @@ Image *ImageManager::loadImage() {
   return current_image;
 }
 
-Image *ImageManager::loadNext() {
-  if (index == images.size() - 1)
+Image *ImageManager::load_next() {
+  if (index == image_names.size() - 1)
     index = 0;
   else
     index += 1;
-  return loadImage();
+  return load_image();
 }
 
-Image *ImageManager::loadPrevious() {
+Image *ImageManager::load_previous() {
   if (index == 0)
-    index = images.size() - 1;
+    index = image_names.size() - 1;
   else
     index -= 1;
-  return loadImage();
+  return load_image();
 }
 
 inline ImVec2 operator+(const ImVec2 &a, const ImVec2 &b) {
@@ -204,13 +201,14 @@ inline ImVec2 &operator-=(ImVec2 &a, const ImVec2 &b) {
   a.y -= b.y;
   return a;
 }
-void ImageManager::drawManager(ImGuiIO *io) {
+void ImageManager::draw_manager(ImGuiIO *io) {
   ImGui::BeginChild(imageFolder);
   if (ImGui::SliderInt("##", &index, 0, size - 1, "%d",
                        ImGuiSliderFlags_AlwaysClamp)) {
-    loadImage();
+    load_image();
   };
   ImTextureRef texture_id = current_image->texture;
+  printf("%p\n", current_image->texture);
 
   ImVec2 canvas_pos = ImGui::GetCursorScreenPos();
   ImVec2 canvas_size = ImGui::GetContentRegionAvail();

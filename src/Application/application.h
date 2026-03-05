@@ -59,14 +59,6 @@ private:
 };
 
 // Imejes (bogos binted)
-bool LoadTextureFromMemory(const void *data, size_t data_size,
-                           SDL_GPUDevice *device, SDL_GPUTexture **out_texture,
-                           int *out_width, int *out_height);
-bool LoadTextureFromFile(const char *file_name, SDL_GPUDevice *device,
-                         SDL_GPUTexture **out_texture, int *out_width,
-                         int *out_height);
-void DestroyTexture(SDL_GPUDevice *device, SDL_GPUTexture *texture);
-
 class Image {
 public:
   Image(SDL_GPUDevice *device, const char *filename);
@@ -82,22 +74,21 @@ private:
 
 class ImageManager {
 public:
-  ImageManager(SDL_GPUDevice *device, const char *imageFolder);
+  ImageManager(SDL_GPUDevice *device, const char *image_folder);
   ~ImageManager();
-  Image *loadImage();
-  Image *loadNext();
-  Image *loadPrevious();
+  Image *load_image();
+  Image *load_next();
+  Image *load_previous();
   int index;
   int size;
-  void drawManager(ImGuiIO *io);
+  void draw_manager(ImGuiIO *io);
   const char *imageFolder;
   Image *current_image;
 
 private:
-  Image *previous_image;
-  Image *next_image;
-  void loadFolder(const char *);
-  std::vector<std::string> images;
+  void load_folder(const char *);
+  std::vector<std::string> image_names;
+  std::map<std::string, SDL_GPUTexture *> thumbnails;
   SDL_GPUDevice *device;
   // Persistent state
   float zoom = 1.0f;
