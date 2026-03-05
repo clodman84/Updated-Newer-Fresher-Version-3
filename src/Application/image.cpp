@@ -1,5 +1,4 @@
 #include "SDL3/SDL_gpu.h"
-#include <complex>
 #include <string>
 #include <vector>
 #define _CRT_SECURE_NO_WARNINGS
@@ -8,8 +7,8 @@
 #include "application.h"
 #include "imgui.h"
 #include "stb_image.h"
+#include "stb_image_resize2.h"
 #include <SDL3/SDL.h>
-#include <stb_image_resize.h>
 
 unsigned char *LoadTextureDataFromFile(const char *file_name, int *width,
                                        int *height) {
@@ -25,9 +24,9 @@ unsigned char *LoadTextureDataFromFile(const char *file_name, int *width,
   fread(file_data, 1, file_size, f);
   fclose(f);
 
-  size_t data_size;
+  int data_size = static_cast<int>(file_size);
   unsigned char *image_data = stbi_load_from_memory(
-      (const unsigned char *)file_data, (int)data_size, width, height, NULL, 4);
+      (const unsigned char *)file_data, data_size, width, height, NULL, 4);
   IM_FREE(file_data);
   return image_data;
 }
@@ -87,6 +86,29 @@ bool UploadTextureDataToGPU(unsigned char *image_data, int width, int height,
   stbi_image_free(image_data);
   *out_texture = texture;
   return true;
+}
+
+SDL_GPUTexture *LoadThumbnailFromFile(const char *file_name,
+                                      SDL_GPUDevice *device,
+                                      float factor = 0.01f) {
+  int width;
+  int height;
+
+  unsigned char *image_data =
+      LoadTextureDataFromFile(file_name, &width, &height);
+
+  int out_width = width * factor;
+  int out_height = height * factor;
+
+  unsigned char *out_data =
+      (unsigned char *)IM_ALLOC(out_height * out_width * 4);
+
+  stbir_resize_uint8_linear(image_data, width, height, 0, out_data, out_width,
+                            out_height, 0, STBIR_RGBA);
+  stbi_image_free(image_data);
+  SDL_GPUTexture *texture;
+  UploadTextureDataToGPU(out_data, out_width, out_height, device, &texture);
+  return texture;
 }
 
 Image::Image(SDL_GPUDevice *device, const char *filename)
@@ -201,6 +223,7 @@ inline ImVec2 &operator-=(ImVec2 &a, const ImVec2 &b) {
   a.y -= b.y;
   return a;
 }
+
 void ImageManager::draw_manager(ImGuiIO *io) {
   ImGui::BeginChild(imageFolder);
   if (ImGui::SliderInt("##", &index, 0, size - 1, "%d",
@@ -208,7 +231,6 @@ void ImageManager::draw_manager(ImGuiIO *io) {
     load_image();
   };
   ImTextureRef texture_id = current_image->texture;
-  printf("%p\n", current_image->texture);
 
   ImVec2 canvas_pos = ImGui::GetCursorScreenPos();
   ImVec2 canvas_size = ImGui::GetContentRegionAvail();
