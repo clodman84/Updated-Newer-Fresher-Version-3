@@ -377,10 +377,7 @@ Image *ImageManager::load_previous() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 void ImageManager::draw_manager(ImGuiIO *io) {
-  // Apply any pending carousel click from the previous frame.
-  // We defer load_image() by one frame so that the texture referenced in the
-  // previous frame's draw list is never destroyed mid-submission, which caused
-  // the Vulkan descriptor crash on thumbnail click.
+
   if (pending_index >= 0) {
     index = pending_index;
     pending_index = -1;
@@ -388,108 +385,180 @@ void ImageManager::draw_manager(ImGuiIO *io) {
   }
 
   ImGui::BeginChild("ImagePanel");
-  ImGui::BeginChild(imageFolder.c_str(), {0, 750}, ImGuiChildFlags_ResizeY);
 
-  if (!current_image || !current_image->texture) {
-    ImGui::Text("No image loaded.");
+  const float carousel_height = 270.0f;
+
+  ImVec2 avail = ImGui::GetContentRegionAvail();
+
+  float top_height = avail.y - carousel_height - 5;
+
+  if (top_height < 0)
+    top_height = 0;
+
+  ImGui::BeginChild("TopRegion", ImVec2(0, top_height),
+                    ImGuiChildFlags_ResizeY);
+
+  if (ImGui::BeginTable("MainLayout", 2,
+                        ImGuiTableFlags_Resizable |
+                            ImGuiTableFlags_SizingStretchProp,
+                        ImVec2(0, 0))) {
+
+    ImGui::TableSetupColumn("Viewer", ImGuiTableColumnFlags_WidthStretch, 3.0f);
+    ImGui::TableSetupColumn("Editor", ImGuiTableColumnFlags_WidthStretch, 1.0f);
+
+    ImGui::TableNextRow();
+
+    ImGui::TableNextColumn();
+
+    ImGui::BeginChild("ViewerChild", ImVec2(0, 0));
+
+    if (!current_image || !current_image->texture) {
+
+      ImGui::Text("No image loaded.");
+
+    } else {
+
+      ImTextureRef texture_id = current_image->texture;
+
+      ImVec2 canvas_pos = ImGui::GetCursorScreenPos();
+      ImVec2 canvas_size = ImGui::GetContentRegionAvail();
+
+      float base_width = (float)current_image->width;
+      float base_height = (float)current_image->height;
+
+      ImGui::InvisibleButton("canvas", canvas_size,
+                             ImGuiButtonFlags_MouseButtonLeft);
+
+      bool hovered = ImGui::IsItemHovered();
+      bool active = ImGui::IsItemActive();
+
+      if (hovered && io->MouseWheel != 0.0f) {
+
+        float old_zoom = zoom;
+
+        zoom *= powf(1.1f, io->MouseWheel);
+        zoom = Clamp(zoom, 0.1f, 20.0f);
+
+        ImVec2 mouse_local;
+
+        mouse_local.x = io->MousePos.x - canvas_pos.x - pan.x;
+        mouse_local.y = io->MousePos.y - canvas_pos.y - pan.y;
+
+        float scale = zoom / old_zoom - 1.0f;
+
+        pan.x -= mouse_local.x * scale;
+        pan.y -= mouse_local.y * scale;
+      }
+
+      if (active && ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
+        pan.x += io->MouseDelta.x;
+        pan.y += io->MouseDelta.y;
+      }
+
+      ImVec2 image_size = {base_width * zoom, base_height * zoom};
+
+      if (image_size.x <= canvas_size.x)
+        pan.x = (canvas_size.x - image_size.x) * 0.5f;
+      else
+        pan.x = Clamp(pan.x, canvas_size.x - image_size.x, 0.0f);
+
+      if (image_size.y <= canvas_size.y)
+        pan.y = (canvas_size.y - image_size.y) * 0.5f;
+      else
+        pan.y = Clamp(pan.y, canvas_size.y - image_size.y, 0.0f);
+
+      ImDrawList *draw_list = ImGui::GetWindowDrawList();
+
+      draw_list->PushClipRect(
+          canvas_pos,
+          ImVec2(canvas_pos.x + canvas_size.x, canvas_pos.y + canvas_size.y),
+          true);
+
+      ImVec2 image_pos = {canvas_pos.x + pan.x, canvas_pos.y + pan.y};
+
+      draw_list->AddImage(
+          texture_id, image_pos,
+          ImVec2(image_pos.x + image_size.x, image_pos.y + image_size.y),
+          ImVec2(0, 0), ImVec2(1, 1));
+
+      draw_list->PopClipRect();
+    }
+
     ImGui::EndChild();
+
+    ImGui::TableNextColumn();
+
+    ImGui::BeginChild("EditingPanel", ImVec2(0, 0));
+
+    ImGui::Text("Editing Panel");
+
+    ImGui::Separator();
+
+    ImGui::Text("Zoom %.2fx", zoom);
+
+    if (ImGui::Button("Reset View")) {
+      zoom = 1.0f;
+      pan = {0.0f, 0.0f};
+    }
+
     ImGui::EndChild();
-    return;
+
+    ImGui::EndTable();
   }
 
-  ImTextureRef texture_id = current_image->texture;
-  ImVec2 canvas_pos = ImGui::GetCursorScreenPos();
-  ImVec2 canvas_size = ImGui::GetContentRegionAvail();
-  float base_width = (float)current_image->width;
-  float base_height = (float)current_image->height;
-
-  ImGui::InvisibleButton("canvas", canvas_size,
-                         ImGuiButtonFlags_MouseButtonLeft);
-  bool hovered = ImGui::IsItemHovered();
-  bool active = ImGui::IsItemActive();
-
-  if (hovered && io->MouseWheel != 0.0f) {
-    float old_zoom = zoom;
-    zoom *= powf(1.1f, io->MouseWheel);
-    zoom = Clamp(zoom, 0.1f, 20.0f);
-
-    ImVec2 mouse_local;
-    mouse_local.x = io->MousePos.x - canvas_pos.x - pan.x;
-    mouse_local.y = io->MousePos.y - canvas_pos.y - pan.y;
-
-    float scale = zoom / old_zoom - 1.0f;
-    pan.x -= mouse_local.x * scale;
-    pan.y -= mouse_local.y * scale;
-  }
-
-  if (active && ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
-    pan.x += io->MouseDelta.x;
-    pan.y += io->MouseDelta.y;
-  }
-
-  ImVec2 image_size = {base_width * zoom, base_height * zoom};
-
-  if (image_size.x <= canvas_size.x)
-    pan.x = (canvas_size.x - image_size.x) * 0.5f;
-  else
-    pan.x = Clamp(pan.x, canvas_size.x - image_size.x, 0.0f);
-
-  if (image_size.y <= canvas_size.y)
-    pan.y = (canvas_size.y - image_size.y) * 0.5f;
-  else
-    pan.y = Clamp(pan.y, canvas_size.y - image_size.y, 0.0f);
-
-  ImDrawList *draw_list = ImGui::GetWindowDrawList();
-  draw_list->PushClipRect(
-      canvas_pos,
-      ImVec2(canvas_pos.x + canvas_size.x, canvas_pos.y + canvas_size.y), true);
-
-  ImVec2 image_pos = {canvas_pos.x + pan.x, canvas_pos.y + pan.y};
-  draw_list->AddImage(
-      texture_id, image_pos,
-      ImVec2(image_pos.x + image_size.x, image_pos.y + image_size.y),
-      ImVec2(0, 0), ImVec2(1, 1));
-
-  draw_list->PopClipRect();
   ImGui::EndChild();
 
-  ImGui::BeginChild("Carousel", ImVec2(0, 0), ImGuiChildFlags_ResizeY,
+  ImGui::BeginChild("Carousel", ImVec2(0, carousel_height),
+                    ImGuiChildFlags_Borders,
                     ImGuiWindowFlags_HorizontalScrollbar);
-  // Scroll horizontally with the mousewheel when hovered
+
   if (ImGui::IsWindowHovered())
     ImGui::SetScrollX(ImGui::GetScrollX() - io->MouseWheel * 50.0f);
 
   for (const auto &name : thumbnail_order) {
+
     auto it = thumbnails.find(name);
     if (it == thumbnails.end())
       continue;
+
     const Thumbnail_T &thumb = it->second;
+
     if (!thumb.texture)
       continue;
 
-    // Highlight the thumbnail that matches the currently loaded image.
     bool is_current = (!image_names.empty() && name == image_names[index]);
+
     if (is_current)
       ImGui::PushStyleColor(ImGuiCol_Button,
                             ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
 
     ImTextureRef tid = thumb.texture;
+
     ImVec2 sz = {(float)thumb.width, (float)thumb.height};
 
     ImGui::BeginGroup();
+
     auto fit = std::find(image_names.begin(), image_names.end(), name);
+
     if (fit != image_names.end()) {
+
       int frame_number = (int)(fit - image_names.begin()) + 1;
+
       ImGui::Text("Frame: %d", frame_number);
     }
+
     if (ImGui::ImageButton(name.c_str(), tid, sz)) {
+
       if (fit != image_names.end())
         pending_index = (int)(fit - image_names.begin());
     }
+
     ImGui::EndGroup();
 
     if (is_current) {
+
       ImGui::PopStyleColor();
+
       if (index != last_drawn_index)
         ImGui::SetScrollHereX(0.5f);
     }
@@ -498,6 +567,8 @@ void ImageManager::draw_manager(ImGuiIO *io) {
   }
 
   ImGui::EndChild();
+
   ImGui::EndChild();
+
   last_drawn_index = index;
 }

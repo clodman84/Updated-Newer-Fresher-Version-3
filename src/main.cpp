@@ -222,11 +222,11 @@ int main(int, char **) {
               const float available_width = ImGui::GetContentRegionAvail().x;
               const float default_left_width = available_width * 0.38f;
               ImGui::BeginChild("LeftPanel", ImVec2(default_left_width, 0.0f),
-                                ImGuiChildFlags_ResizeX);
+                                ImGuiChildFlags_ResizeX |
+                                    ImGuiChildFlags_Borders);
               session.render_searcher();
               session.render_billed();
               ImGui::EndChild();
-
               ImGui::SameLine();
               session.manager.draw_manager(&io);
 
