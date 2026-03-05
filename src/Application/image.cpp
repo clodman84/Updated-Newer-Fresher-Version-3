@@ -163,7 +163,6 @@ ImageManager::ImageManager(SDL_GPUDevice *device, const char *imageFolder)
     : device(device), index(0), current_image(nullptr),
       imageFolder(imageFolder) {
   load_folder(imageFolder);
-  load_thumbnails();
 }
 
 ImageManager::~ImageManager() {
@@ -239,7 +238,6 @@ inline ImVec2 &operator-=(ImVec2 &a, const ImVec2 &b) {
 }
 
 void ImageManager::draw_manager(ImGuiIO *io) {
-  ImGui::BeginChild("ImagePanel");
   ImGui::BeginChild(imageFolder, {0, 800}, ImGuiChildFlags_ResizeY);
   if (ImGui::SliderInt("##", &index, 0, size - 1, "%d",
                        ImGuiSliderFlags_AlwaysClamp)) {
@@ -329,13 +327,5 @@ void ImageManager::draw_manager(ImGuiIO *io) {
 
   draw_list->PopClipRect();
 
-  ImGui::EndChild();
-  ImGui::BeginChild("Carousel");
-  for (const auto &thumbnail : thumbnails) {
-    ImTextureRef texture_id = thumbnail.second;
-    ImGui::ImageButton(thumbnail.first.c_str(), texture_id, {60, 40});
-    ImGui::SameLine();
-  }
-  ImGui::EndChild();
   ImGui::EndChild();
 }
