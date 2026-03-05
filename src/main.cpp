@@ -93,6 +93,7 @@ static void SDLCALL load_roll_callback(void *userdata,
 }
 
 int main(int, char **) {
+  prepare_database();
   if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD)) {
     printf("Error: SDL_Init(): %s\n", SDL_GetError());
     return 1;
