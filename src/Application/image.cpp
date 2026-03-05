@@ -151,13 +151,27 @@ static SDL_EnumerationResult enumerate_cb(void *userdata, const char *dirname,
   return SDL_ENUM_CONTINUE;
 }
 
+void ImageManager::load_thumbnails() {
+  for (const auto &file_name : image_names) {
+    SDL_Log("Making Thumbnail: %s", file_name.c_str());
+    SDL_GPUTexture *texture = LoadThumbnailFromFile(file_name.c_str(), device);
+    thumbnails[file_name] = texture;
+  }
+}
+
 ImageManager::ImageManager(SDL_GPUDevice *device, const char *imageFolder)
     : device(device), index(0), current_image(nullptr),
       imageFolder(imageFolder) {
   load_folder(imageFolder);
+  load_thumbnails();
 }
 
-ImageManager::~ImageManager() { delete current_image; }
+ImageManager::~ImageManager() {
+  delete current_image;
+  for (const auto &val : thumbnails) {
+    SDL_ReleaseGPUTexture(device, val.second);
+  }
+}
 
 void ImageManager::load_folder(const char *folder) {
   SDL_EnumerateDirectory(folder, enumerate_cb, &image_names);
@@ -225,7 +239,8 @@ inline ImVec2 &operator-=(ImVec2 &a, const ImVec2 &b) {
 }
 
 void ImageManager::draw_manager(ImGuiIO *io) {
-  ImGui::BeginChild(imageFolder);
+  ImGui::BeginChild("ImagePanel");
+  ImGui::BeginChild(imageFolder, {0, 800}, ImGuiChildFlags_ResizeY);
   if (ImGui::SliderInt("##", &index, 0, size - 1, "%d",
                        ImGuiSliderFlags_AlwaysClamp)) {
     load_image();
@@ -314,5 +329,13 @@ void ImageManager::draw_manager(ImGuiIO *io) {
 
   draw_list->PopClipRect();
 
+  ImGui::EndChild();
+  ImGui::BeginChild("Carousel");
+  for (const auto &thumbnail : thumbnails) {
+    ImTextureRef texture_id = thumbnail.second;
+    ImGui::ImageButton(thumbnail.first.c_str(), texture_id, {60, 40});
+    ImGui::SameLine();
+  }
+  ImGui::EndChild();
   ImGui::EndChild();
 }

@@ -82,6 +82,7 @@ public:
   int index;
   int size;
   void draw_manager(ImGuiIO *io);
+  void load_thumbnails();
   const char *imageFolder;
   Image *current_image;
 
