@@ -1,5 +1,7 @@
 #include "SDL3/SDL_gpu.h"
+#include <algorithm>
 #include <string>
+#include <thread>
 #include <vector>
 #define _CRT_SECURE_NO_WARNINGS
 #define STB_IMAGE_IMPLEMENTATION
@@ -14,77 +16,134 @@
 #include <tracy/Tracy.hpp>
 #endif
 
-unsigned char *LoadTextureDataFromFile(const char *file_name, int *width,
-                                       int *height) {
+// ─────────────────────────────────────────────────────────────────────────────
+// Utilities
+// ─────────────────────────────────────────────────────────────────────────────
 
+template <typename T> static inline T Clamp(T v, T lo, T hi) {
+  return v < lo ? lo : (v > hi ? hi : v);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ImVec2 operators
+// ─────────────────────────────────────────────────────────────────────────────
+
+inline ImVec2 operator+(const ImVec2 &a, const ImVec2 &b) {
+  return ImVec2(a.x + b.x, a.y + b.y);
+}
+inline ImVec2 operator-(const ImVec2 &a, const ImVec2 &b) {
+  return ImVec2(a.x - b.x, a.y - b.y);
+}
+inline ImVec2 operator*(const ImVec2 &a, float s) {
+  return ImVec2(a.x * s, a.y * s);
+}
+inline ImVec2 operator/(const ImVec2 &a, float s) {
+  return ImVec2(a.x / s, a.y / s);
+}
+inline ImVec2 &operator+=(ImVec2 &a, const ImVec2 &b) {
+  a.x += b.x;
+  a.y += b.y;
+  return a;
+}
+inline ImVec2 &operator-=(ImVec2 &a, const ImVec2 &b) {
+  a.x -= b.x;
+  a.y -= b.y;
+  return a;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// File / GPU helpers (internal linkage)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Loads a file from disk and decodes it with stbi.
+// Returns stbi-owned memory -> caller must free with stbi_image_free().
+static unsigned char *LoadTextureDataFromFile(const char *file_name, int *width,
+                                              int *height) {
 #ifdef TRACY_ENABLE
   ZoneScopedN("LoadTextureDataFromFile");
 #endif
   FILE *f = fopen(file_name, "rb");
-  if (f == NULL)
+  if (!f)
     return nullptr;
+
   fseek(f, 0, SEEK_END);
-  size_t file_size = (size_t)ftell(f);
-  if (file_size == -1)
+  long raw_size = ftell(f);
+  if (raw_size <= 0) {
+    fclose(f);
     return nullptr;
+  }
+  size_t file_size = (size_t)raw_size;
   fseek(f, 0, SEEK_SET);
+
   void *file_data = IM_ALLOC(file_size);
   fread(file_data, 1, file_size, f);
   fclose(f);
 
-  int data_size = static_cast<int>(file_size);
   unsigned char *image_data = stbi_load_from_memory(
-      (const unsigned char *)file_data, data_size, width, height, NULL, 4);
+      (const unsigned char *)file_data, (int)file_size, width, height, NULL, 4);
   IM_FREE(file_data);
   return image_data;
 }
 
-bool UploadTextureDataToGPU(unsigned char *image_data, int width, int height,
-                            SDL_GPUDevice *device,
-                            SDL_GPUTexture **out_texture) {
-
+// Uploads pixel data to a new SDL_GPUTexture and frees the pixel buffer.
+//   free_with_stbi = true  -> buffer allocated by stbi    -> stbi_image_free()
+//   free_with_stbi = false -> buffer allocated by IM_ALLOC -> IM_FREE()
+// On success, *out_texture is set and true is returned.
+static bool UploadTextureDataToGPU(unsigned char *image_data, int width,
+                                   int height, SDL_GPUDevice *device,
+                                   SDL_GPUTexture **out_texture,
+                                   bool free_with_stbi = true) {
 #ifdef TRACY_ENABLE
   ZoneScopedN("UploadDataToGPU");
 #endif
+  if (!image_data || width <= 0 || height <= 0)
+    return false;
 
-  // Create texture
+  // Create the destination texture
   SDL_GPUTextureCreateInfo texture_info = {};
   texture_info.type = SDL_GPU_TEXTURETYPE_2D;
   texture_info.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
   texture_info.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
-  texture_info.width = width;
-  texture_info.height = height;
+  texture_info.width = (Uint32)width;
+  texture_info.height = (Uint32)height;
   texture_info.layer_count_or_depth = 1;
   texture_info.num_levels = 1;
   texture_info.sample_count = SDL_GPU_SAMPLECOUNT_1;
 
   SDL_GPUTexture *texture = SDL_CreateGPUTexture(device, &texture_info);
+  if (!texture) {
+    if (free_with_stbi)
+      stbi_image_free(image_data);
+    else
+      IM_FREE(image_data);
+    return false;
+  }
 
-  // Create transfer buffer
-  // FIXME: A real engine would likely keep one around, see what the SDL_GPU
-  // backend is doing.
+  // Create a transfer buffer and copy pixels into it
   SDL_GPUTransferBufferCreateInfo transferbuffer_info = {};
   transferbuffer_info.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
-  transferbuffer_info.size = width * height * 4;
+  transferbuffer_info.size = (Uint32)(width * height * 4);
+
   SDL_GPUTransferBuffer *transferbuffer =
       SDL_CreateGPUTransferBuffer(device, &transferbuffer_info);
   IM_ASSERT(transferbuffer != NULL);
 
-  uint32_t upload_pitch = width * 4;
+  uint32_t upload_pitch = (uint32_t)(width * 4);
   void *texture_ptr = SDL_MapGPUTransferBuffer(device, transferbuffer, true);
   for (int y = 0; y < height; y++)
     memcpy((void *)((uintptr_t)texture_ptr + y * upload_pitch),
            image_data + y * upload_pitch, upload_pitch);
   SDL_UnmapGPUTransferBuffer(device, transferbuffer);
 
+  // Record and submit the upload copy
   SDL_GPUTextureTransferInfo transfer_info = {};
   transfer_info.offset = 0;
   transfer_info.transfer_buffer = transferbuffer;
 
   SDL_GPUTextureRegion texture_region = {};
   texture_region.texture = texture;
-  texture_region.x = (Uint32)0;
-  texture_region.y = (Uint32)0;
+  texture_region.x = 0;
+  texture_region.y = 0;
   texture_region.w = (Uint32)width;
   texture_region.h = (Uint32)height;
   texture_region.d = 1;
@@ -96,57 +155,14 @@ bool UploadTextureDataToGPU(unsigned char *image_data, int width, int height,
   SDL_SubmitGPUCommandBuffer(cmd);
   SDL_ReleaseGPUTransferBuffer(device, transferbuffer);
 
-  stbi_image_free(image_data);
+  // Free CPU-side pixel buffer using the correct allocator
+  if (free_with_stbi)
+    stbi_image_free(image_data);
+  else
+    IM_FREE(image_data);
+
   *out_texture = texture;
   return true;
-}
-
-SDL_GPUTexture *LoadThumbnailFromFile(const char *file_name,
-                                      SDL_GPUDevice *device,
-                                      float factor = 0.01f) {
-  int width;
-  int height;
-
-  unsigned char *image_data =
-      LoadTextureDataFromFile(file_name, &width, &height);
-
-  int out_width = width * factor;
-  int out_height = height * factor;
-
-  unsigned char *out_data =
-      (unsigned char *)IM_ALLOC(out_height * out_width * 4);
-
-  stbir_resize_uint8_linear(image_data, width, height, 0, out_data, out_width,
-                            out_height, 0, STBIR_RGBA);
-  stbi_image_free(image_data);
-  SDL_GPUTexture *texture;
-  UploadTextureDataToGPU(out_data, out_width, out_height, device, &texture);
-  return texture;
-}
-
-Image::Image(SDL_GPUDevice *device, const char *filename)
-
-    : device(device), texture(nullptr), filename(filename) {
-
-#ifdef TRACY_ENABLE
-  ZoneScopedN("ImageMaking");
-#endif
-
-  unsigned char *image_data =
-      LoadTextureDataFromFile(filename, &width, &height);
-  if (!image_data) {
-    texture = nullptr;
-    return;
-  }
-  bool ok = UploadTextureDataToGPU(image_data, width, height, device, &texture);
-  if (!ok) {
-    texture = nullptr;
-  }
-}
-
-Image::~Image() {
-  if (texture)
-    SDL_ReleaseGPUTexture(device, texture);
 }
 
 static bool is_image_file(const char *name) {
@@ -170,30 +186,165 @@ static SDL_EnumerationResult enumerate_cb(void *userdata, const char *dirname,
   return SDL_ENUM_CONTINUE;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Image
+// ─────────────────────────────────────────────────────────────────────────────
+
+Image::Image(SDL_GPUDevice *device, const char *filename)
+    : device(device), texture(nullptr), filename(filename) {
+#ifdef TRACY_ENABLE
+  ZoneScopedN("ImageMaking");
+#endif
+  unsigned char *image_data =
+      LoadTextureDataFromFile(filename, &width, &height);
+  if (!image_data) {
+    texture = nullptr;
+    return;
+  }
+  bool ok = UploadTextureDataToGPU(image_data, width, height, device, &texture,
+                                   /*free_with_stbi=*/true);
+  if (!ok)
+    texture = nullptr;
+}
+
+Image::~Image() {
+  if (texture)
+    SDL_ReleaseGPUTexture(device, texture);
+}
+
+Image::Image(Image &&other) noexcept
+    : device(other.device), texture(other.texture), filename(other.filename),
+      width(other.width), height(other.height) {
+  other.texture = nullptr;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ImageManager - thumbnail loading
+// ─────────────────────────────────────────────────────────────────────────────
+
+// CPU-side decoded+resized pixel data waiting for main-thread GPU upload.
+// pixel_data is IM_ALLOC'd.
+struct PendingThumbnail {
+  std::string file_name;
+  unsigned char *pixel_data = nullptr;
+  int width = 0;
+  int height = 0;
+};
+
 void ImageManager::load_thumbnails() {
-  for (const auto &file_name : image_names) {
-    SDL_Log("Making Thumbnail: %s", file_name.c_str());
-    SDL_GPUTexture *texture = LoadThumbnailFromFile(file_name.c_str(), device);
-    thumbnails[file_name] = texture;
+  const float factor = 0.05f;
+
+  // Phase 1 - decode + resize on worker threads.
+  // SDL_GPU uploads are NOT done here; SDL_GPU is not thread-safe for that.
+  std::vector<PendingThumbnail> pending(image_names.size());
+  std::vector<std::thread> workers;
+  workers.reserve(image_names.size());
+
+  for (size_t i = 0; i < image_names.size(); ++i) {
+    pending[i].file_name = image_names[i];
+    workers.emplace_back([i, factor, &pending]() {
+#ifdef TRACY_ENABLE
+      ZoneScopedN("ThumbnailWorker");
+#endif
+      int src_w = 0, src_h = 0;
+      unsigned char *src =
+          LoadTextureDataFromFile(pending[i].file_name.c_str(), &src_w, &src_h);
+      if (!src)
+        return;
+
+      int dst_w = MAX((int)(src_w * factor), 1);
+      int dst_h = MAX((int)(src_h * factor), 1);
+
+      unsigned char *dst = (unsigned char *)IM_ALLOC(dst_w * dst_h * 4);
+      stbir_resize_uint8_linear(src, src_w, src_h, 0, dst, dst_w, dst_h, 0,
+                                STBIR_RGBA);
+      stbi_image_free(src);
+
+      pending[i].pixel_data = dst;
+      pending[i].width = dst_w;
+      pending[i].height = dst_h;
+    });
+  }
+
+  for (auto &t : workers)
+    t.join();
+
+  // Phase 2 - GPU upload on the main thread, in original discovery order.
+  for (auto &p : pending) {
+    SDL_Log("Uploading thumbnail: %s", p.file_name.c_str());
+    if (!p.pixel_data)
+      continue;
+
+    SDL_GPUTexture *texture = nullptr;
+    bool ok = UploadTextureDataToGPU(p.pixel_data, p.width, p.height, device,
+                                     &texture, /*free_with_stbi=*/false);
+    if (ok && texture) {
+      thumbnails[p.file_name] = Thumbnail_T{texture, p.width, p.height};
+      thumbnail_order.push_back(p.file_name);
+    }
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ImageManager - construction / destruction / move
+// ─────────────────────────────────────────────────────────────────────────────
+
 ImageManager::ImageManager(SDL_GPUDevice *device, const char *imageFolder)
-    : device(device), index(0), current_image(nullptr),
-      imageFolder(imageFolder) {
+    : device(device), index(0), size(0), current_image(nullptr),
+      imageFolder(imageFolder), pending_index(-1) {
   load_folder(imageFolder);
+  load_thumbnails();
 }
 
 ImageManager::~ImageManager() {
   delete current_image;
-  for (const auto &val : thumbnails) {
-    SDL_ReleaseGPUTexture(device, val.second);
-  }
+  for (const auto &val : thumbnails)
+    SDL_ReleaseGPUTexture(device, val.second.texture);
 }
+
+ImageManager::ImageManager(ImageManager &&other) noexcept
+    : device(other.device), index(other.index), size(other.size),
+      current_image(other.current_image), imageFolder(other.imageFolder),
+      image_names(std::move(other.image_names)),
+      thumbnail_order(std::move(other.thumbnail_order)),
+      thumbnails(std::move(other.thumbnails)), zoom(other.zoom), pan(other.pan),
+      pending_index(other.pending_index) {
+  other.current_image = nullptr;
+  other.thumbnails.clear();
+}
+
+ImageManager &ImageManager::operator=(ImageManager &&other) noexcept {
+  if (this == &other)
+    return *this;
+
+  delete current_image;
+  for (const auto &val : thumbnails)
+    SDL_ReleaseGPUTexture(device, val.second.texture);
+
+  device = other.device;
+  index = other.index;
+  size = other.size;
+  current_image = other.current_image;
+  imageFolder = other.imageFolder;
+  image_names = std::move(other.image_names);
+  thumbnail_order = std::move(other.thumbnail_order);
+  thumbnails = std::move(other.thumbnails);
+  zoom = other.zoom;
+  pan = other.pan;
+  pending_index = other.pending_index;
+
+  other.current_image = nullptr;
+  other.thumbnails.clear();
+  return *this;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ImageManager - image navigation
+// ─────────────────────────────────────────────────────────────────────────────
 
 void ImageManager::load_folder(const char *folder) {
   SDL_EnumerateDirectory(folder, enumerate_cb, &image_names);
-  size = image_names.size();
+  size = (int)image_names.size();
 }
 
 Image *ImageManager::load_image() {
@@ -208,88 +359,63 @@ Image *ImageManager::load_image() {
     current_image = nullptr;
     return nullptr;
   }
-
   return current_image;
 }
 
 Image *ImageManager::load_next() {
-  if (index == image_names.size() - 1)
-    index = 0;
-  else
-    index += 1;
+  index = (index == (int)image_names.size() - 1) ? 0 : index + 1;
   return load_image();
 }
 
 Image *ImageManager::load_previous() {
-  if (index == 0)
-    index = image_names.size() - 1;
-  else
-    index -= 1;
+  index = (index == 0) ? (int)image_names.size() - 1 : index - 1;
   return load_image();
 }
 
-inline ImVec2 operator+(const ImVec2 &a, const ImVec2 &b) {
-  return ImVec2(a.x + b.x, a.y + b.y);
-}
-
-inline ImVec2 operator-(const ImVec2 &a, const ImVec2 &b) {
-  return ImVec2(a.x - b.x, a.y - b.y);
-}
-
-inline ImVec2 operator*(const ImVec2 &a, float s) {
-  return ImVec2(a.x * s, a.y * s);
-}
-
-inline ImVec2 operator/(const ImVec2 &a, float s) {
-  return ImVec2(a.x / s, a.y / s);
-}
-
-inline ImVec2 &operator+=(ImVec2 &a, const ImVec2 &b) {
-  a.x += b.x;
-  a.y += b.y;
-  return a;
-}
-
-inline ImVec2 &operator-=(ImVec2 &a, const ImVec2 &b) {
-  a.x -= b.x;
-  a.y -= b.y;
-  return a;
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// ImageManager - drawing
+// ─────────────────────────────────────────────────────────────────────────────
 
 void ImageManager::draw_manager(ImGuiIO *io) {
-  ImGui::BeginChild(imageFolder);
-  if (ImGui::SliderInt("##", &index, 0, size - 1, "%d",
-                       ImGuiSliderFlags_AlwaysClamp)) {
+  // Apply any pending carousel click from the previous frame.
+  // We defer load_image() by one frame so that the texture referenced in the
+  // previous frame's draw list is never destroyed mid-submission, which caused
+  // the Vulkan descriptor crash on thumbnail click.
+  if (pending_index >= 0) {
+    index = pending_index;
+    pending_index = -1;
     load_image();
-  };
-  ImTextureRef texture_id = current_image->texture;
+  }
 
+  ImGui::BeginChild("ImagePanel");
+  ImGui::BeginChild(imageFolder.c_str(), {0, 750}, ImGuiChildFlags_ResizeY);
+
+  if (!current_image || !current_image->texture) {
+    ImGui::Text("No image loaded.");
+    ImGui::EndChild();
+    ImGui::EndChild();
+    return;
+  }
+
+  ImTextureRef texture_id = current_image->texture;
   ImVec2 canvas_pos = ImGui::GetCursorScreenPos();
   ImVec2 canvas_size = ImGui::GetContentRegionAvail();
-
-  float base_width = current_image->width;
-  float base_height = current_image->height;
+  float base_width = (float)current_image->width;
+  float base_height = (float)current_image->height;
 
   ImGui::InvisibleButton("canvas", canvas_size,
                          ImGuiButtonFlags_MouseButtonLeft);
-
   bool hovered = ImGui::IsItemHovered();
   bool active = ImGui::IsItemActive();
 
   if (hovered && io->MouseWheel != 0.0f) {
     float old_zoom = zoom;
     zoom *= powf(1.1f, io->MouseWheel);
+    zoom = Clamp(zoom, 0.1f, 20.0f);
 
-    if (zoom < 0.1f)
-      zoom = 0.1f;
-    if (zoom > 20.0f)
-      zoom = 20.0f;
-
-    // Zoom toward mouse
-    ImVec2 mouse = io->MousePos;
     ImVec2 mouse_local;
-    mouse_local.x = mouse.x - canvas_pos.x - pan.x;
-    mouse_local.y = mouse.y - canvas_pos.y - pan.y;
+    mouse_local.x = io->MousePos.x - canvas_pos.x - pan.x;
+    mouse_local.y = io->MousePos.y - canvas_pos.y - pan.y;
 
     float scale = zoom / old_zoom - 1.0f;
     pan.x -= mouse_local.x * scale;
@@ -301,50 +427,77 @@ void ImageManager::draw_manager(ImGuiIO *io) {
     pan.y += io->MouseDelta.y;
   }
 
-  ImVec2 image_size;
-  image_size.x = base_width * zoom;
-  image_size.y = base_height * zoom;
+  ImVec2 image_size = {base_width * zoom, base_height * zoom};
 
-  if (image_size.x <= canvas_size.x) {
-    // center horizontally
+  if (image_size.x <= canvas_size.x)
     pan.x = (canvas_size.x - image_size.x) * 0.5f;
-  } else {
-    float min_x = canvas_size.x - image_size.x;
-    float max_x = 0.0f;
-    if (pan.x < min_x)
-      pan.x = min_x;
-    if (pan.x > max_x)
-      pan.x = max_x;
-  }
+  else
+    pan.x = Clamp(pan.x, canvas_size.x - image_size.x, 0.0f);
 
-  if (image_size.y <= canvas_size.y) {
-    // center vertically
+  if (image_size.y <= canvas_size.y)
     pan.y = (canvas_size.y - image_size.y) * 0.5f;
-  } else {
-    float min_y = canvas_size.y - image_size.y;
-    float max_y = 0.0f;
-    if (pan.y < min_y)
-      pan.y = min_y;
-    if (pan.y > max_y)
-      pan.y = max_y;
-  }
+  else
+    pan.y = Clamp(pan.y, canvas_size.y - image_size.y, 0.0f);
 
   ImDrawList *draw_list = ImGui::GetWindowDrawList();
-
   draw_list->PushClipRect(
       canvas_pos,
       ImVec2(canvas_pos.x + canvas_size.x, canvas_pos.y + canvas_size.y), true);
 
-  ImVec2 image_pos;
-  image_pos.x = canvas_pos.x + pan.x;
-  image_pos.y = canvas_pos.y + pan.y;
-
+  ImVec2 image_pos = {canvas_pos.x + pan.x, canvas_pos.y + pan.y};
   draw_list->AddImage(
       texture_id, image_pos,
       ImVec2(image_pos.x + image_size.x, image_pos.y + image_size.y),
       ImVec2(0, 0), ImVec2(1, 1));
 
   draw_list->PopClipRect();
+  ImGui::EndChild();
+
+  ImGui::BeginChild("Carousel", ImVec2(0, 0), ImGuiChildFlags_ResizeY,
+                    ImGuiWindowFlags_HorizontalScrollbar);
+  // Scroll horizontally with the mousewheel when hovered
+  if (ImGui::IsWindowHovered())
+    ImGui::SetScrollX(ImGui::GetScrollX() - io->MouseWheel * 50.0f);
+
+  for (const auto &name : thumbnail_order) {
+    auto it = thumbnails.find(name);
+    if (it == thumbnails.end())
+      continue;
+    const Thumbnail_T &thumb = it->second;
+    if (!thumb.texture)
+      continue;
+
+    // Highlight the thumbnail that matches the currently loaded image.
+    bool is_current = (!image_names.empty() && name == image_names[index]);
+    if (is_current)
+      ImGui::PushStyleColor(ImGuiCol_Button,
+                            ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
+
+    ImTextureRef tid = thumb.texture;
+    ImVec2 sz = {(float)thumb.width, (float)thumb.height};
+
+    ImGui::BeginGroup();
+    auto fit = std::find(image_names.begin(), image_names.end(), name);
+    if (fit != image_names.end()) {
+      int frame_number = (int)(fit - image_names.begin()) + 1;
+      ImGui::Text("Frame: %d", frame_number);
+    }
+    if (ImGui::ImageButton(name.c_str(), tid, sz)) {
+      if (fit != image_names.end())
+        pending_index = (int)(fit - image_names.begin());
+    }
+    ImGui::EndGroup();
+
+    if (is_current) {
+      ImGui::PopStyleColor();
+      if (index != last_drawn_index)
+        ImGui::SetScrollHereX(0.5f);
+    }
+
+    ImGui::SameLine();
+  }
 
   ImGui::EndChild();
+  ImGui::EndChild();
+  last_drawn_index = index;
 }

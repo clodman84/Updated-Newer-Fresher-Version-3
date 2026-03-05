@@ -10,8 +10,8 @@
 #include <filesystem>
 #include <memory>
 #include <mutex>
-#include <stdio.h>  // printf, fprintf
-#include <stdlib.h> // abort
+#include <stdio.h>
+#include <stdlib.h>
 
 #ifdef TRACY_ENABLE
 #include <tracy/Tracy.hpp>
@@ -24,7 +24,7 @@ std::string get_folder_name(const char *full_path) {
 typedef struct FolderDialogData {
   Database *database;
   SDL_GPUDevice *device;
-  std::deque<Session> *session_list;
+  std::deque<std::unique_ptr<Session>> *session_list; // <-- unique_ptr
   std::mutex *session_queue_mutex;
 } FolderDialogData;
 
@@ -64,7 +64,7 @@ static void SDLCALL mess_list_callback(void *userdata,
 static void SDLCALL load_roll_callback(void *userdata,
                                        const char *const *filelist,
                                        int filter) {
-
+  // FolderDialogData was heap-allocated in main; we own it here.
   std::unique_ptr<FolderDialogData> data(
       static_cast<FolderDialogData *>(userdata));
 
@@ -81,22 +81,18 @@ static void SDLCALL load_roll_callback(void *userdata,
     std::string path(*filelist);
     SDL_Log("Full path to selected folder: '%s'", *filelist);
     filelist++;
-    FolderDialogData *data = (FolderDialogData *)userdata;
 
-    Database *db = data->database;
-    SDL_GPUDevice *device = data->device;
-    std::deque<Session> *sessions = data->session_list;
-    std::mutex *session_queue_mutex = data->session_queue_mutex;
+    // Construct Session on the heap, then move the unique_ptr into the deque.
+    // This avoids any copy of Session (and its move-only ImageManager).
+    auto new_session =
+        std::make_unique<Session>(data->database, path, data->device);
 
-    Session new_session = Session(data->database, path, data->device);
-
-    std::lock_guard lock(*session_queue_mutex);
-    data->session_list->emplace_back(new_session);
+    std::lock_guard lock(*data->session_queue_mutex);
+    data->session_list->push_back(std::move(new_session));
   }
 }
 
 int main(int, char **) {
-  // SDL UI Related Shenanigans
   if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD)) {
     printf("Error: SDL_Init(): %s\n", SDL_GetError());
     return 1;
@@ -130,15 +126,12 @@ int main(int, char **) {
                                 SDL_GPU_SWAPCHAINCOMPOSITION_SDR,
                                 SDL_GPU_PRESENTMODE_VSYNC);
 
-  // ImGUI setup
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
   ImGuiIO &io = ImGui::GetIO();
   (void)io;
-  io.ConfigFlags |=
-      ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
-  io.ConfigFlags |=
-      ImGuiConfigFlags_NavEnableGamepad; // Enable Gamepad Controls
+  io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+  io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
   ImGui::StyleColorsDark();
   ImGuiStyle &style = ImGui::GetStyle();
   style.ScaleAllSizes(main_scale);
@@ -158,7 +151,7 @@ int main(int, char **) {
 
   Database db = Database();
   std::mutex mutex;
-  std::deque<Session> sessions;
+  std::deque<std::unique_ptr<Session>> sessions; // <-- unique_ptr
 
   while (!done) {
 #ifdef TRACY_ENABLE
@@ -179,82 +172,77 @@ int main(int, char **) {
     }
     ImGui_ImplSDLGPU3_NewFrame();
     ImGui_ImplSDL3_NewFrame();
-
     ImGui::NewFrame();
-    ImGui::BeginMainMenuBar();
 
+    ImGui::BeginMainMenuBar();
     if (ImGui::BeginMenu("Tools")) {
       if (ImGui::MenuItem("Load Roll")) {
+        // Heap-allocate so the pointer stays valid after this scope returns.
+        // load_roll_callback takes ownership via unique_ptr.
         auto *data = new FolderDialogData{&db, gpu_device, &sessions, &mutex};
-
         SDL_ShowOpenFolderDialog(load_roll_callback, data, window, ".", false);
-      };
+      }
       if (ImGui::MenuItem("Load Mess List")) {
         SDL_ShowOpenFileDialog(mess_list_callback, &db, window, csv_filters, 1,
                                ".", false);
-      };
+      }
       ImGui::EndMenu();
     }
-
     ImGui::EndMainMenuBar();
 
-    std::lock_guard lock(mutex);
+    {
+      std::lock_guard lock(mutex);
 
-    if (!sessions.empty()) {
-      ImGuiViewport *viewport = ImGui::GetMainViewport();
-      float menu_bar_height = ImGui::GetFrameHeight();
+      if (!sessions.empty()) {
+        ImGuiViewport *viewport = ImGui::GetMainViewport();
+        float menu_bar_height = ImGui::GetFrameHeight();
 
-      // Position below menu bar
-      ImGui::SetNextWindowPos(
-          ImVec2(viewport->Pos.x, viewport->Pos.y + menu_bar_height));
+        ImGui::SetNextWindowPos(
+            ImVec2(viewport->Pos.x, viewport->Pos.y + menu_bar_height));
+        ImGui::SetNextWindowSize(
+            ImVec2(viewport->Size.x, viewport->Size.y - menu_bar_height));
 
-      // Fill remaining space
-      ImGui::SetNextWindowSize(
-          ImVec2(viewport->Size.x, viewport->Size.y - menu_bar_height));
+        ImGuiWindowFlags flags =
+            ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+            ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse;
 
-      ImGuiWindowFlags flags =
-          ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
-          ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse;
+        ImGui::Begin("SessionTabsHost", nullptr, flags);
 
-      ImGui::Begin("SessionTabsHost", nullptr, flags);
+        if (ImGui::BeginTabBar("SessionsTabBar",
+                               ImGuiTabBarFlags_Reorderable |
+                                   ImGuiTabBarFlags_AutoSelectNewTabs)) {
+          for (auto &session_ptr : sessions) {
+            Session &session = *session_ptr; // dereference unique_ptr
+            if (ImGui::BeginTabItem(
+                    get_folder_name(session.manager.imageFolder.c_str())
+                        .c_str())) {
+              if (!session.manager.current_image)
+                session.manager.load_image();
 
-      // ONE tab bar
-      if (ImGui::BeginTabBar("SessionsTabBar",
-                             ImGuiTabBarFlags_Reorderable |
-                                 ImGuiTabBarFlags_AutoSelectNewTabs)) {
-        for (auto &session : sessions) {
-          // Each session = one tab
-          if (ImGui::BeginTabItem(
-                  get_folder_name(session.manager.imageFolder).c_str())) {
+              const float available_width = ImGui::GetContentRegionAvail().x;
+              const float default_left_width = available_width * 0.38f;
+              ImGui::BeginChild("LeftPanel", ImVec2(default_left_width, 0.0f),
+                                ImGuiChildFlags_ResizeX);
+              session.render_searcher();
+              session.render_billed();
+              ImGui::EndChild();
 
-            // Remember that the image in the ImageManager is Null before you do
-            // this
-            if (!session.manager.current_image)
-              session.manager.load_image();
+              ImGui::SameLine();
+              session.manager.draw_manager(&io);
 
-            const float available_width = ImGui::GetContentRegionAvail().x;
-            const float default_left_width = available_width * 0.38f;
-            ImGui::BeginChild("LeftPanel", ImVec2(default_left_width, 0.0f),
-                              ImGuiChildFlags_ResizeX);
-            session.render_searcher();
-            session.render_billed();
-            ImGui::EndChild();
-
-            ImGui::SameLine();
-            session.manager.draw_manager(&io);
-
-            ImGui::EndTabItem();
+              ImGui::EndTabItem();
+            }
           }
+          ImGui::EndTabBar();
         }
 
-        ImGui::EndTabBar();
+        ImGui::End();
       }
-
-      ImGui::End();
-    }
+    } // lock_guard released here, before Render
 
     if (db.show_loaded_csv)
       db.render_loaded_csv();
+
     ImGui::Render();
 
     ImDrawData *draw_data = ImGui::GetDrawData();
@@ -265,9 +253,8 @@ int main(int, char **) {
         SDL_AcquireGPUCommandBuffer(gpu_device);
 
     SDL_GPUTexture *swapchain_texture;
-    SDL_WaitAndAcquireGPUSwapchainTexture(
-        command_buffer, window, &swapchain_texture, nullptr,
-        nullptr); // Acquire a swapchain texture
+    SDL_WaitAndAcquireGPUSwapchainTexture(command_buffer, window,
+                                          &swapchain_texture, nullptr, nullptr);
 
     if (swapchain_texture != nullptr && !is_minimized) {
       ImGui_ImplSDLGPU3_PrepareDrawData(draw_data, command_buffer);
@@ -281,10 +268,10 @@ int main(int, char **) {
       target_info.mip_level = 0;
       target_info.layer_or_depth_plane = 0;
       target_info.cycle = false;
+
       SDL_GPURenderPass *render_pass =
           SDL_BeginGPURenderPass(command_buffer, &target_info, 1, nullptr);
       ImGui_ImplSDLGPU3_RenderDrawData(draw_data, command_buffer, render_pass);
-
       SDL_EndGPURenderPass(render_pass);
     }
     SDL_SubmitGPUCommandBuffer(command_buffer);
