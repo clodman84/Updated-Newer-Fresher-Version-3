@@ -60,8 +60,17 @@ jobs:
             libdbus-1-dev \
             libudev-dev
 
-      - name: Configure CMake
+      - name: Configure CMake (non-Windows)
+        if: runner.os != 'Windows'
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Configure CMake (Windows static runtime)
+        if: runner.os == 'Windows'
+        run: >-
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_C_FLAGS_RELEASE="-O3 -static -static-libgcc"
+          -DCMAKE_CXX_FLAGS_RELEASE="-O3 -static -static-libgcc -static-libstdc++"
+          -DCMAKE_EXE_LINKER_FLAGS_RELEASE="-static"
 
       - name: Build
         run: cmake --build build --config Release --parallel
@@ -191,8 +200,17 @@ jobs:
             libdbus-1-dev \
             libudev-dev
 
-      - name: Configure CMake
+      - name: Configure CMake (non-Windows)
+        if: runner.os != 'Windows'
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Configure CMake (Windows static runtime)
+        if: runner.os == 'Windows'
+        run: >-
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_C_FLAGS_RELEASE="-O3 -static -static-libgcc"
+          -DCMAKE_CXX_FLAGS_RELEASE="-O3 -static -static-libgcc -static-libstdc++"
+          -DCMAKE_EXE_LINKER_FLAGS_RELEASE="-static"
 
       - name: Build
         run: cmake --build build --config Release --parallel
@@ -258,4 +276,3 @@ jobs:
           tag_name: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref_name }}
           body_path: CHANGELOG.md
           files: release-assets/*.zip
-
