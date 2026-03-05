@@ -238,7 +238,7 @@ inline ImVec2 &operator-=(ImVec2 &a, const ImVec2 &b) {
 }
 
 void ImageManager::draw_manager(ImGuiIO *io) {
-  ImGui::BeginChild(imageFolder, {0, 800}, ImGuiChildFlags_ResizeY);
+  ImGui::BeginChild(imageFolder);
   if (ImGui::SliderInt("##", &index, 0, size - 1, "%d",
                        ImGuiSliderFlags_AlwaysClamp)) {
     load_image();
