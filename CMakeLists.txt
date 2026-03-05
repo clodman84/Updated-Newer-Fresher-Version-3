@@ -117,6 +117,7 @@ target_include_directories(stb_image_wrapper PRIVATE
 target_link_libraries(stb_image_wrapper PRIVATE
     imgui
     SDL3::SDL3
+    sqlite
 )
 
 # Compile stb_image with max optimization

@@ -4,6 +4,7 @@
 * Added zoom to image viewer
 * Added stable macOS builds
 * Added simpler image editor
+* Added image carousel to preview images
 * Added keyboard integrations, you no longer have to use the mouse for everything
 * Added support for system file manager for everything
 * Added DOOM
@@ -19,7 +20,8 @@
 
 ## Technical 
 * Rewrote program in C++
-* Image caching has been optimised, RAM usage down by 90-200%
+* Smaller binaries Windows executable is now at ~5MB in size, (down from ~150MB)
+* Image caching has been optimised, RAM usage at around ~70-100MB on Windows (down from 5.8GB)
 * Better utilisation of the GPU
 
 ## Planned For Next Release

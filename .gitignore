@@ -1,4 +1,5 @@
 build/
+release/
 .cache/
 test/
 Data/database.db

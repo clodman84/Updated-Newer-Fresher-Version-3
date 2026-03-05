@@ -396,7 +396,7 @@ void ImageManager::draw_manager(ImGuiIO *io) {
     top_height = 0;
 
   ImGui::BeginChild("TopRegion", ImVec2(0, top_height),
-                    ImGuiChildFlags_ResizeY);
+                    ImGuiChildFlags_ResizeY | ImGuiChildFlags_Borders);
 
   if (ImGui::BeginTable("MainLayout", 2,
                         ImGuiTableFlags_Resizable |
