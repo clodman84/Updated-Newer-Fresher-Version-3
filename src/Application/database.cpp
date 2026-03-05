@@ -82,7 +82,6 @@ void Database::read_csv(const std::string &filename) {
 }
 
 void Database::insert_data() {
-  ScopedTimer timer(processing_time);
   const char *sql = "INSERT INTO students "
                     "(idno, name, gender, hoscode, roomno, nick) "
                     "VALUES (:idno, :name, :gender, :hoscode, :roomno, NULL) "
@@ -159,7 +158,6 @@ std::string Database::modify_query_for_id(std::string s) {
 
 void Database::search(SearchType search_type, std::string &search_query,
                       std::vector<std::array<std::string, 4>> &search_results) {
-  ScopedTimer timer(processing_time);
   sqlite3_stmt *stmt;
   std::string query;
   switch (search_type) {
@@ -229,11 +227,6 @@ void Database::render_loaded_csv() {
   ImGui::EndTable();
   if (ImGui::Button("Looks good to me, load this messlist"))
     this->insert_data();
-  if (!processing_time.empty()) {
-    ImGui::SameLine();
-    ImGui::Text("Loaded in %s!", processing_time.c_str());
-  }
-
   ImGui::End();
 }
 

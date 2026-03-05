@@ -13,6 +13,10 @@
 #include <stdio.h>  // printf, fprintf
 #include <stdlib.h> // abort
 
+#ifdef TRACY_ENABLE
+#include <tracy/Tracy.hpp>
+#endif
+
 std::string get_folder_name(const char *full_path) {
   return std::filesystem::path(full_path).filename().string();
 }
@@ -157,6 +161,9 @@ int main(int, char **) {
   std::deque<Session> sessions;
 
   while (!done) {
+#ifdef TRACY_ENABLE
+    FrameMark;
+#endif
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
       ImGui_ImplSDL3_ProcessEvent(&event);

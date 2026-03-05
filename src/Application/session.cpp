@@ -8,7 +8,7 @@
 void Session::render_searcher() {
   ImGui::BeginChild("Search Window", {0.0f, 650.0f}, ImGuiChildFlags_ResizeY);
   if (ImGui::InputTextWithHint("##", "Search", &search_query))
-    this->database->search(ID_SEARCH, search_query, search_results);
+    this->database->search(FTS_SEARCH, search_query, search_results);
   ImGui::SameLine();
   if (ImGui::ArrowButton("Previous", ImGuiDir_Left)) {
     this->manager.load_previous();

@@ -116,7 +116,6 @@ private:
   std::string db_filename = "./Data/database.db";
   std::vector<std::vector<std::string>> loaded;
   sqlite3 *db = nullptr;
-  std::string processing_time;
   sqlite3_stmt *fts_search = nullptr;
   sqlite3_stmt *bhawan_search = nullptr;
   sqlite3_stmt *id_search = nullptr;

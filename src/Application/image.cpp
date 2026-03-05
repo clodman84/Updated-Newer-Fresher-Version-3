@@ -10,8 +10,16 @@
 #include "stb_image_resize2.h"
 #include <SDL3/SDL.h>
 
+#ifdef TRACY_ENABLE
+#include <tracy/Tracy.hpp>
+#endif
+
 unsigned char *LoadTextureDataFromFile(const char *file_name, int *width,
                                        int *height) {
+
+#ifdef TRACY_ENABLE
+  ZoneScopedN("LoadTextureDataFromFile");
+#endif
   FILE *f = fopen(file_name, "rb");
   if (f == NULL)
     return nullptr;
@@ -34,6 +42,11 @@ unsigned char *LoadTextureDataFromFile(const char *file_name, int *width,
 bool UploadTextureDataToGPU(unsigned char *image_data, int width, int height,
                             SDL_GPUDevice *device,
                             SDL_GPUTexture **out_texture) {
+
+#ifdef TRACY_ENABLE
+  ZoneScopedN("UploadDataToGPU");
+#endif
+
   // Create texture
   SDL_GPUTextureCreateInfo texture_info = {};
   texture_info.type = SDL_GPU_TEXTURETYPE_2D;
@@ -112,7 +125,13 @@ SDL_GPUTexture *LoadThumbnailFromFile(const char *file_name,
 }
 
 Image::Image(SDL_GPUDevice *device, const char *filename)
+
     : device(device), texture(nullptr), filename(filename) {
+
+#ifdef TRACY_ENABLE
+  ZoneScopedN("ImageMaking");
+#endif
+
   unsigned char *image_data =
       LoadTextureDataFromFile(filename, &width, &height);
   if (!image_data) {
