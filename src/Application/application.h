@@ -12,10 +12,6 @@
 #include <vector>
 #define MAX(A, B) (((A) >= (B)) ? (A) : (B))
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Timer Utilities
-// ─────────────────────────────────────────────────────────────────────────────
-
 inline std::string natural_time(double seconds) {
   struct Unit {
     const char *label;
@@ -55,11 +51,9 @@ private:
   std::chrono::time_point<Clock> start_;
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
 // Image
 // Owns a single SDL_GPUTexture. Move-only — copying would double-release the
 // GPU handle.
-// ─────────────────────────────────────────────────────────────────────────────
 
 class Image {
 public:
@@ -87,18 +81,18 @@ typedef struct {
   int height;
 } Thumbnail_T;
 
-// ─────────────────────────────────────────────────────────────────────────────
 // ImageManager
 // Owns a collection of thumbnail textures and the currently-displayed Image.
 // Move-only — GPU texture handles must not be duplicated.
 //
 // WHY THIS MATTERS: main.cpp stores Sessions (which contain an ImageManager)
-// in a std::deque<Session>. emplace_back on a deque can trigger reallocation
-// which calls the copy or move constructor. If copy is used, two objects own
+// in a std::deque<<std::unique_ptr>Session>. emplace_back on a deque can
+// trigger reallocation
+//
+// Which calls the copy or move constructor. If copy is used, two objects own
 // the same SDL_GPUTexture* pointers and both will call SDL_ReleaseGPUTexture
 // on destruction → double-free, VRAM leak, and Vulkan descriptor crash.
 // Deleting copy and providing move prevents this entirely.
-// ─────────────────────────────────────────────────────────────────────────────
 
 class ImageManager {
 public:
@@ -129,16 +123,15 @@ private:
   std::map<std::string, Thumbnail_T> thumbnails;
   SDL_GPUDevice *device;
   float zoom = 1.0f;
+  ImVec2 canvas_size;
   ImVec2 pan = ImVec2(0, 0);
   int pending_index = -1; // carousel click deferred one frame to avoid
                           // destroying a texture still referenced in draw list
   int last_drawn_index = -1;
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
 // Database
-// ─────────────────────────────────────────────────────────────────────────────
-
+// Overflowing Laundro Bag
 void prepare_database();
 
 enum SearchType { FTS_SEARCH, BHAWAN_SEARCH, ID_SEARCH };
@@ -170,13 +163,8 @@ typedef struct {
   int count;
 } BillEntry;
 
-// ─────────────────────────────────────────────────────────────────────────────
 // Session
 // Contains an ImageManager by value, so it must also be move-only.
-// In main.cpp, store as std::deque<std::unique_ptr<Session>> or ensure
-// Session is only ever moved (never copied) when inserted into the deque.
-// ─────────────────────────────────────────────────────────────────────────────
-
 class Session {
 public:
   Session(Database *database, std::string path, SDL_GPUDevice *device)

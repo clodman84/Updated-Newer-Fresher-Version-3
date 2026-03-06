@@ -219,9 +219,6 @@ int main(int, char **) {
                     get_folder_name(session.manager.imageFolder.c_str())
                         .c_str(),
                     &open)) {
-              if (!session.manager.current_image)
-                session.manager.load_image();
-
               const float available_width = ImGui::GetContentRegionAvail().x;
               const float default_left_width = available_width * 0.38f;
 

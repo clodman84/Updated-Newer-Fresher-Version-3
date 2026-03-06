@@ -270,6 +270,7 @@ ImageManager::ImageManager(SDL_GPUDevice *device, const char *imageFolder)
       imageFolder(imageFolder), pending_index(-1) {
   load_folder(imageFolder);
   load_thumbnails();
+  load_image();
 }
 
 ImageManager::~ImageManager() {
@@ -325,6 +326,8 @@ Image *ImageManager::load_image() {
 
   delete current_image;
   current_image = new Image(device, image_names[index].c_str());
+  zoom = MIN(canvas_size.x / current_image->width,
+             canvas_size.y / current_image->height);
 
   if (!current_image->texture) {
     delete current_image;
@@ -382,6 +385,7 @@ void ImageManager::draw_manager(ImGuiIO *io) {
 
     if (!current_image || !current_image->texture) {
 
+      // lowkey this will never happen
       ImGui::Text("No image loaded.");
 
     } else {
@@ -389,10 +393,16 @@ void ImageManager::draw_manager(ImGuiIO *io) {
       ImTextureRef texture_id = current_image->texture;
 
       ImVec2 canvas_pos = ImGui::GetCursorScreenPos();
-      ImVec2 canvas_size = ImGui::GetContentRegionAvail();
+      canvas_size = ImGui::GetContentRegionAvail();
 
       float base_width = (float)current_image->width;
       float base_height = (float)current_image->height;
+
+      // the image is loaded before canvas is made so this fixes
+      // the scaling for that case
+      if (zoom == 0.0f)
+        zoom = MIN(canvas_size.x / current_image->width,
+                   canvas_size.y / current_image->height);
 
       ImGui::InvisibleButton("canvas", canvas_size,
                              ImGuiButtonFlags_MouseButtonLeft);
@@ -465,7 +475,8 @@ void ImageManager::draw_manager(ImGuiIO *io) {
     ImGui::Text("Zoom %.2fx", zoom);
 
     if (ImGui::Button("Reset View")) {
-      zoom = 1.0f;
+      zoom = MIN(canvas_size.x / current_image->width,
+                 canvas_size.y / current_image->height);
       pan = {0.0f, 0.0f};
     }
 
