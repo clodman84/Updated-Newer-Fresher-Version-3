@@ -326,8 +326,8 @@ Image *ImageManager::load_image() {
 
   delete current_image;
   current_image = new Image(device, image_names[index].c_str());
-  zoom = MIN(canvas_size.x / current_image->width,
-             canvas_size.y / current_image->height);
+  zoom = std::min(canvas_size.x / current_image->width,
+                  canvas_size.y / current_image->height);
 
   if (!current_image->texture) {
     delete current_image;
@@ -401,8 +401,8 @@ void ImageManager::draw_manager(ImGuiIO *io) {
       // the image is loaded before canvas is made so this fixes
       // the scaling for that case
       if (zoom == 0.0f)
-        zoom = MIN(canvas_size.x / current_image->width,
-                   canvas_size.y / current_image->height);
+        zoom = std::min(canvas_size.x / current_image->width,
+                        canvas_size.y / current_image->height);
 
       ImGui::InvisibleButton("canvas", canvas_size,
                              ImGuiButtonFlags_MouseButtonLeft);
@@ -475,8 +475,8 @@ void ImageManager::draw_manager(ImGuiIO *io) {
     ImGui::Text("Zoom %.2fx", zoom);
 
     if (ImGui::Button("Reset View")) {
-      zoom = MIN(canvas_size.x / current_image->width,
-                 canvas_size.y / current_image->height);
+      zoom = std::min(canvas_size.x / current_image->width,
+                      canvas_size.y / current_image->height);
       pan = {0.0f, 0.0f};
     }
 
