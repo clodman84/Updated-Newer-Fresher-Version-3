@@ -16,17 +16,9 @@
 #include <tracy/Tracy.hpp>
 #endif
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Utilities
-// ─────────────────────────────────────────────────────────────────────────────
-
 template <typename T> static inline T Clamp(T v, T lo, T hi) {
   return v < lo ? lo : (v > hi ? hi : v);
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// ImVec2 operators
-// ─────────────────────────────────────────────────────────────────────────────
 
 inline ImVec2 operator+(const ImVec2 &a, const ImVec2 &b) {
   return ImVec2(a.x + b.x, a.y + b.y);
@@ -50,10 +42,6 @@ inline ImVec2 &operator-=(ImVec2 &a, const ImVec2 &b) {
   a.y -= b.y;
   return a;
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// File / GPU helpers (internal linkage)
-// ─────────────────────────────────────────────────────────────────────────────
 
 // Loads a file from disk and decodes it with stbi.
 // Returns stbi-owned memory -> caller must free with stbi_image_free().
@@ -186,10 +174,6 @@ static SDL_EnumerationResult enumerate_cb(void *userdata, const char *dirname,
   return SDL_ENUM_CONTINUE;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Image
-// ─────────────────────────────────────────────────────────────────────────────
-
 Image::Image(SDL_GPUDevice *device, const char *filename)
     : device(device), texture(nullptr), filename(filename) {
 #ifdef TRACY_ENABLE
@@ -218,10 +202,6 @@ Image::Image(Image &&other) noexcept
   other.texture = nullptr;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ImageManager - thumbnail loading
-// ─────────────────────────────────────────────────────────────────────────────
-
 // CPU-side decoded+resized pixel data waiting for main-thread GPU upload.
 // pixel_data is IM_ALLOC'd.
 struct PendingThumbnail {
@@ -232,7 +212,6 @@ struct PendingThumbnail {
 };
 
 void ImageManager::load_thumbnails() {
-  const float factor = 0.05f;
 
   // Phase 1 - decode + resize on worker threads.
   // SDL_GPU uploads are NOT done here; SDL_GPU is not thread-safe for that.
@@ -242,7 +221,7 @@ void ImageManager::load_thumbnails() {
 
   for (size_t i = 0; i < image_names.size(); ++i) {
     pending[i].file_name = image_names[i];
-    workers.emplace_back([i, factor, &pending]() {
+    workers.emplace_back([i, &pending]() {
 #ifdef TRACY_ENABLE
       ZoneScopedN("ThumbnailWorker");
 #endif
@@ -252,8 +231,9 @@ void ImageManager::load_thumbnails() {
       if (!src)
         return;
 
-      int dst_w = MAX((int)(src_w * factor), 1);
-      int dst_h = MAX((int)(src_h * factor), 1);
+      int dst_h = 200;
+      float factor = (float)dst_h / src_h;
+      int dst_w = src_w * factor;
 
       unsigned char *dst = (unsigned char *)IM_ALLOC(dst_w * dst_h * 4);
       stbir_resize_uint8_linear(src, src_w, src_h, 0, dst, dst_w, dst_h, 0,
@@ -271,7 +251,7 @@ void ImageManager::load_thumbnails() {
 
   // Phase 2 - GPU upload on the main thread, in original discovery order.
   for (auto &p : pending) {
-    SDL_Log("Uploading thumbnail: %s", p.file_name.c_str());
+    SDL_Log("Uploading thumbnail to GPU: %s", p.file_name.c_str());
     if (!p.pixel_data)
       continue;
 
@@ -284,10 +264,6 @@ void ImageManager::load_thumbnails() {
     }
   }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// ImageManager - construction / destruction / move
-// ─────────────────────────────────────────────────────────────────────────────
 
 ImageManager::ImageManager(SDL_GPUDevice *device, const char *imageFolder)
     : device(device), index(0), size(0), current_image(nullptr),
@@ -338,10 +314,6 @@ ImageManager &ImageManager::operator=(ImageManager &&other) noexcept {
   return *this;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ImageManager - image navigation
-// ─────────────────────────────────────────────────────────────────────────────
-
 void ImageManager::load_folder(const char *folder) {
   SDL_EnumerateDirectory(folder, enumerate_cb, &image_names);
   size = (int)image_names.size();
@@ -372,10 +344,6 @@ Image *ImageManager::load_previous() {
   return load_image();
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ImageManager - drawing
-// ─────────────────────────────────────────────────────────────────────────────
-
 void ImageManager::draw_manager(ImGuiIO *io) {
 
   if (pending_index >= 0) {
@@ -396,7 +364,7 @@ void ImageManager::draw_manager(ImGuiIO *io) {
     top_height = 0;
 
   ImGui::BeginChild("TopRegion", ImVec2(0, top_height),
-                    ImGuiChildFlags_ResizeY | ImGuiChildFlags_Borders);
+                    ImGuiChildFlags_Borders);
 
   if (ImGui::BeginTable("MainLayout", 2,
                         ImGuiTableFlags_Resizable |
