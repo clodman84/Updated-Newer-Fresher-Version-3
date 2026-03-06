@@ -8,6 +8,8 @@ jobs:
   build_release:
     name: Build release binaries (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
 
     strategy:
       fail-fast: false
@@ -104,35 +106,9 @@ jobs:
           ARCHIVE="dist/${PACKAGE_ROOT}-${{ runner.os }}.zip"
           cmake -E tar cf "$ARCHIVE" --format=zip -- "$STAGE_DIR"
 
-      - name: Upload packaged binary artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: UNFV3-${{ github.event.release.tag_name }}-${{ runner.os }}
-          path: dist/*.zip
-
-  publish_release:
-    name: Upload artifacts to GitHub release
-    runs-on: ubuntu-latest
-    needs: build_release
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout repository (with submodules)
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-          ref: refs/tags/${{ github.event.release.tag_name }}
-
-      - name: Download packaged binaries
-        uses: actions/download-artifact@v4
-        with:
-          path: release-assets
-          pattern: UNFV3-${{ github.event.release.tag_name }}-*
-          merge-multiple: true
-
-      - name: Create release with CHANGELOG contents
+      - name: Upload package directly to GitHub release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.release.tag_name }}
           body_path: CHANGELOG.md
-          files: release-assets/*.zip
+          files: dist/*.zip
