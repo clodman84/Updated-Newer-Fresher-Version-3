@@ -23,14 +23,15 @@ jobs:
           submodules: recursive
           ref: refs/tags/${{ github.event.release.tag_name }}
 
-      - name: Cache build directory
-        uses: actions/cache@v4
+      - name: Restore build cache
+        id: build-cache
+        uses: actions/cache/restore@v4
         with:
           path: build
-          key: ${{ runner.os }}-build-${{ github.event.release.tag_name }}-${{ hashFiles('CMakeLists.txt', 'src/**', 'vendored/**') }}
+          key: ${{ runner.os }}-cmake-build-${{ hashFiles('CMakeLists.txt', 'src/**/*.cpp', 'src/**/*.h', 'src/**/*.hpp', 'src/**/*.c', 'src/**/*.cc') }}
           restore-keys: |
-            ${{ runner.os }}-build-${{ github.event.release.tag_name }}-
-            ${{ runner.os }}-build-
+            ${{ runner.os }}-cmake-build-
+
 
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
@@ -72,6 +73,13 @@ jobs:
 
       - name: Build
         run: cmake --build build --config Release --parallel
+
+      - name: Save build cache
+        if: always() && steps.build-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: build
+          key: ${{ steps.build-cache.outputs.cache-primary-key }}
 
       - name: Package binary and runtime data
         shell: bash
