@@ -212,26 +212,38 @@ int main(int, char **) {
         if (ImGui::BeginTabBar("SessionsTabBar",
                                ImGuiTabBarFlags_Reorderable |
                                    ImGuiTabBarFlags_AutoSelectNewTabs)) {
-          for (auto &session_ptr : sessions) {
-            Session &session = *session_ptr; // dereference unique_ptr
+          for (auto it = sessions.begin(); it != sessions.end();) {
+            Session &session = **it;
+            bool open = true;
             if (ImGui::BeginTabItem(
                     get_folder_name(session.manager.imageFolder.c_str())
-                        .c_str())) {
+                        .c_str(),
+                    &open)) {
               if (!session.manager.current_image)
                 session.manager.load_image();
 
               const float available_width = ImGui::GetContentRegionAvail().x;
               const float default_left_width = available_width * 0.38f;
+
               ImGui::BeginChild("LeftPanel", ImVec2(default_left_width, 0.0f),
                                 ImGuiChildFlags_ResizeX |
                                     ImGuiChildFlags_Borders);
+
               session.render_searcher();
               session.render_billed();
+
               ImGui::EndChild();
               ImGui::SameLine();
+
               session.manager.draw_manager(&io);
 
               ImGui::EndTabItem();
+            }
+
+            if (!open) {
+              it = sessions.erase(it); // remove tab
+            } else {
+              ++it;
             }
           }
           ImGui::EndTabBar();
