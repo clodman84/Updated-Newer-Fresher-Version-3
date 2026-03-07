@@ -179,6 +179,7 @@ public:
 
   void render_searcher();
   void render_billed();
+  void handle_keyboard_nav();
   ImageManager manager;
 
 private:
@@ -189,6 +190,12 @@ private:
   std::unordered_map<std::string, std::map<std::string, BillEntry>> bill;
   void increment_for_id(std::string, std::string);
   void autosave();
+  enum class KeyboardNavMode { Search, Billed };
+  KeyboardNavMode keyboard_nav_mode = KeyboardNavMode::Search;
+  int selected_search_index = 0;
+  int selected_billed_index = 0;
+  bool focus_search_on_next_frame = false;
+  bool focus_billed_on_next_frame = false;
 };
 
 #endif // !IMAGE_H

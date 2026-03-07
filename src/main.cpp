@@ -131,8 +131,6 @@ int main(int, char **) {
   ImGui::CreateContext();
   ImGuiIO &io = ImGui::GetIO();
   (void)io;
-  io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-  io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
   ImGui::StyleColorsDark();
   ImGuiStyle &style = ImGui::GetStyle();
   style.ScaleAllSizes(main_scale);
@@ -219,6 +217,8 @@ int main(int, char **) {
                     get_folder_name(session.manager.imageFolder.c_str())
                         .c_str(),
                     &open)) {
+
+              session.handle_keyboard_nav();
               const float available_width = ImGui::GetContentRegionAvail().x;
               const float default_left_width = available_width * 0.38f;
 
