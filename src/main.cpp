@@ -24,7 +24,7 @@ std::string get_folder_name(const char *full_path) {
 typedef struct FolderDialogData {
   Database *database;
   SDL_GPUDevice *device;
-  std::deque<std::unique_ptr<Session>> *session_list; // <-- unique_ptr
+  std::deque<std::unique_ptr<Session>> *session_list;
   std::mutex *session_queue_mutex;
 } FolderDialogData;
 

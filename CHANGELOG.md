@@ -1,3 +1,19 @@
+# v0.5.1-beta
+
+* Improved keyboard navigation
+
+## Technical
+
+* Got rid of ImGui's built in keyboard navigation, implemented tiny custom context based keybinds instead
+
+## Planned For Next Release
+
+* Add clipboard integration, copy paste into the search bar straight from WhatsApp
+* Add helper to show what bhawan codes are available
+* Add export button
+* Add simple image editor
+* Make app usable
+
 # v0.5-beta
 
 * Added zoom to image viewer
@@ -18,11 +34,3 @@
 * Smaller binaries Windows executable is now at ~5MB in size, (down from ~150MB)
 * Image caching has been removed as it is no longer needed - RAM usage at around ~70-100MB on Windows (down from 5.8GB)
 * Better utilisation of the GPU
-
-## Planned For Next Release
-
-* Add clipboard integration, copy paste into the search bar straight from WhatsApp
-* Add helper to show what bhawan codes are available
-* Add export button
-* Add simple image editor
-* Make app usable

@@ -7,10 +7,12 @@
 
 void Session::handle_keyboard_nav() {
 
-  if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow))
-    manager.load_previous();
-  if (ImGui::IsKeyPressed(ImGuiKey_RightArrow))
-    manager.load_next();
+  if (!ImGui::GetIO().WantTextInput) {
+    if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow))
+      manager.load_previous();
+    if (ImGui::IsKeyPressed(ImGuiKey_RightArrow))
+      manager.load_next();
+  }
 
   if (search_results.empty()) {
     selected_search_index = 0;
@@ -39,7 +41,7 @@ void Session::handle_keyboard_nav() {
   }
 
   if (keyboard_nav_mode == KeyboardNavMode::Search) {
-    if (ImGui::IsKeyPressed(ImGuiKey_Tab)) {
+    if (ImGui::IsKeyPressed(ImGuiKey_Tab) && !bill[current_file].empty()) {
       keyboard_nav_mode = KeyboardNavMode::Billed;
       focus_billed_on_next_frame = true;
       return;
@@ -155,12 +157,12 @@ void Session::render_billed() {
     ImGui::EndChild();
     return;
   }
+
   if (ImGui::BeginTable(
           "##", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingFixedFit)) {
     ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_WidthFixed, 110.0f);
     ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthStretch, 2.0f);
     ImGui::TableSetupColumn("Count", ImGuiTableColumnFlags_WidthFixed, 100.0f);
-
     ImGui::TableHeadersRow();
 
     int visible_index = 0;
@@ -173,7 +175,6 @@ void Session::render_billed() {
           (visible_index == selected_billed_index)) {
         ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0,
                                ImGui::GetColorU32(ImGuiCol_Header));
-
         ImGui::SetScrollHereY();
       }
       ImGui::TableNextColumn();
