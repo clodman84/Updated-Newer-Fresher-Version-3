@@ -1,6 +1,7 @@
 # v0.5.1-beta
 
 * Improved keyboard navigation
+* Added image scaling to images, so that images always fit the window
 
 ## Technical
 
