@@ -156,7 +156,7 @@ std::string Database::modify_query_for_id(std::string s) {
   return s;
 }
 
-void Database::search(SearchType search_type, std::string &search_query,
+void Database::search(TokenType search_type, std::string &search_query,
                       std::vector<std::array<std::string, 4>> &search_results) {
   sqlite3_stmt *stmt;
   std::string query;
@@ -173,6 +173,8 @@ void Database::search(SearchType search_type, std::string &search_query,
     query = modify_query_for_id(search_query);
     stmt = id_search;
     break;
+  case OPERATOR:
+    return;
   }
 
   sqlite3_bind_text(stmt, sqlite3_bind_parameter_index(stmt, ":query"),

@@ -140,6 +140,7 @@ add_executable(UNFV3
     src/main.cpp
     src/Application/database.cpp
     src/Application/session.cpp
+    src/Application/search_engine.cpp
 )
 
 target_include_directories(UNFV3 PRIVATE

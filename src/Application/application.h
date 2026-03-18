@@ -134,7 +134,7 @@ private:
 // Overflowing Laundro Bag
 void prepare_database();
 
-enum SearchType { FTS_SEARCH, BHAWAN_SEARCH, ID_SEARCH };
+enum TokenType { FTS_SEARCH, BHAWAN_SEARCH, ID_SEARCH, OPERATOR, GRAMMAR };
 
 class Database {
 public:
@@ -143,7 +143,7 @@ public:
   void read_csv(const std::string &filename);
   void render_loaded_csv();
   void insert_data();
-  void search(SearchType search_type, std::string &search_query,
+  void search(TokenType search_type, std::string &search_query,
               std::vector<std::array<std::string, 4>> &search_results);
   bool show_loaded_csv = false;
 
@@ -196,6 +196,7 @@ private:
   int selected_billed_index = 0;
   bool focus_search_on_next_frame = false;
   bool focus_billed_on_next_frame = false;
+  void evaluate();
 };
 
 #endif // !IMAGE_H

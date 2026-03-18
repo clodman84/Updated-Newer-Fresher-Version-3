@@ -96,7 +96,7 @@ void Session::render_searcher() {
   }
 
   if (ImGui::InputTextWithHint("##", "Search", &search_query))
-    this->database->search(FTS_SEARCH, search_query, search_results);
+    evaluate();
 
   if (search_results.empty())
     selected_search_index = 0;
