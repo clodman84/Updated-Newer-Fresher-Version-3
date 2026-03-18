@@ -92,7 +92,6 @@ void Session::render_searcher() {
   ImGui::BeginChild("Search Window", {0.0f, 650.0f}, ImGuiChildFlags_ResizeY);
 
   if (focus_search_on_next_frame) {
-    ImGui::SetKeyboardFocusHere();
     focus_search_on_next_frame = false;
   }
 
@@ -148,7 +147,6 @@ void Session::render_billed() {
   ImGui::BeginChild("Billed Window", {0.0f, 0.0f});
 
   if (focus_billed_on_next_frame) {
-    ImGui::SetKeyboardFocusHere();
     focus_billed_on_next_frame = false;
   }
 
