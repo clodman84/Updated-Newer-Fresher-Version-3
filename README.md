@@ -1,15 +1,13 @@
 # This is the DoPy billing software
 ![image](https://github.com/user-attachments/assets/2d2cf74b-86f9-4c08-baf6-fe51b7ae0746)
 
-Detailed documentation can be found [here](https://updated-newer-fresher-version-3.readthedocs.io/en/latest/index.html) (the documentation is a work in progress as of writing this).
-
 ## Features
 
-- Internal music player, cuz that's just how we roll
+- Internal music player
 - Full text search for student id names with an inbuilt parser to allow for complex combined queries
-- Autosave for when you have to pause billing to go for a sesh
+- Autosave
 - Fast image viewer
-- Nickname management for quiclly billing our most loyal patrons with long ass names who are present in hundreds of pictures
+- Nickname management
 - Support for billing multiple rolls of images simultaneously
 - Responsive UI
 
