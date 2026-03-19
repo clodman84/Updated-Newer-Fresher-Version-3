@@ -3,6 +3,10 @@
 #include <string>
 #include <vector>
 
+#ifdef TRACY_ENABLE
+#include <tracy/Tracy.hpp>
+#endif
+
 typedef struct {
   TokenType type;
   std::string value;
@@ -30,6 +34,11 @@ typedef struct {
 enum State { WAITING, READING_ID, READING_BHAWAN, READING_NAME };
 
 std::vector<Token_T> lex(std::string search_query) {
+
+#ifdef TRACY_ENABLE
+  ZoneScopedN("Lex Query");
+#endif
+
   std::vector<Token_T> output;
   TokenType type;
   std::string value;
@@ -105,6 +114,11 @@ std::vector<Token_T> lex(std::string search_query) {
 
 // return token stream in reverse polish notation
 std::vector<Token_T> parse(std::vector<Token_T> tokens) {
+
+#ifdef TRACY_ENABLE
+  ZoneScopedN("ParseQuery");
+#endif
+
   std::vector<Token_T> output;
   std::vector<Token_T> operator_stack;
   for (const auto token : tokens) {
@@ -143,6 +157,11 @@ std::vector<Token_T> parse(std::vector<Token_T> tokens) {
 }
 
 void Session::evaluate() {
+
+#ifdef TRACY_ENABLE
+  ZoneScopedN("Evaluate Query");
+#endif
+
   std::vector<Token_T> tokens = parse(lex(search_query));
   std::vector<std::vector<std::array<std::string, 4>>> result_stack;
 
