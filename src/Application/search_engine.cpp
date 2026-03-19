@@ -1,5 +1,5 @@
 #include "application.h"
-#include <iostream>
+#include <algorithm>
 #include <string>
 #include <vector>
 
@@ -51,14 +51,24 @@ std::vector<Token_T> lex(std::string search_query) {
       } else if (character == ' ') {
         current_state = WAITING;
         continue;
-      } else if ((character == '&') | (character == '|')) {
+      } else if (character == '&') {
         value = character;
-        output.push_back({OPERATOR, value});
+        output.push_back({AND, value});
         value = "";
         continue;
-      } else if ((character == '(') | (character == ')')) {
+      } else if (character == '|') {
         value = character;
-        output.push_back({GRAMMAR, value});
+        output.push_back({OR, value});
+        value = "";
+        continue;
+      } else if (character == '(') {
+        value = character;
+        output.push_back({LPAR, value});
+        value = "";
+        continue;
+      } else if (character == ')') {
+        value = character;
+        output.push_back({RPAR, value});
         value = "";
         continue;
       } else {
@@ -70,11 +80,22 @@ std::vector<Token_T> lex(std::string search_query) {
     }
     if ((current_state == READING_ID) | (current_state == READING_BHAWAN) |
         (current_state == READING_NAME)) {
-      value += character;
-      if ((character == ' ') | (idx == len)) {
-        output.push_back({type, value});
+      if (character == ' ') {
         current_state = WAITING;
+        output.push_back({type, value});
         value = "";
+      } else if (character == ')') {
+        current_state = WAITING;
+        output.push_back({type, value});
+        output.push_back({RPAR, std::string{')'}});
+        value = "";
+      } else if (idx == len) {
+        value += character;
+        current_state = WAITING;
+        output.push_back({type, value});
+        value = "";
+      } else {
+        value += character;
       }
     }
   }
@@ -83,19 +104,85 @@ std::vector<Token_T> lex(std::string search_query) {
 }
 
 // return token stream in reverse polish notation
-std::vector<Token_T> parse(std::vector<Token_T>);
+std::vector<Token_T> parse(std::vector<Token_T> tokens) {
+  std::vector<Token_T> output;
+  std::vector<Token_T> operator_stack;
+  for (const auto token : tokens) {
+    switch (token.type) {
+    case FTS_SEARCH:
+    case BHAWAN_SEARCH:
+    case ID_SEARCH:
+      output.push_back(token);
+      break;
+    case OR:
+      while (!operator_stack.empty() && (operator_stack.back().type != LPAR) &&
+             (operator_stack.back().type == AND)) {
+        output.push_back(operator_stack.back());
+        operator_stack.pop_back();
+      }
+      operator_stack.push_back(token);
+      break;
+    case AND:
+      operator_stack.push_back(token);
+      break;
+    case LPAR:
+      operator_stack.push_back(token);
+      break;
+    case RPAR:
+      while (!operator_stack.empty() && (operator_stack.back().type != LPAR)) {
+        output.push_back(operator_stack.back());
+        operator_stack.pop_back();
+      }
+      if (!operator_stack.empty() && (operator_stack.back().type == LPAR))
+        operator_stack.pop_back();
+      break;
+    }
+  }
+  output.insert(output.end(), operator_stack.begin(), operator_stack.end());
+  return output;
+}
 
 void Session::evaluate() {
-  std::vector<Token_T> tokens = lex(search_query);
-  std::cout << "====tokens==============\n";
-  for (auto token : tokens) {
-    std::cout << "Token Type: " << token.type << " Value " << token.value
-              << '\n';
-  }
-  std::cout << "========================\n";
+  std::vector<Token_T> tokens = parse(lex(search_query));
+  std::vector<std::vector<std::array<std::string, 4>>> result_stack;
 
-  if (!tokens.empty()) {
-    Token_T last = tokens.back();
-    database->search(last.type, last.value, search_results);
+  for (const auto token : tokens) {
+    switch (token.type) {
+    case FTS_SEARCH:
+    case BHAWAN_SEARCH:
+    case ID_SEARCH:
+      database->search(token.type, token.value, search_results);
+      result_stack.push_back(search_results);
+      break;
+    case AND:
+      if (result_stack.size() >= 2) {
+
+        auto left = result_stack.back();
+        result_stack.pop_back();
+        auto right = result_stack.back();
+        result_stack.pop_back();
+        std::vector<std::array<std::string, 4>> results;
+        std::set_intersection(left.begin(), left.end(), right.begin(),
+                              right.end(), std::back_inserter(results));
+        result_stack.push_back(results);
+      }
+      break;
+    case OR:
+      if (result_stack.size() >= 2) {
+        auto left = result_stack.back();
+        result_stack.pop_back();
+        auto right = result_stack.back();
+        result_stack.pop_back();
+        std::vector<std::array<std::string, 4>> results;
+        std::set_union(left.begin(), left.end(), right.begin(), right.end(),
+                       std::back_inserter(results));
+        result_stack.push_back(results);
+      }
+      break;
+    default:
+      break;
+    }
   }
+  if (!result_stack.empty())
+    search_results = result_stack.back();
 }
