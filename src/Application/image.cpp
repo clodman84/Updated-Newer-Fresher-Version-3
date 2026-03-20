@@ -215,18 +215,18 @@ void Session::export_images() {
   std::string roll = path.filename();
 
   for (const auto image : bill) {
-    std::cout << image.first << '\n';
+    // std::cout << image.first << '\n';
     for (const auto student_id_bill_pairs : image.second) {
       ExportInfo info =
           database->get_export_information_from_id(student_id_bill_pairs.first);
-      std::cout << "\tDatabase: " + info.bhawan << " " << info.roomno + '\n';
+      // std::cout << "\tDatabase: " + info.bhawan << " " << info.roomno + '\n';
       for (int i = 1; i <= student_id_bill_pairs.second.count; i++) {
         std::string destination = roll + "_" + info.bhawan + "_" + info.roomno +
                                   "_" + std::to_string(i) + "_" +
                                   student_id_bill_pairs.first + ".jpg";
         std::string watermark = info.bhawan + " " + info.roomno;
-        std::cout << "\t" << "destination: " << destination
-                  << " | watermark: " << watermark << '\n';
+        // std::cout << "\t" << "destination: " << destination
+        // << " | watermark: " << watermark << '\n';
         pending.push_back({image.first, watermark, destination});
       }
     }

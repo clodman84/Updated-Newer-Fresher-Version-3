@@ -235,14 +235,17 @@ ExportInfo Database::get_export_information_from_id(std::string idno) {
       sqlite3_bind_parameter_index(get_export_info_stmt, ":query"),
       idno.c_str(), -1, SQLITE_TRANSIENT);
 
-  std::cout << "DB GOT: " << idno << '\n';
   int rc = sqlite3_step(get_export_info_stmt);
   if (rc == SQLITE_ROW) {
     std::string bhawan = reinterpret_cast<const char *>(
         sqlite3_column_text(get_export_info_stmt, 0));
     std::string hoscode = reinterpret_cast<const char *>(
         sqlite3_column_text(get_export_info_stmt, 1));
+
+    sqlite3_reset(get_export_info_stmt);
     return {bhawan, hoscode};
   }
+
+  sqlite3_reset(get_export_info_stmt);
   return {"bruh", "moment"};
 };
