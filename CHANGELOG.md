@@ -3,6 +3,7 @@
 * Improved keyboard navigation
 * Added image scaling to images, so that images always fit the window
 * Added search bar to look people up
+* Added autosave
 
 ## Technical
 

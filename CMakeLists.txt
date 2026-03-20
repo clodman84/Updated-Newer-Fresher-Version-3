@@ -118,6 +118,7 @@ target_link_libraries(stb_image_wrapper PRIVATE
     imgui
     SDL3::SDL3
     sqlite
+    nlohmann_json
 )
 
 # Compile stb_image with max optimization

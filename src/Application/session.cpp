@@ -1,9 +1,12 @@
+#include "json.hpp"
 #include <SDL3/SDL_log.h>
 #include <application.h>
 #include <imgui.h>
-#include <json.hpp>
 #include <misc/cpp/imgui_stdlib.h>
 #include <string>
+
+#include <fstream>
+#include <stdexcept>
 
 void Session::handle_keyboard_nav() {
 
@@ -196,6 +199,18 @@ void Session::increment_for_id(std::string id, std::string name) {
   const char *current_file = this->manager.current_image->filename;
   bill[current_file][id].name = name;
   bill[current_file][id].count += 1;
+  autosave();
 }
 
-void Session::autosave() {}
+void Session::autosave() {
+  std::string filepath = path + "/save.json";
+  nlohmann::json serialised = bill;
+  std::ofstream file(filepath, std::ios::out | std::ios::trunc);
+  if (!file.is_open()) {
+    throw std::runtime_error("Failed to open file: " + filepath);
+  }
+  file << serialised.dump(4);
+  if (!file.good()) {
+    throw std::runtime_error("Error writing to file: " + filepath);
+  }
+}

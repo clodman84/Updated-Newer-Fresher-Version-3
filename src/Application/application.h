@@ -1,15 +1,20 @@
 #ifndef IMAGE_H
 #define IMAGE_H
+#include <cstdio>
 #include <map>
 #include <unordered_map>
 #define _CRT_SECURE_NO_WARNINGS
 #include "imgui.h"
+#include "json.hpp"
 #include "sqlite3.h"
 #include <SDL3/SDL.h>
 #include <array>
 #include <chrono>
+#include <filesystem>
+#include <fstream>
 #include <string>
 #include <vector>
+
 #define MAX(A, B) (((A) >= (B)) ? (A) : (B))
 
 inline std::string natural_time(double seconds) {
@@ -158,9 +163,10 @@ private:
   void store_loaded_csv();
 };
 
-typedef struct {
+typedef struct BillEntry {
   std::string name;
   int count;
+  NLOHMANN_DEFINE_TYPE_INTRUSIVE(BillEntry, name, count);
 } BillEntry;
 
 // Session
@@ -168,7 +174,32 @@ typedef struct {
 class Session {
 public:
   Session(Database *database, std::string path, SDL_GPUDevice *device)
-      : database(database), path(path), manager(device, path.c_str()) {}
+      : database(database), path(path), manager(device, path.c_str()) {
+    using BillType =
+        std::unordered_map<std::string, std::map<std::string, BillEntry>>;
+
+    std::string filepath = path + "/save.json";
+    if (std::filesystem::exists(filepath)) {
+      std::ifstream file(filepath);
+      if (!file.is_open()) {
+        throw std::runtime_error("Failed to open file: " + filepath);
+      }
+
+      nlohmann::json j;
+      try {
+        file >> j;
+      } catch (const std::exception &e) {
+        throw std::runtime_error(std::string("JSON parse error: ") + e.what());
+      }
+
+      try {
+        bill = j.get<BillType>();
+      } catch (const std::exception &e) {
+        throw std::runtime_error(std::string("Deserialization error: ") +
+                                 e.what());
+      }
+    }
+  }
   ~Session() {}
 
   // Move-only (ImageManager inside is move-only)
