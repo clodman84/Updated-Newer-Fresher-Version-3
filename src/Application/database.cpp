@@ -53,13 +53,17 @@ Database::Database() {
   if (sqlite3_prepare_v2(db, id_sql, -1, &id_search, nullptr) != SQLITE_OK)
     throw std::runtime_error(sqlite3_errmsg(db));
 
-  if (sqlite3_prepare_v2(db, get_info_sql, -1, &id_search, nullptr) !=
-      SQLITE_OK)
+  if (sqlite3_prepare_v2(db, get_info_sql, -1, &get_export_info_stmt,
+                         nullptr) != SQLITE_OK)
     throw std::runtime_error(sqlite3_errmsg(db));
 }
 
 Database::~Database() {
   if (db) {
+    sqlite3_finalize(fts_search);
+    sqlite3_finalize(bhawan_search);
+    sqlite3_finalize(id_search);
+    sqlite3_finalize(get_export_info_stmt);
     sqlite3_close(db);
     db = nullptr;
   }
@@ -230,6 +234,8 @@ ExportInfo Database::get_export_information_from_id(std::string idno) {
       get_export_info_stmt,
       sqlite3_bind_parameter_index(get_export_info_stmt, ":query"),
       idno.c_str(), -1, SQLITE_TRANSIENT);
+
+  std::cout << "DB GOT: " << idno << '\n';
   int rc = sqlite3_step(get_export_info_stmt);
   if (rc == SQLITE_ROW) {
     std::string bhawan = reinterpret_cast<const char *>(

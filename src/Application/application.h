@@ -207,6 +207,7 @@ public:
         throw std::runtime_error(std::string("Deserialization error: ") +
                                  e.what());
       }
+      file.close();
     }
   }
   ~Session() {}

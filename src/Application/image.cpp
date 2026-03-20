@@ -217,24 +217,19 @@ void Session::export_images() {
   for (const auto image : bill) {
     std::cout << image.first << '\n';
     for (const auto student_id_bill_pairs : image.second) {
-      std::cout << '\t' << student_id_bill_pairs.first << " "
-                << student_id_bill_pairs.second.count << '\n';
       ExportInfo info =
           database->get_export_information_from_id(student_id_bill_pairs.first);
+      std::cout << "\tDatabase: " + info.bhawan << " " << info.roomno + '\n';
       for (int i = 1; i <= student_id_bill_pairs.second.count; i++) {
-        std::string destination =
-            roll + "_" + info.bhawan + "_" + info.roomno + "_" +
-            std::to_string(student_id_bill_pairs.second.count) + "_" +
-            student_id_bill_pairs.first + ".jpg";
-        std::string watermark = info.bhawan + "_" + info.roomno;
+        std::string destination = roll + "_" + info.bhawan + "_" + info.roomno +
+                                  "_" + std::to_string(i) + "_" +
+                                  student_id_bill_pairs.first + ".jpg";
+        std::string watermark = info.bhawan + " " + info.roomno;
+        std::cout << "\t" << "destination: " << destination
+                  << " | watermark: " << watermark << '\n';
         pending.push_back({image.first, watermark, destination});
       }
     }
-  }
-
-  for (const auto image : pending) {
-    std::cout << image.filename << " " << image.watermark << " "
-              << image.destination << '\n';
   }
 }
 

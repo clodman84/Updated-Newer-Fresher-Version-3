@@ -204,7 +204,7 @@ void Session::increment_for_id(std::string id, std::string name) {
 }
 
 void Session::autosave() {
-  std::filesystem::path filepath = path / "/save.json";
+  std::filesystem::path filepath = path / "save.json";
   // this has got to be the best library I have ever used in my entire life
   nlohmann::json serialised = bill;
   // WHAT?? THAT'S IT??
@@ -216,6 +216,7 @@ void Session::autosave() {
   if (!file.good()) {
     throw std::runtime_error("Error writing to file");
   }
+  file.close();
 }
 
 void Session::draw_export_modal() {
