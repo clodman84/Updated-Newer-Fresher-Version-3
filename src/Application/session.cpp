@@ -204,7 +204,9 @@ void Session::increment_for_id(std::string id, std::string name) {
 
 void Session::autosave() {
   std::string filepath = path + "/save.json";
+  // this has got to be the best library I have ever used in my entire life
   nlohmann::json serialised = bill;
+  // WHAT?? THAT'S IT??
   std::ofstream file(filepath, std::ios::out | std::ios::trunc);
   if (!file.is_open()) {
     throw std::runtime_error("Failed to open file: " + filepath);
