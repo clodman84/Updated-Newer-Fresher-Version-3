@@ -472,6 +472,7 @@ void ImageManager::draw_manager(ImGuiIO *io) {
 
     ImGui::Separator();
 
+    ImGui::TextUnformatted("This is a work in progress :)");
     ImGui::Text("Zoom %.2fx", zoom);
 
     if (ImGui::Button("Reset View")) {

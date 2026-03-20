@@ -156,50 +156,6 @@ std::string Database::modify_query_for_id(std::string s) {
   return s;
 }
 
-void Database::search(TokenType search_type, std::string search_query,
-                      std::vector<std::array<std::string, 4>> &search_results) {
-  sqlite3_stmt *stmt;
-  std::string query;
-  switch (search_type) {
-  case FTS_SEARCH:
-    query = search_query;
-    stmt = fts_search;
-    break;
-  case BHAWAN_SEARCH:
-    query = search_query;
-    stmt = bhawan_search;
-    break;
-  case ID_SEARCH:
-    query = modify_query_for_id(search_query);
-    stmt = id_search;
-    break;
-  default:
-    return;
-  }
-
-  sqlite3_bind_text(stmt, sqlite3_bind_parameter_index(stmt, ":query"),
-                    query.c_str(), -1, SQLITE_TRANSIENT);
-  search_results.clear();
-  while (true) {
-    int rc = sqlite3_step(stmt);
-    if (rc == SQLITE_ROW) {
-      std::array<std::string, 4> line;
-      for (int i = 0; i < 4; i++) {
-        const unsigned char *text = sqlite3_column_text(stmt, i);
-
-        line[i] = text ? std::string(reinterpret_cast<const char *>(text)) : "";
-      }
-      search_results.push_back(line);
-    } else if (rc == SQLITE_DONE) {
-      break;
-    } else {
-      std::cerr << "Step error: " << sqlite3_errmsg(db) << "\n";
-      break;
-    }
-  }
-  sqlite3_reset(stmt);
-}
-
 void Database::render_loaded_csv() {
   if (!show_loaded_csv)
     return;
