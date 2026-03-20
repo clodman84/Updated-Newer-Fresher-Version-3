@@ -42,14 +42,19 @@ Database::Database() {
   const char *id_sql = "SELECT idno, name, hoscode, roomno FROM students WHERE "
                        "idno LIKE :query ORDER BY idno";
 
+  const char *get_info_sql =
+      "SELECT hoscode, roomno FROM students WHERE idno = :query";
+
   if (sqlite3_prepare_v2(db, fts_sql, -1, &fts_search, nullptr) != SQLITE_OK)
     throw std::runtime_error(sqlite3_errmsg(db));
-
   if (sqlite3_prepare_v2(db, bhawan_sql, -1, &bhawan_search, nullptr) !=
       SQLITE_OK)
     throw std::runtime_error(sqlite3_errmsg(db));
-
   if (sqlite3_prepare_v2(db, id_sql, -1, &id_search, nullptr) != SQLITE_OK)
+    throw std::runtime_error(sqlite3_errmsg(db));
+
+  if (sqlite3_prepare_v2(db, get_info_sql, -1, &id_search, nullptr) !=
+      SQLITE_OK)
     throw std::runtime_error(sqlite3_errmsg(db));
 }
 
@@ -219,3 +224,19 @@ void prepare_database() {
 
   sqlite3_close(DB);
 }
+
+ExportInfo Database::get_export_information_from_id(std::string idno) {
+  sqlite3_bind_text(
+      get_export_info_stmt,
+      sqlite3_bind_parameter_index(get_export_info_stmt, ":query"),
+      idno.c_str(), -1, SQLITE_TRANSIENT);
+  int rc = sqlite3_step(get_export_info_stmt);
+  if (rc == SQLITE_ROW) {
+    std::string bhawan = reinterpret_cast<const char *>(
+        sqlite3_column_text(get_export_info_stmt, 0));
+    std::string hoscode = reinterpret_cast<const char *>(
+        sqlite3_column_text(get_export_info_stmt, 1));
+    return {bhawan, hoscode};
+  }
+  return {"bruh", "moment"};
+};

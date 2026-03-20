@@ -1,6 +1,7 @@
 #include "json.hpp"
 #include <SDL3/SDL_log.h>
 #include <application.h>
+#include <filesystem>
 #include <imgui.h>
 #include <misc/cpp/imgui_stdlib.h>
 #include <string>
@@ -203,16 +204,24 @@ void Session::increment_for_id(std::string id, std::string name) {
 }
 
 void Session::autosave() {
-  std::string filepath = path + "/save.json";
+  std::filesystem::path filepath = path / "/save.json";
   // this has got to be the best library I have ever used in my entire life
   nlohmann::json serialised = bill;
   // WHAT?? THAT'S IT??
   std::ofstream file(filepath, std::ios::out | std::ios::trunc);
   if (!file.is_open()) {
-    throw std::runtime_error("Failed to open file: " + filepath);
+    throw std::runtime_error("Failed to open file");
   }
   file << serialised.dump(4);
   if (!file.good()) {
-    throw std::runtime_error("Error writing to file: " + filepath);
+    throw std::runtime_error("Error writing to file");
   }
+}
+
+void Session::draw_export_modal() {
+  ImGui::Begin("Export Window", NULL, ImGuiWindowFlags_Modal);
+  ImGui::TextUnformatted("Hello Guys Welcome to My YouTube Channel!");
+  if (ImGui::Button("Export"))
+    export_images();
+  ImGui::End();
 }

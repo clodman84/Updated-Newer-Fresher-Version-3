@@ -99,6 +99,12 @@ typedef struct {
 // on destruction → double-free, VRAM leak, and Vulkan descriptor crash.
 // Deleting copy and providing move prevents this entirely.
 
+typedef struct BillEntry {
+  std::string name;
+  int count;
+  NLOHMANN_DEFINE_TYPE_INTRUSIVE(BillEntry, name, count);
+} BillEntry;
+
 class ImageManager {
 public:
   ImageManager(SDL_GPUDevice *device, const char *image_folder);
@@ -118,6 +124,7 @@ public:
   int size;
   void draw_manager(ImGuiIO *io);
   void load_thumbnails();
+
   std::string imageFolder;
   Image *current_image;
 
@@ -141,6 +148,11 @@ void prepare_database();
 
 enum TokenType { FTS_SEARCH, BHAWAN_SEARCH, ID_SEARCH, OR, AND, LPAR, RPAR };
 
+struct ExportInfo {
+  std::string bhawan;
+  std::string roomno;
+};
+
 class Database {
 public:
   Database();
@@ -150,6 +162,8 @@ public:
   void insert_data();
   void search(TokenType search_type, std::string search_query,
               std::vector<std::array<std::string, 4>> &search_results);
+  ExportInfo get_export_information_from_id(std::string);
+  // TODO: Implement This
   bool show_loaded_csv = false;
 
 private:
@@ -159,15 +173,10 @@ private:
   sqlite3_stmt *fts_search = nullptr;
   sqlite3_stmt *bhawan_search = nullptr;
   sqlite3_stmt *id_search = nullptr;
+  sqlite3_stmt *get_export_info_stmt = nullptr;
   std::string modify_query_for_id(std::string query);
   void store_loaded_csv();
 };
-
-typedef struct BillEntry {
-  std::string name;
-  int count;
-  NLOHMANN_DEFINE_TYPE_INTRUSIVE(BillEntry, name, count);
-} BillEntry;
 
 // Session
 // Contains an ImageManager by value, so it must also be move-only.
@@ -211,11 +220,13 @@ public:
   void render_searcher();
   void render_billed();
   void handle_keyboard_nav();
+  void draw_export_modal();
   ImageManager manager;
+  std::filesystem::path path;
+  bool exporting = true;
 
 private:
   Database *database;
-  std::string path;
   std::string search_query = "";
   std::vector<std::array<std::string, 4>> search_results;
   std::unordered_map<std::string, std::map<std::string, BillEntry>> bill;
@@ -228,6 +239,7 @@ private:
   bool focus_search_on_next_frame = false;
   bool focus_billed_on_next_frame = false;
   void evaluate();
+  void export_images();
 };
 
 #endif // !IMAGE_H

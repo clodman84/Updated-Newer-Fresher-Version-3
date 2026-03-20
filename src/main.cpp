@@ -185,6 +185,16 @@ int main(int, char **) {
         SDL_ShowOpenFileDialog(mess_list_callback, &db, window, csv_filters, 1,
                                ".", false);
       }
+      if (ImGui::BeginMenu("Export Roll")) {
+        // Heap-allocate so the pointer stays valid after this scope returns.
+        // load_roll_callback takes ownership via unique_ptr.
+        for (auto &ptr : sessions) {
+          Session &session = *ptr;
+          if (ImGui::MenuItem(session.path.c_str()))
+            session.exporting = true;
+        }
+        ImGui::EndMenu();
+      }
       ImGui::EndMenu();
     }
     ImGui::EndMainMenuBar();
@@ -212,6 +222,8 @@ int main(int, char **) {
                                    ImGuiTabBarFlags_AutoSelectNewTabs)) {
           for (auto it = sessions.begin(); it != sessions.end();) {
             Session &session = **it;
+            if (session.exporting)
+              session.draw_export_modal();
             bool open = true;
             if (ImGui::BeginTabItem(
                     get_folder_name(session.manager.imageFolder.c_str())

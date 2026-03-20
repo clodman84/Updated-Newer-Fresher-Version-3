@@ -11,6 +11,7 @@
 #include "stb_image.h"
 #include "stb_image_resize2.h"
 #include <SDL3/SDL.h>
+#include <iostream>
 
 #ifdef TRACY_ENABLE
 #include <tracy/Tracy.hpp>
@@ -202,8 +203,41 @@ Image::Image(Image &&other) noexcept
   other.texture = nullptr;
 }
 
-// CPU-side decoded+resized pixel data waiting for main-thread GPU upload.
-// pixel_data is IM_ALLOC'd.
+struct PendingImage {
+  std::string filename;
+  std::string watermark;
+  std::string destination;
+};
+
+void Session::export_images() {
+  std::vector<PendingImage> pending;
+  std::vector<std::thread> workers;
+  std::string roll = path.filename();
+
+  for (const auto image : bill) {
+    std::cout << image.first << '\n';
+    for (const auto student_id_bill_pairs : image.second) {
+      std::cout << '\t' << student_id_bill_pairs.first << " "
+                << student_id_bill_pairs.second.count << '\n';
+      ExportInfo info =
+          database->get_export_information_from_id(student_id_bill_pairs.first);
+      for (int i = 1; i <= student_id_bill_pairs.second.count; i++) {
+        std::string destination =
+            roll + "_" + info.bhawan + "_" + info.roomno + "_" +
+            std::to_string(student_id_bill_pairs.second.count) + "_" +
+            student_id_bill_pairs.first + ".jpg";
+        std::string watermark = info.bhawan + "_" + info.roomno;
+        pending.push_back({image.first, watermark, destination});
+      }
+    }
+  }
+
+  for (const auto image : pending) {
+    std::cout << image.filename << " " << image.watermark << " "
+              << image.destination << '\n';
+  }
+}
+
 struct PendingThumbnail {
   std::string file_name;
   unsigned char *pixel_data = nullptr;
