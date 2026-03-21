@@ -1,24 +1,26 @@
 #ifndef IMAGE_H
 #define IMAGE_H
-#include <cstdio>
-#include <map>
-#include <unordered_map>
+
 #define _CRT_SECURE_NO_WARNINGS
+
 #include "imgui.h"
 #include "json.hpp"
 #include "sqlite3.h"
 #include <SDL3/SDL.h>
+
 #include <array>
 #include <atomic>
 #include <chrono>
+#include <cmath>
+#include <cstdio>
 #include <filesystem>
-#include <fstream>
+#include <map>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <thread>
+#include <unordered_map>
 #include <vector>
-
-#define MAX(A, B) (((A) >= (B)) ? (A) : (B))
 
 inline std::string natural_time(double seconds) {
   struct Unit {
@@ -31,7 +33,7 @@ inline std::string natural_time(double seconds) {
       {"ms", 1e-3},
       {"us", 1e-6},
   };
-  double absolute = std::abs(seconds);
+  const double absolute = std::abs(seconds);
   for (const auto &unit : units) {
     if (absolute > unit.size) {
       char buf[32];
@@ -47,10 +49,13 @@ inline std::string natural_time(double seconds) {
 class ScopedTimer {
 public:
   using Clock = std::chrono::high_resolution_clock;
-  ScopedTimer(std::string &output) : output_(output), start_(Clock::now()) {}
+
+  explicit ScopedTimer(std::string &output)
+      : output_(output), start_(Clock::now()) {}
+
   ~ScopedTimer() {
-    auto end = Clock::now();
-    double seconds = std::chrono::duration<double>(end - start_).count();
+    const auto end = Clock::now();
+    const double seconds = std::chrono::duration<double>(end - start_).count();
     output_ = natural_time(seconds);
   }
 
@@ -59,61 +64,45 @@ private:
   std::chrono::time_point<Clock> start_;
 };
 
-// Image
-// Owns a single SDL_GPUTexture. Move-only — copying would double-release the
-// GPU handle.
-
 class Image {
 public:
-  Image(SDL_GPUDevice *device, const char *filename);
+  Image(SDL_GPUDevice *device, const std::filesystem::path &filename);
   ~Image();
 
-  // Move-only
   Image(Image &&other) noexcept;
-  Image &operator=(Image &&other) noexcept = delete; // add if needed
+  Image &operator=(Image &&other) noexcept = delete;
   Image(const Image &) = delete;
   Image &operator=(const Image &) = delete;
 
-  SDL_GPUTexture *texture;
-  int width;
-  int height;
-  const char *filename;
+  bool is_valid() const;
+
+  SDL_GPUTexture *texture = nullptr;
+  int width = 0;
+  int height = 0;
+  std::filesystem::path filename;
 
 private:
-  SDL_GPUDevice *device;
+  SDL_GPUDevice *device = nullptr;
 };
 
-typedef struct {
-  SDL_GPUTexture *texture;
-  int width;
-  int height;
-} Thumbnail_T;
+struct Thumbnail {
+  SDL_GPUTexture *texture = nullptr;
+  int width = 0;
+  int height = 0;
+};
 
-// ImageManager
-// Owns a collection of thumbnail textures and the currently-displayed Image.
-// Move-only — GPU texture handles must not be duplicated.
-//
-// WHY THIS MATTERS: main.cpp stores Sessions (which contain an ImageManager)
-// in a std::deque<<std::unique_ptr>Session>. emplace_back on a deque can
-// trigger reallocation
-//
-// Which calls the copy or move constructor. If copy is used, two objects own
-// the same SDL_GPUTexture* pointers and both will call SDL_ReleaseGPUTexture
-// on destruction → double-free, VRAM leak, and Vulkan descriptor crash.
-// Deleting copy and providing move prevents this entirely.
-
-typedef struct BillEntry {
+struct BillEntry {
   std::string name;
-  int count;
+  int count = 0;
   NLOHMANN_DEFINE_TYPE_INTRUSIVE(BillEntry, name, count);
-} BillEntry;
+};
 
 class ImageManager {
 public:
-  ImageManager(SDL_GPUDevice *device, const char *image_folder);
+  ImageManager(SDL_GPUDevice *device,
+               const std::filesystem::path &image_folder);
   ~ImageManager();
 
-  // Move-only
   ImageManager(ImageManager &&other) noexcept;
   ImageManager &operator=(ImageManager &&other) noexcept;
   ImageManager(const ImageManager &) = delete;
@@ -124,33 +113,43 @@ public:
   Image *load_previous();
   bool select_image_by_name(const std::string &name);
   const std::vector<std::string> &get_thumbnail_order() const;
-  const Thumbnail_T *get_thumbnail(const std::string &name) const;
+  const Thumbnail *get_thumbnail(const std::string &name) const;
   int get_image_index(const std::string &name) const;
+  const Image *get_current_image() const;
+  const std::filesystem::path *current_image_path() const;
+  bool has_images() const;
+  const std::filesystem::path &folder() const;
 
-  int index;
-  int size;
-  void draw_manager(ImGuiIO *io);
+  void draw_manager();
   void load_thumbnails();
 
-  std::string imageFolder;
-  Image *current_image;
+  int index = 0;
+  int size = 0;
 
 private:
-  void load_folder(const char *);
+  void load_folder(const std::filesystem::path &folder);
+  void clear_current_image();
+  void clear_thumbnails();
+  void reset_view_to_image();
+  void queue_image_by_index(int next_index);
+  void apply_pending_selection();
+  void draw_viewer();
+  void draw_editor();
+  void draw_carousel(float carousel_height);
+
+  std::filesystem::path image_folder_;
+  std::unique_ptr<Image> current_image_;
   std::vector<std::string> image_names;
   std::vector<std::string> thumbnail_order;
-  std::map<std::string, Thumbnail_T> thumbnails;
-  SDL_GPUDevice *device;
-  float zoom = 1.0f;
-  ImVec2 canvas_size;
-  ImVec2 pan = ImVec2(0, 0);
-  int pending_index = -1; // carousel click deferred one frame to avoid
-                          // destroying a texture still referenced in draw list
+  std::map<std::string, Thumbnail> thumbnails;
+  SDL_GPUDevice *device = nullptr;
+  float zoom = 0.0f;
+  ImVec2 canvas_size = ImVec2(0.0f, 0.0f);
+  ImVec2 pan = ImVec2(0.0f, 0.0f);
+  int pending_index = -1;
   int last_drawn_index = -1;
 };
 
-// Database
-// Overflowing Laundro Bag
 void prepare_database();
 
 enum TokenType { FTS_SEARCH, BHAWAN_SEARCH, ID_SEARCH, OR, AND, LPAR, RPAR };
@@ -164,25 +163,34 @@ class Database {
 public:
   Database();
   ~Database();
+
   void read_csv(const std::string &filename);
   void render_loaded_csv();
   void insert_data();
   void search(TokenType search_type, std::string search_query,
               std::vector<std::array<std::string, 4>> &search_results);
-  ExportInfo get_export_information_from_id(std::string);
-  // TODO: Implement This
+  ExportInfo get_export_information_from_id(std::string id);
+
   bool show_loaded_csv = false;
 
 private:
+  using CsvRow = std::array<std::string, 5>;
+
+  std::string modify_query_for_id(std::string query);
+  bool parse_csv_row(const std::string &line, CsvRow &row) const;
+  bool begin_transaction() const;
+  bool commit_transaction() const;
+  bool rollback_transaction() const;
+  bool execute_sql(const char *sql) const;
+  void clear_loaded_csv();
+
   std::string db_filename = "./Data/database.db";
-  std::vector<std::vector<std::string>> loaded;
+  std::vector<CsvRow> loaded;
   sqlite3 *db = nullptr;
   sqlite3_stmt *fts_search = nullptr;
   sqlite3_stmt *bhawan_search = nullptr;
   sqlite3_stmt *id_search = nullptr;
   sqlite3_stmt *get_export_info_stmt = nullptr;
-  std::string modify_query_for_id(std::string query);
-  void store_loaded_csv();
 };
 
 struct PendingImage {
@@ -192,44 +200,12 @@ struct PendingImage {
   std::string label;
 };
 
-
-// Session
-// Contains an ImageManager by value, so it must also be move-only.
 class Session {
 public:
-  Session(Database *database, std::string path, SDL_GPUDevice *device)
-      : database(database), path(path), manager(device, path.c_str()) {
-    using BillType = std::unordered_map<std::filesystem::path,
-                                        std::map<std::string, BillEntry>>;
-
-    std::string filepath = path + "/save.json";
-    if (std::filesystem::exists(filepath)) {
-      std::ifstream file(filepath);
-      if (!file.is_open()) {
-        throw std::runtime_error("Failed to open file: " + filepath);
-      }
-
-      nlohmann::json j;
-      try {
-        file >> j;
-      } catch (const std::exception &e) {
-        throw std::runtime_error(std::string("JSON parse error: ") + e.what());
-      }
-
-      try {
-        bill = j.get<BillType>();
-      } catch (const std::exception &e) {
-        throw std::runtime_error(std::string("Deserialization error: ") +
-                                 e.what());
-      }
-      file.close();
-    }
-  }
+  Session(Database *database, std::filesystem::path path,
+          SDL_GPUDevice *device);
   ~Session();
 
-  // Move-only (ImageManager inside is move-only)
-  Session(Session &&) = default;
-  Session &operator=(Session &&) = default;
   Session(const Session &) = delete;
   Session &operator=(const Session &) = delete;
 
@@ -238,16 +214,45 @@ public:
   void handle_keyboard_nav();
   void open_export_modal();
   void draw_export_modal();
+  const std::filesystem::path &session_path() const;
+  const std::filesystem::path &image_folder() const;
+
   ImageManager manager;
   std::filesystem::path path;
   bool draw_exporting = false;
 
 private:
-  Database *database;
-  std::string search_query = "";
+  using BillMap = std::unordered_map<std::filesystem::path,
+                                     std::map<std::string, BillEntry>>;
+
+  enum class KeyboardNavMode { Search, Billed };
+
+  const std::filesystem::path *current_image_path() const;
+  std::map<std::string, BillEntry> *current_bill_entries();
+  const std::map<std::string, BillEntry> *current_bill_entries() const;
+  int visible_billed_entry_count() const;
+  void sync_search_selection_bounds();
+  void sync_billed_selection_bounds();
+  void handle_search_keyboard_nav();
+  void handle_billed_keyboard_nav();
+  void render_same_as_popup();
+  void render_search_results_table();
+  void render_billed_table(std::map<std::string, BillEntry> &entries);
+  void load_existing_bill();
+  void increment_for_id(const std::string &id, const std::string &name);
+  void autosave();
+  void evaluate();
+  void prepare_export_queue();
+  void start_export();
+  void finish_export_if_ready();
+  void export_images();
+  void process_pending_image(const PendingImage &image, size_t worker_index);
+  void append_bill_from_image(const std::filesystem::path &source_image);
+
+  Database *database = nullptr;
+  std::string search_query;
   std::vector<std::array<std::string, 4>> search_results;
-  std::unordered_map<std::filesystem::path, std::map<std::string, BillEntry>>
-      bill;
+  BillMap bill;
   std::vector<PendingImage> pending;
   std::thread export_worker;
   std::mutex export_status_mutex;
@@ -256,25 +261,16 @@ private:
   std::string export_status_message = "Ready to export";
   std::string export_output_directory;
   bool export_apply_watermark = true;
-  void increment_for_id(std::string, std::string);
-  void autosave();
-  enum class KeyboardNavMode { Search, Billed };
   KeyboardNavMode keyboard_nav_mode = KeyboardNavMode::Search;
   int selected_search_index = 0;
   int selected_billed_index = 0;
   bool focus_search_on_next_frame = false;
   bool focus_billed_on_next_frame = false;
-  void evaluate();
-  void prepare_export_queue();
-  void start_export();
-  void finish_export_if_ready();
-  void export_images();
   std::atomic<int> export_progress{0};
-  int export_total{0};
-  bool exporting{false};
-  bool export_completed{false};
-  void process_pending_image(const PendingImage &p, size_t worker_index);
-  void append_bill_from_image(const std::filesystem::path &source_image);
+  int export_total = 0;
+  bool exporting = false;
+  bool export_completed = false;
   bool draw_same_as_popup = false;
 };
+
 #endif // !IMAGE_H

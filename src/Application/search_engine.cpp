@@ -125,7 +125,12 @@ std::vector<Token_T> lex(std::string search_query) {
         continue;
       } else {
         current_state = READING_NAME;
-        value = character;
+        if (!output.empty() && output.back().type == FTS_SEARCH) {
+          value = output.back().value;
+          value += ' ';
+          output.pop_back();
+        }
+        value += character;
         type = FTS_SEARCH;
         continue;
       }
