@@ -127,7 +127,6 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     -O3
     -ffast-math
     -funroll-loops
-    -march=native
 )
 elseif(MSVC)
     target_compile_options(stb_image_wrapper PRIVATE /O2)
