@@ -340,7 +340,7 @@ void Session::prepare_export_queue() {
   }
   pending.reserve(total_items);
 
-  std::string roll = path.filename();
+  std::string roll = path.filename().string();
   for (const auto &image : bill) {
     for (const auto &student_id_bill_pairs : image.second) {
       if (student_id_bill_pairs.second.count < 1) {

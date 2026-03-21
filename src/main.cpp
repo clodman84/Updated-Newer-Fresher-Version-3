@@ -190,7 +190,8 @@ int main(int, char **) {
         // load_roll_callback takes ownership via unique_ptr.
         for (auto &ptr : sessions) {
           Session &session = *ptr;
-          if (ImGui::MenuItem(session.path.c_str()))
+          const std::string session_label = session.path.string();
+          if (ImGui::MenuItem(session_label.c_str()))
             session.open_export_modal();
         }
         ImGui::EndMenu();
