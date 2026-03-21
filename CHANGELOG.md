@@ -4,18 +4,15 @@
 * Added image scaling to images, so that images always fit the window
 * Added search bar to look people up
 * Added autosave
-
-## Technical
-
-* Got rid of ImGui's built in keyboard navigation, implemented tiny custom context based keybinds instead
+* Added export button
+* Added same as button
+* Made app usable
 
 ## Planned For Next Release
 
 * Add clipboard integration, copy paste into the search bar straight from WhatsApp
 * Add helper to show what bhawan codes are available
-* Add export button
 * Add simple image editor
-* Make app usable
 
 # v0.5-beta
 
@@ -36,4 +33,3 @@
 * Rewrote program in C++
 * Smaller binaries Windows executable is now at ~5MB in size, (down from ~150MB)
 * Image caching has been removed as it is no longer needed - RAM usage at around ~70-100MB on Windows (down from 5.8GB)
-* Better utilisation of the GPU

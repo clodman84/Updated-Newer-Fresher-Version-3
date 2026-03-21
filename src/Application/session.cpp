@@ -117,6 +117,76 @@ void Session::render_searcher() {
   if (ImGui::ArrowButton("Next", ImGuiDir_Right)) {
     this->manager.load_next();
   }
+  ImGui::SameLine();
+  if (ImGui::Button("Same As")) {
+    draw_same_as_popup = true;
+    ImGui::OpenPopup("Same As Bill");
+  }
+
+  const char *current_file =
+      manager.current_image ? manager.current_image->filename : nullptr;
+
+  if (ImGui::BeginPopup("Same As Bill")) {
+    ImGui::TextUnformatted("Copy billed entries from another image");
+    ImGui::Separator();
+
+    const int columns = 5;
+    const float cell_w = 150.0f;
+    const float spacing = ImGui::GetStyle().ItemSpacing.x;
+    const float popup_w = columns * cell_w + spacing * (columns - 1);
+
+    ImGui::SetNextWindowSize(
+        ImVec2(popup_w + ImGui::GetStyle().WindowPadding.x * 2, 480.0f),
+        ImGuiCond_Appearing);
+
+    bool found_source = false;
+    int col = 0;
+    for (const auto &image_name : manager.get_thumbnail_order()) {
+      if (current_file != nullptr && image_name == current_file)
+        continue;
+      const Thumbnail_T *thumb = manager.get_thumbnail(image_name);
+      if (thumb == nullptr || thumb->texture == nullptr)
+        continue;
+
+      found_source = true;
+      if (col % columns != 0)
+        ImGui::SameLine(0.0f, spacing);
+
+      ImGui::PushID(image_name.c_str());
+      ImGui::BeginGroup();
+
+      const int frame_number = manager.get_image_index(image_name) + 1;
+      if (frame_number > 0)
+        ImGui::Text("Frame %d", frame_number);
+
+      const float aspect = (float)thumb->height / (float)thumb->width;
+      if (ImGui::ImageButton("##thumb", thumb->texture,
+                             ImVec2(cell_w, cell_w * aspect))) {
+        append_bill_from_image(image_name);
+        draw_same_as_popup = false;
+        ImGui::CloseCurrentPopup();
+      }
+
+      ImGui::TextUnformatted(
+          std::filesystem::path(image_name).filename().string().c_str());
+      ImGui::EndGroup();
+      ImGui::PopID();
+      col++;
+    }
+
+    if (!found_source)
+      ImGui::TextDisabled("No other images are available.");
+
+    ImGui::Separator();
+    if (ImGui::Button("Close")) {
+      draw_same_as_popup = false;
+      ImGui::CloseCurrentPopup();
+    }
+
+    ImGui::EndPopup();
+  } else if (draw_same_as_popup && !ImGui::IsPopupOpen("Same As Bill")) {
+    draw_same_as_popup = false;
+  }
 
   if (ImGui::BeginTable(
           "##", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingFixedFit)) {
@@ -218,6 +288,27 @@ void Session::autosave() {
     throw std::runtime_error("Error writing to file");
   }
   file.close();
+}
+
+void Session::append_bill_from_image(
+    const std::filesystem::path &source_image) {
+  if (!manager.current_image || manager.current_image->filename == nullptr) {
+    return;
+  }
+
+  const std::filesystem::path current_file = manager.current_image->filename;
+  auto source_it = bill.find(source_image);
+  if (source_it == bill.end()) {
+    return;
+  }
+
+  auto &current_bill = bill[current_file];
+  for (const auto &[student_id, source_entry] : source_it->second) {
+    BillEntry &entry = current_bill[student_id];
+    entry.name = source_entry.name;
+    entry.count += source_entry.count;
+  }
+  autosave();
 }
 
 Session::~Session() {
@@ -442,7 +533,7 @@ void Session::draw_export_modal() {
 
     if (export_total == 0 && !exporting) {
       ImGui::Spacing();
-      ImGui::TextDisabled("Nothing to export yet. Add billed entries first.");
+      ImGui::TextDisabled("Nothing to export yet.");
     }
 
     ImGui::EndPopup();

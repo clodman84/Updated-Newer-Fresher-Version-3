@@ -215,7 +215,8 @@ struct PendingThumbnail {
   int height = 0;
 };
 
-void Session::process_pending_image(const PendingImage &p, size_t worker_index) {
+void Session::process_pending_image(const PendingImage &p,
+                                    size_t worker_index) {
   {
     std::lock_guard<std::mutex> lock(export_status_mutex);
     if (!export_active_items.empty()) {
@@ -313,7 +314,9 @@ void Session::export_images() {
 
   const unsigned int hardware_threads = std::thread::hardware_concurrency();
   const size_t worker_count = std::max<size_t>(
-      1, std::min(pending.size(), static_cast<size_t>(hardware_threads == 0 ? 4 : hardware_threads)));
+      1, std::min(pending.size(), static_cast<size_t>(hardware_threads == 0
+                                                          ? 4
+                                                          : hardware_threads)));
 
   {
     std::lock_guard<std::mutex> lock(export_status_mutex);
@@ -477,6 +480,36 @@ Image *ImageManager::load_previous() {
   return load_image();
 }
 
+bool ImageManager::select_image_by_name(const std::string &name) {
+  auto it = std::find(image_names.begin(), image_names.end(), name);
+  if (it == image_names.end()) {
+    return false;
+  }
+  index = static_cast<int>(it - image_names.begin());
+  load_image();
+  return true;
+}
+
+const std::vector<std::string> &ImageManager::get_thumbnail_order() const {
+  return thumbnail_order;
+}
+
+const Thumbnail_T *ImageManager::get_thumbnail(const std::string &name) const {
+  auto it = thumbnails.find(name);
+  if (it == thumbnails.end()) {
+    return nullptr;
+  }
+  return &it->second;
+}
+
+int ImageManager::get_image_index(const std::string &name) const {
+  auto it = std::find(image_names.begin(), image_names.end(), name);
+  if (it == image_names.end()) {
+    return -1;
+  }
+  return static_cast<int>(it - image_names.begin());
+}
+
 void ImageManager::draw_manager(ImGuiIO *io) {
 
   if (pending_index >= 0) {
@@ -486,16 +519,11 @@ void ImageManager::draw_manager(ImGuiIO *io) {
   }
 
   ImGui::BeginChild("ImagePanel");
-
   const float carousel_height = 270.0f;
-
   ImVec2 avail = ImGui::GetContentRegionAvail();
-
   float top_height = avail.y - carousel_height - 5;
-
   if (top_height < 0)
     top_height = 0;
-
   ImGui::BeginChild("TopRegion", ImVec2(0, top_height),
                     ImGuiChildFlags_Borders);
 
@@ -506,13 +534,9 @@ void ImageManager::draw_manager(ImGuiIO *io) {
 
     ImGui::TableSetupColumn("Viewer", ImGuiTableColumnFlags_WidthStretch, 3.0f);
     ImGui::TableSetupColumn("Editor", ImGuiTableColumnFlags_WidthStretch, 1.0f);
-
     ImGui::TableNextRow();
-
     ImGui::TableNextColumn();
-
     ImGui::BeginChild("ViewerChild", ImVec2(0, 0));
-
     if (!current_image || !current_image->texture) {
 
       // lowkey this will never happen
@@ -557,67 +581,48 @@ void ImageManager::draw_manager(ImGuiIO *io) {
         pan.x -= mouse_local.x * scale;
         pan.y -= mouse_local.y * scale;
       }
-
       if (active && ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
         pan.x += io->MouseDelta.x;
         pan.y += io->MouseDelta.y;
       }
-
       ImVec2 image_size = {base_width * zoom, base_height * zoom};
-
       if (image_size.x <= canvas_size.x)
         pan.x = (canvas_size.x - image_size.x) * 0.5f;
       else
         pan.x = Clamp(pan.x, canvas_size.x - image_size.x, 0.0f);
-
       if (image_size.y <= canvas_size.y)
         pan.y = (canvas_size.y - image_size.y) * 0.5f;
       else
         pan.y = Clamp(pan.y, canvas_size.y - image_size.y, 0.0f);
-
       ImDrawList *draw_list = ImGui::GetWindowDrawList();
-
       draw_list->PushClipRect(
           canvas_pos,
           ImVec2(canvas_pos.x + canvas_size.x, canvas_pos.y + canvas_size.y),
           true);
-
       ImVec2 image_pos = {canvas_pos.x + pan.x, canvas_pos.y + pan.y};
-
       draw_list->AddImage(
           texture_id, image_pos,
           ImVec2(image_pos.x + image_size.x, image_pos.y + image_size.y),
           ImVec2(0, 0), ImVec2(1, 1));
-
       draw_list->PopClipRect();
     }
-
     ImGui::EndChild();
-
     ImGui::TableNextColumn();
-
     ImGui::BeginChild("EditingPanel", ImVec2(0, 0));
-
     ImGui::Text("Editing Panel");
-
     ImGui::Separator();
-
     ImGui::TextUnformatted("This is a work in progress :)");
     ImGui::Text("Zoom %.2fx", zoom);
-
     if (ImGui::Button("Reset View")) {
       zoom = std::min(canvas_size.x / current_image->width,
                       canvas_size.y / current_image->height);
       pan = {0.0f, 0.0f};
     }
-
     ImGui::EndChild();
-
     ImGui::EndTable();
   }
 
   ImGui::EndChild();
-
   ImGui::BeginChild("Carousel", ImVec2(0, carousel_height),
                     ImGuiChildFlags_Borders,
                     ImGuiWindowFlags_HorizontalScrollbar);
@@ -626,59 +631,38 @@ void ImageManager::draw_manager(ImGuiIO *io) {
     ImGui::SetScrollX(ImGui::GetScrollX() - io->MouseWheel * 50.0f);
 
   for (const auto &name : thumbnail_order) {
-
     auto it = thumbnails.find(name);
     if (it == thumbnails.end())
       continue;
-
     const Thumbnail_T &thumb = it->second;
-
     if (!thumb.texture)
       continue;
-
     bool is_current = (!image_names.empty() && name == image_names[index]);
-
     if (is_current)
       ImGui::PushStyleColor(ImGuiCol_Button,
                             ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
-
     ImTextureRef tid = thumb.texture;
-
     ImVec2 sz = {(float)thumb.width, (float)thumb.height};
-
     ImGui::BeginGroup();
-
     auto fit = std::find(image_names.begin(), image_names.end(), name);
-
     if (fit != image_names.end()) {
-
       int frame_number = (int)(fit - image_names.begin()) + 1;
-
       ImGui::Text("Frame: %d", frame_number);
     }
-
     if (ImGui::ImageButton(name.c_str(), tid, sz)) {
-
       if (fit != image_names.end())
         pending_index = (int)(fit - image_names.begin());
     }
-
     ImGui::EndGroup();
-
     if (is_current) {
-
       ImGui::PopStyleColor();
-
       if (index != last_drawn_index)
         ImGui::SetScrollHereX(0.5f);
     }
-
     ImGui::SameLine();
   }
 
   ImGui::EndChild();
-
   ImGui::EndChild();
-
   last_drawn_index = index;
 }

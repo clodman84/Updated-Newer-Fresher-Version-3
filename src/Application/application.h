@@ -122,6 +122,10 @@ public:
   Image *load_image();
   Image *load_next();
   Image *load_previous();
+  bool select_image_by_name(const std::string &name);
+  const std::vector<std::string> &get_thumbnail_order() const;
+  const Thumbnail_T *get_thumbnail(const std::string &name) const;
+  int get_image_index(const std::string &name) const;
 
   int index;
   int size;
@@ -270,5 +274,7 @@ private:
   bool exporting{false};
   bool export_completed{false};
   void process_pending_image(const PendingImage &p, size_t worker_index);
+  void append_bill_from_image(const std::filesystem::path &source_image);
+  bool draw_same_as_popup = false;
 };
 #endif // !IMAGE_H
