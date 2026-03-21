@@ -13,7 +13,9 @@
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <mutex>
 #include <string>
+#include <thread>
 #include <vector>
 
 #define MAX(A, B) (((A) >= (B)) ? (A) : (B))
@@ -183,7 +185,9 @@ struct PendingImage {
   std::filesystem::path source;
   std::filesystem::path destination;
   std::string watermark;
+  std::string label;
 };
+
 
 // Session
 // Contains an ImageManager by value, so it must also be move-only.
@@ -217,7 +221,7 @@ public:
       file.close();
     }
   }
-  ~Session() {}
+  ~Session();
 
   // Move-only (ImageManager inside is move-only)
   Session(Session &&) = default;
@@ -228,10 +232,11 @@ public:
   void render_searcher();
   void render_billed();
   void handle_keyboard_nav();
+  void open_export_modal();
   void draw_export_modal();
   ImageManager manager;
   std::filesystem::path path;
-  bool draw_exporting = true;
+  bool draw_exporting = false;
 
 private:
   Database *database;
@@ -240,6 +245,13 @@ private:
   std::unordered_map<std::filesystem::path, std::map<std::string, BillEntry>>
       bill;
   std::vector<PendingImage> pending;
+  std::thread export_worker;
+  std::mutex export_status_mutex;
+  std::vector<std::string> export_active_items;
+  std::vector<unsigned char> export_font_data;
+  std::string export_status_message = "Ready to export";
+  std::string export_output_directory;
+  bool export_apply_watermark = true;
   void increment_for_id(std::string, std::string);
   void autosave();
   enum class KeyboardNavMode { Search, Billed };
@@ -249,10 +261,14 @@ private:
   bool focus_search_on_next_frame = false;
   bool focus_billed_on_next_frame = false;
   void evaluate();
+  void prepare_export_queue();
+  void start_export();
+  void finish_export_if_ready();
   void export_images();
   std::atomic<int> export_progress{0};
   int export_total{0};
   bool exporting{false};
-  void process_pending_image(const PendingImage &p, std::mutex &write_mutex);
+  bool export_completed{false};
+  void process_pending_image(const PendingImage &p);
 };
 #endif // !IMAGE_H

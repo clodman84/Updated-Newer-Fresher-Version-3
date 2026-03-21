@@ -8,8 +8,8 @@
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_RESIZE_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
-#define STB_IMAGE_WRITE_IMPLEMENTATION
 #define STB_TRUETYPE_IMPLEMENTATION
+#define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "application.h"
 #include "imgui.h"
 #include "stb_image.h"
@@ -17,7 +17,6 @@
 #include "stb_image_write.h"
 #include "stb_truetype.h"
 #include <SDL3/SDL.h>
-#include <iostream>
 
 #ifdef TRACY_ENABLE
 #include <tracy/Tracy.hpp>
@@ -216,128 +215,105 @@ struct PendingThumbnail {
   int height = 0;
 };
 
-void Session::process_pending_image(const PendingImage &p,
-                                    std::mutex &write_mutex) {
+void Session::process_pending_image(const PendingImage &p) {
+  {
+    std::lock_guard<std::mutex> lock(export_status_mutex);
+    if (!export_active_items.empty()) {
+      export_active_items[0] = p.label;
+    }
+  }
+
   int w, h, channels;
   unsigned char *pixels =
       stbi_load(p.source.string().c_str(), &w, &h, &channels, 3);
-  if (!pixels)
+  if (!pixels) {
+    export_progress.fetch_add(1);
+    std::lock_guard<std::mutex> lock(export_status_mutex);
+    if (!export_active_items.empty()) {
+      export_active_items[0] = "Skipped unreadable image";
+    }
     return;
-
-  std::vector<unsigned char> font_buf;
-  {
-    std::ifstream f("./Data/Quantico-Regular.ttf", std::ios::binary);
-    font_buf.assign(std::istreambuf_iterator<char>(f), {});
   }
 
-  stbtt_fontinfo font;
-  stbtt_InitFont(&font, font_buf.data(), 0);
+  if (export_apply_watermark) {
+    stbtt_fontinfo font;
+    stbtt_InitFont(&font, export_font_data.data(), 0);
 
-  float scale = stbtt_ScaleForPixelHeight(&font, h * 0.04f);
-  int ascent, descent, line_gap;
-  stbtt_GetFontVMetrics(&font, &ascent, &descent, &line_gap);
+    float scale = stbtt_ScaleForPixelHeight(&font, h * 0.04f);
+    int ascent, descent, line_gap;
+    stbtt_GetFontVMetrics(&font, &ascent, &descent, &line_gap);
 
-  int text_w = 0;
-  for (const char *c = p.watermark.c_str(); *c; ++c) {
-    int advance, lsb;
-    stbtt_GetCodepointHMetrics(&font, *c, &advance, &lsb);
-    text_w += (int)(advance * scale);
-  }
-
-  int text_h = (int)((ascent - descent) * scale);
-  int origin_x = w - text_w - 12;
-  int origin_y = h - text_h - 12;
-  int baseline = (int)(ascent * scale);
-
-  struct Pass {
-    int ox, oy;
-    unsigned char r, g, b;
-  };
-  for (auto &pass : {Pass{2, 2, 0, 0, 0}, Pass{0, 0, 255, 255, 0}}) {
-    int cursor_x = origin_x + pass.ox;
-    int cursor_y = origin_y + pass.oy;
+    int text_w = 0;
     for (const char *c = p.watermark.c_str(); *c; ++c) {
       int advance, lsb;
       stbtt_GetCodepointHMetrics(&font, *c, &advance, &lsb);
+      text_w += (int)(advance * scale);
+    }
 
-      int x0, y0, x1, y1;
-      stbtt_GetCodepointBitmapBox(&font, *c, scale, scale, &x0, &y0, &x1, &y1);
-      int glyph_w = x1 - x0, glyph_h = y1 - y0;
+    int text_h = (int)((ascent - descent) * scale);
+    int origin_x = w - text_w - 12;
+    int origin_y = h - text_h - 12;
+    int baseline = (int)(ascent * scale);
 
-      if (glyph_w > 0 && glyph_h > 0) {
-        int gx0, gy0;
-        unsigned char *bitmap = stbtt_GetCodepointBitmap(
-            &font, scale, scale, *c, &glyph_w, &glyph_h, &gx0, &gy0);
-        for (int gy = 0; gy < glyph_h; ++gy) {
-          for (int gx = 0; gx < glyph_w; ++gx) {
-            int px = cursor_x + gx0 + gx;
-            int py = cursor_y + baseline + gy0 + gy;
-            if (px < 0 || px >= w || py < 0 || py >= h)
-              continue;
-            if (bitmap[gy * glyph_w + gx] > 128) {
-              unsigned char *dst = pixels + (py * w + px) * 3;
-              dst[0] = pass.r;
-              dst[1] = pass.g;
-              dst[2] = pass.b;
+    struct Pass {
+      int ox, oy;
+      unsigned char r, g, b;
+    };
+    for (auto &pass : {Pass{2, 2, 0, 0, 0}, Pass{0, 0, 255, 255, 0}}) {
+      int cursor_x = origin_x + pass.ox;
+      int cursor_y = origin_y + pass.oy;
+      for (const char *c = p.watermark.c_str(); *c; ++c) {
+        int advance, lsb;
+        stbtt_GetCodepointHMetrics(&font, *c, &advance, &lsb);
+
+        int x0, y0, x1, y1;
+        stbtt_GetCodepointBitmapBox(&font, *c, scale, scale, &x0, &y0, &x1,
+                                    &y1);
+        int glyph_w = x1 - x0, glyph_h = y1 - y0;
+
+        if (glyph_w > 0 && glyph_h > 0) {
+          int gx0, gy0;
+          unsigned char *bitmap = stbtt_GetCodepointBitmap(
+              &font, scale, scale, *c, &glyph_w, &glyph_h, &gx0, &gy0);
+          for (int gy = 0; gy < glyph_h; ++gy) {
+            for (int gx = 0; gx < glyph_w; ++gx) {
+              int px = cursor_x + gx0 + gx;
+              int py = cursor_y + baseline + gy0 + gy;
+              if (px < 0 || px >= w || py < 0 || py >= h)
+                continue;
+              if (bitmap[gy * glyph_w + gx] > 128) {
+                unsigned char *dst = pixels + (py * w + px) * 3;
+                dst[0] = pass.r;
+                dst[1] = pass.g;
+                dst[2] = pass.b;
+              }
             }
           }
+          stbtt_FreeBitmap(bitmap, nullptr);
         }
-        stbtt_FreeBitmap(bitmap, nullptr);
+        cursor_x += (int)(advance * scale);
       }
-      cursor_x += (int)(advance * scale);
     }
   }
 
-  {
-    std::lock_guard<std::mutex> lock(write_mutex);
-    std::filesystem::create_directories(p.destination.parent_path());
-    stbi_write_jpg(p.destination.string().c_str(), w, h, 3, pixels, 95);
-  }
+  stbi_write_jpg(p.destination.string().c_str(), w, h, 3, pixels, 95);
   stbi_image_free(pixels);
   export_progress.fetch_add(1);
+
+  std::lock_guard<std::mutex> lock(export_status_mutex);
+  if (!export_active_items.empty()) {
+    export_active_items[0] = "Idle";
+  }
 }
 
 void Session::export_images() {
-  std::string roll = path.filename();
-
-  for (const auto &image : bill) {
-    std::cout << image.first << '\n';
-    for (const auto &student_id_bill_pairs : image.second) {
-      ExportInfo info =
-          database->get_export_information_from_id(student_id_bill_pairs.first);
-      std::cout << "\tDatabase: " + info.bhawan << " " << info.roomno + '\n';
-      for (int i = 1; i <= student_id_bill_pairs.second.count; i++) {
-        std::string bruh = roll + "_" + info.bhawan + "_" + info.roomno + "_" +
-                           std::to_string(i) + "_" +
-                           student_id_bill_pairs.first + ".jpg";
-        std::filesystem::path destination =
-            std::filesystem::path("./Data/") / roll / bruh;
-        std::string watermark = info.bhawan + " " + info.roomno;
-        std::cout << "\t" << "destination: " << destination
-                  << " | watermark: " << watermark << '\n';
-        pending.push_back({image.first, destination, watermark});
-      }
-    }
+  if (pending.empty()) {
+    return;
   }
 
-  std::mutex write_mutex;
-  std::atomic<size_t> next_index{0};
-  const size_t thread_count =
-      std::min<size_t>(std::thread::hardware_concurrency(), pending.size());
-  std::vector<std::thread> workers;
-
-  for (size_t t = 0; t < thread_count; ++t) {
-    workers.emplace_back([&]() {
-      while (true) {
-        size_t i = next_index.fetch_add(1);
-        if (i >= pending.size())
-          return;
-        process_pending_image(pending[i], write_mutex);
-      }
-    });
+  for (const auto &item : pending) {
+    process_pending_image(item);
   }
-  for (auto &t : workers)
-    t.join();
 }
 
 void ImageManager::load_thumbnails() {

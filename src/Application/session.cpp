@@ -7,6 +7,7 @@
 #include <string>
 
 #include <fstream>
+#include <sstream>
 #include <stdexcept>
 
 void Session::handle_keyboard_nav() {
@@ -219,55 +220,231 @@ void Session::autosave() {
   file.close();
 }
 
-void Session::draw_export_modal() {
-  ImVec2 center = ImGui::GetMainViewport()->GetCenter();
-  std::string roll = path.filename();
-  pending.clear();
+Session::~Session() {
+  if (export_worker.joinable()) {
+    export_worker.join();
+  }
+}
 
+void Session::open_export_modal() {
+  if (!exporting) {
+    prepare_export_queue();
+  }
+  draw_exporting = true;
+}
+
+void Session::prepare_export_queue() {
+  pending.clear();
+  export_font_data.clear();
+  if (export_output_directory.empty()) {
+    export_output_directory =
+        (std::filesystem::path("./Data/") / path.filename()).string();
+  }
+
+  size_t total_items = 0;
   for (const auto &image : bill) {
     for (const auto &student_id_bill_pairs : image.second) {
+      total_items += std::max(student_id_bill_pairs.second.count, 0);
+    }
+  }
+  pending.reserve(total_items);
+
+  std::string roll = path.filename();
+  for (const auto &image : bill) {
+    for (const auto &student_id_bill_pairs : image.second) {
+      if (student_id_bill_pairs.second.count < 1) {
+        continue;
+      }
       ExportInfo info =
           database->get_export_information_from_id(student_id_bill_pairs.first);
+      std::string watermark = info.bhawan + " " + info.roomno;
       for (int i = 1; i <= student_id_bill_pairs.second.count; i++) {
-        std::string bruh = roll + "_" + info.bhawan + "_" + info.roomno + "_" +
-                           std::to_string(i) + "_" +
-                           student_id_bill_pairs.first + ".jpg";
+        std::string filename = roll + "_" + image.first.stem().string() + "_" +
+                               info.bhawan + "_" + info.roomno + "_" +
+                               std::to_string(i) + "_" +
+                               student_id_bill_pairs.first + ".jpg";
         std::filesystem::path destination =
-            std::filesystem::path("./Data/") / roll / bruh;
-        std::string watermark = info.bhawan + " " + info.roomno;
-        pending.push_back({image.first, destination, watermark});
+            std::filesystem::path(export_output_directory) / filename;
+        pending.push_back({image.first, destination, watermark,
+                           image.first.filename().string()});
       }
     }
   }
-  ImGui::SetNextWindowPos(center, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-  ImGui::SetNextWindowSize(ImVec2(400, 120), ImGuiCond_Always);
-  ImGui::OpenPopup("Export");
 
-  if (ImGui::BeginPopupModal("Export", NULL,
+  export_total = static_cast<int>(pending.size());
+  export_progress = 0;
+  export_completed = false;
+  export_active_items.clear();
+
+  std::ostringstream status;
+  status << "Ready: " << pending.size() << " image";
+  if (pending.size() != 1) {
+    status << 's';
+  }
+  export_status_message = status.str();
+}
+
+void Session::start_export() {
+  if (exporting || pending.empty()) {
+    return;
+  }
+  if (export_worker.joinable()) {
+    export_worker.join();
+  }
+
+  export_font_data.clear();
+  if (export_apply_watermark) {
+    std::ifstream font_file("./Data/Quantico-Regular.ttf", std::ios::binary);
+    export_font_data.assign(std::istreambuf_iterator<char>(font_file), {});
+    if (export_font_data.empty()) {
+      export_status_message = "Font file missing: ./Data/Quantico-Regular.ttf";
+      return;
+    }
+  }
+
+  std::filesystem::create_directories(export_output_directory);
+
+  export_progress = 0;
+  export_completed = false;
+  exporting = true;
+
+  {
+    std::lock_guard<std::mutex> lock(export_status_mutex);
+    export_active_items.assign(1, "Waiting to start");
+  }
+
+  std::ostringstream status;
+  status << "Writing to " << export_output_directory;
+  export_status_message = status.str();
+  export_worker = std::thread([this]() { export_images(); });
+}
+
+void Session::finish_export_if_ready() {
+  if (!exporting || export_progress.load() < export_total) {
+    return;
+  }
+
+  exporting = false;
+  export_completed = true;
+  if (export_worker.joinable()) {
+    export_worker.join();
+  }
+
+  std::lock_guard<std::mutex> lock(export_status_mutex);
+  export_active_items.clear();
+
+  std::ostringstream status;
+  status << "Finished: " << export_total << " image";
+  if (export_total != 1) {
+    status << 's';
+  }
+  status << " written to " << export_output_directory;
+  export_status_message = status.str();
+}
+
+void Session::draw_export_modal() {
+  finish_export_if_ready();
+
+  ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+  ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+  ImGui::SetNextWindowSize(ImVec2(560, 0), ImGuiCond_Appearing);
+  ImGui::OpenPopup("Export Roll");
+
+  if (ImGui::BeginPopupModal("Export Roll", NULL,
                              ImGuiWindowFlags_NoResize |
-                                 ImGuiWindowFlags_NoMove)) {
-    if (!exporting) {
-      ImGui::Text("Export %zu images?", pending.size());
-      ImGui::Spacing();
-      if (ImGui::Button("Export", ImVec2(120, 0))) {
-        export_progress = 0;
-        export_total = pending.size();
-        exporting = true;
-        export_images();
-      }
-      ImGui::SameLine();
-      if (ImGui::Button("Cancel", ImVec2(120, 0)))
-        ImGui::CloseCurrentPopup();
+                                 ImGuiWindowFlags_NoMove |
+                                 ImGuiWindowFlags_AlwaysAutoResize)) {
+    ImGui::TextColored(ImVec4(0.93f, 0.73f, 0.24f, 1.0f),
+                       "Export billed images");
+    ImGui::Separator();
+
+    ImGui::Text("Roll");
+    ImGui::SameLine(150.0f);
+    ImGui::TextUnformatted(path.filename().string().c_str());
+
+    ImGui::Text("Queued images");
+    ImGui::SameLine(150.0f);
+    ImGui::Text("%d", export_total);
+
+    ImGui::Text("Destination");
+    ImGui::SameLine(150.0f);
+    ImGui::SetNextItemWidth(340.0f);
+    if (ImGui::InputText("##export_destination", &export_output_directory,
+                         ImGuiInputTextFlags_AutoSelectAll) &&
+        !exporting) {
+      prepare_export_queue();
+    }
+
+    ImGui::Text("Options");
+    ImGui::SameLine(150.0f);
+    if (ImGui::Checkbox("Stamp watermark", &export_apply_watermark) &&
+        !exporting) {
+      export_status_message = export_apply_watermark
+                                  ? "Watermark stamping enabled"
+                                  : "Watermark stamping disabled";
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Reset destination") && !exporting) {
+      export_output_directory.clear();
+      prepare_export_queue();
+    }
+
+    ImGui::Spacing();
+    ImGui::TextUnformatted(export_status_message.c_str());
+
+    const float progress = export_total > 0
+                               ? static_cast<float>(export_progress.load()) /
+                                     static_cast<float>(export_total)
+                               : 0.0f;
+    const std::string progress_text = std::to_string(export_progress.load()) +
+                                      " / " + std::to_string(export_total);
+    ImGui::ProgressBar(exporting ? progress : (export_completed ? 1.0f : 0.0f),
+                       ImVec2(520, 0), progress_text.c_str());
+
+    std::vector<std::string> active_items;
+    {
+      std::lock_guard<std::mutex> lock(export_status_mutex);
+      active_items = export_active_items;
+    }
+
+    ImGui::Spacing();
+    ImGui::Text("Current image");
+    ImGui::BeginChild("ExportActiveWork", ImVec2(520, 120), true);
+    if (active_items.empty()) {
+      ImGui::TextDisabled(exporting ? "Starting export..."
+                                    : "Nothing is running right now.");
     } else {
-      int current = export_progress.load();
-      ImGui::Text("Exporting... %d / %d", current, export_total);
-      ImGui::Spacing();
-      ImGui::ProgressBar((float)current / export_total, ImVec2(-1, 0));
-      if (current >= export_total) {
-        exporting = false;
-        ImGui::CloseCurrentPopup();
+      for (const auto &item : active_items) {
+        ImGui::BulletText("%s", item.c_str());
       }
     }
+    ImGui::EndChild();
+
+    ImGui::Spacing();
+    const bool can_start =
+        !exporting && export_total > 0 && !export_output_directory.empty();
+    if (!can_start) {
+      ImGui::BeginDisabled();
+    }
+    if (ImGui::Button(export_completed ? "Run Again" : "Start Export",
+                      ImVec2(160, 0))) {
+      start_export();
+    }
+    if (!can_start) {
+      ImGui::EndDisabled();
+    }
+
+    ImGui::SameLine();
+    if (ImGui::Button("Close", ImVec2(160, 0))) {
+      draw_exporting = false;
+      ImGui::CloseCurrentPopup();
+    }
+
+    if (export_total == 0 && !exporting) {
+      ImGui::Spacing();
+      ImGui::TextDisabled("Nothing to export yet. Add billed entries first.");
+    }
+
     ImGui::EndPopup();
   }
 }

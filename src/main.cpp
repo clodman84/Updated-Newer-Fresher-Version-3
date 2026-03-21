@@ -191,7 +191,7 @@ int main(int, char **) {
         for (auto &ptr : sessions) {
           Session &session = *ptr;
           if (ImGui::MenuItem(session.path.c_str()))
-            session.draw_exporting = true;
+            session.open_export_modal();
         }
         ImGui::EndMenu();
       }
