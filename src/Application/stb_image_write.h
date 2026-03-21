@@ -166,10 +166,22 @@ LICENSE
 #endif
 #endif
 
+#ifndef STBIW_THREAD_LOCAL
+#if defined(__cplusplus)
+#define STBIW_THREAD_LOCAL thread_local
+#elif defined(_MSC_VER)
+#define STBIW_THREAD_LOCAL __declspec(thread)
+#elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
+#define STBIW_THREAD_LOCAL _Thread_local
+#else
+#define STBIW_THREAD_LOCAL
+#endif
+#endif
+
 #ifndef STB_IMAGE_WRITE_STATIC  // C++ forbids static forward declarations
-STBIWDEF int stbi_write_tga_with_rle;
-STBIWDEF int stbi_write_png_compression_level;
-STBIWDEF int stbi_write_force_png_filter;
+STBIWDEF STBIW_THREAD_LOCAL int stbi_write_tga_with_rle;
+STBIWDEF STBIW_THREAD_LOCAL int stbi_write_png_compression_level;
+STBIWDEF STBIW_THREAD_LOCAL int stbi_write_force_png_filter;
 #endif
 
 #ifndef STBI_WRITE_NO_STDIO
@@ -248,16 +260,16 @@ STBIWDEF void stbi_flip_vertically_on_write(int flip_boolean);
 #define STBIW_UCHAR(x) (unsigned char) ((x) & 0xff)
 
 #ifdef STB_IMAGE_WRITE_STATIC
-static int stbi_write_png_compression_level = 8;
-static int stbi_write_tga_with_rle = 1;
-static int stbi_write_force_png_filter = -1;
+static STBIW_THREAD_LOCAL int stbi_write_png_compression_level = 8;
+static STBIW_THREAD_LOCAL int stbi_write_tga_with_rle = 1;
+static STBIW_THREAD_LOCAL int stbi_write_force_png_filter = -1;
 #else
-int stbi_write_png_compression_level = 8;
-int stbi_write_tga_with_rle = 1;
-int stbi_write_force_png_filter = -1;
+STBIW_THREAD_LOCAL int stbi_write_png_compression_level = 8;
+STBIW_THREAD_LOCAL int stbi_write_tga_with_rle = 1;
+STBIW_THREAD_LOCAL int stbi_write_force_png_filter = -1;
 #endif
 
-static int stbi__flip_vertically_on_write = 0;
+static STBIW_THREAD_LOCAL int stbi__flip_vertically_on_write = 0;
 
 STBIWDEF void stbi_flip_vertically_on_write(int flag)
 {

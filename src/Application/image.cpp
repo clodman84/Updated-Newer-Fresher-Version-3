@@ -215,11 +215,11 @@ struct PendingThumbnail {
   int height = 0;
 };
 
-void Session::process_pending_image(const PendingImage &p) {
+void Session::process_pending_image(const PendingImage &p, size_t worker_index) {
   {
     std::lock_guard<std::mutex> lock(export_status_mutex);
     if (!export_active_items.empty()) {
-      export_active_items[0] = p.label;
+      export_active_items[worker_index] = p.label;
     }
   }
 
@@ -230,7 +230,7 @@ void Session::process_pending_image(const PendingImage &p) {
     export_progress.fetch_add(1);
     std::lock_guard<std::mutex> lock(export_status_mutex);
     if (!export_active_items.empty()) {
-      export_active_items[0] = "Skipped unreadable image";
+      export_active_items[worker_index] = "Skipped unreadable image";
     }
     return;
   }
@@ -302,7 +302,7 @@ void Session::process_pending_image(const PendingImage &p) {
 
   std::lock_guard<std::mutex> lock(export_status_mutex);
   if (!export_active_items.empty()) {
-    export_active_items[0] = "Idle";
+    export_active_items[worker_index] = "Idle";
   }
 }
 
@@ -311,8 +311,37 @@ void Session::export_images() {
     return;
   }
 
-  for (const auto &item : pending) {
-    process_pending_image(item);
+  const unsigned int hardware_threads = std::thread::hardware_concurrency();
+  const size_t worker_count = std::max<size_t>(
+      1, std::min(pending.size(), static_cast<size_t>(hardware_threads == 0 ? 4 : hardware_threads)));
+
+  {
+    std::lock_guard<std::mutex> lock(export_status_mutex);
+    export_active_items.assign(worker_count, "Waiting to start");
+  }
+
+  std::atomic<size_t> next_index{0};
+  std::vector<std::thread> workers;
+  workers.reserve(worker_count);
+
+  for (size_t worker_index = 0; worker_index < worker_count; ++worker_index) {
+    workers.emplace_back([this, worker_index, &next_index]() {
+      while (true) {
+        const size_t item_index = next_index.fetch_add(1);
+        if (item_index >= pending.size()) {
+          std::lock_guard<std::mutex> lock(export_status_mutex);
+          if (worker_index < export_active_items.size()) {
+            export_active_items[worker_index] = "Idle";
+          }
+          break;
+        }
+        process_pending_image(pending[item_index], worker_index);
+      }
+    });
+  }
+
+  for (auto &worker : workers) {
+    worker.join();
   }
 }
 

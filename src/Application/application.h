@@ -269,6 +269,6 @@ private:
   int export_total{0};
   bool exporting{false};
   bool export_completed{false};
-  void process_pending_image(const PendingImage &p);
+  void process_pending_image(const PendingImage &p, size_t worker_index);
 };
 #endif // !IMAGE_H

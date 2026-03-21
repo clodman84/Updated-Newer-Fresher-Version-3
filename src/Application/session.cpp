@@ -260,9 +260,9 @@ void Session::prepare_export_queue() {
       std::string watermark = info.bhawan + " " + info.roomno;
       for (int i = 1; i <= student_id_bill_pairs.second.count; i++) {
         std::string filename = roll + "_" + image.first.stem().string() + "_" +
-                               info.bhawan + "_" + info.roomno + "_" +
-                               std::to_string(i) + "_" +
-                               student_id_bill_pairs.first + ".jpg";
+                               info.bhawan + "_" + std::to_string(i) + "_" +
+                               info.roomno + "_" + student_id_bill_pairs.first +
+                               ".jpg";
         std::filesystem::path destination =
             std::filesystem::path(export_output_directory) / filename;
         pending.push_back({image.first, destination, watermark,
