@@ -191,7 +191,7 @@ int main(int, char **) {
         for (auto &ptr : sessions) {
           Session &session = *ptr;
           if (ImGui::MenuItem(session.path.c_str()))
-            session.exporting = true;
+            session.draw_exporting = true;
         }
         ImGui::EndMenu();
       }
@@ -222,7 +222,7 @@ int main(int, char **) {
                                    ImGuiTabBarFlags_AutoSelectNewTabs)) {
           for (auto it = sessions.begin(); it != sessions.end();) {
             Session &session = **it;
-            if (session.exporting)
+            if (session.draw_exporting)
               session.draw_export_modal();
             bool open = true;
             if (ImGui::BeginTabItem(

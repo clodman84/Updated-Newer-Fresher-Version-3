@@ -220,9 +220,54 @@ void Session::autosave() {
 }
 
 void Session::draw_export_modal() {
-  ImGui::Begin("Export Window", NULL, ImGuiWindowFlags_Modal);
-  ImGui::TextUnformatted("Hello Guys Welcome to My YouTube Channel!");
-  if (ImGui::Button("Export"))
-    export_images();
-  ImGui::End();
+  ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+  std::string roll = path.filename();
+  pending.clear();
+
+  for (const auto &image : bill) {
+    for (const auto &student_id_bill_pairs : image.second) {
+      ExportInfo info =
+          database->get_export_information_from_id(student_id_bill_pairs.first);
+      for (int i = 1; i <= student_id_bill_pairs.second.count; i++) {
+        std::string bruh = roll + "_" + info.bhawan + "_" + info.roomno + "_" +
+                           std::to_string(i) + "_" +
+                           student_id_bill_pairs.first + ".jpg";
+        std::filesystem::path destination =
+            std::filesystem::path("./Data/") / roll / bruh;
+        std::string watermark = info.bhawan + " " + info.roomno;
+        pending.push_back({image.first, destination, watermark});
+      }
+    }
+  }
+  ImGui::SetNextWindowPos(center, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+  ImGui::SetNextWindowSize(ImVec2(400, 120), ImGuiCond_Always);
+  ImGui::OpenPopup("Export");
+
+  if (ImGui::BeginPopupModal("Export", NULL,
+                             ImGuiWindowFlags_NoResize |
+                                 ImGuiWindowFlags_NoMove)) {
+    if (!exporting) {
+      ImGui::Text("Export %zu images?", pending.size());
+      ImGui::Spacing();
+      if (ImGui::Button("Export", ImVec2(120, 0))) {
+        export_progress = 0;
+        export_total = pending.size();
+        exporting = true;
+        export_images();
+      }
+      ImGui::SameLine();
+      if (ImGui::Button("Cancel", ImVec2(120, 0)))
+        ImGui::CloseCurrentPopup();
+    } else {
+      int current = export_progress.load();
+      ImGui::Text("Exporting... %d / %d", current, export_total);
+      ImGui::Spacing();
+      ImGui::ProgressBar((float)current / export_total, ImVec2(-1, 0));
+      if (current >= export_total) {
+        exporting = false;
+        ImGui::CloseCurrentPopup();
+      }
+    }
+    ImGui::EndPopup();
+  }
 }

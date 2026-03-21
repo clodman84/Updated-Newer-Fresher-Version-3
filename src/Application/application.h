@@ -9,6 +9,7 @@
 #include "sqlite3.h"
 #include <SDL3/SDL.h>
 #include <array>
+#include <atomic>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
@@ -178,14 +179,20 @@ private:
   void store_loaded_csv();
 };
 
+struct PendingImage {
+  std::filesystem::path source;
+  std::filesystem::path destination;
+  std::string watermark;
+};
+
 // Session
 // Contains an ImageManager by value, so it must also be move-only.
 class Session {
 public:
   Session(Database *database, std::string path, SDL_GPUDevice *device)
       : database(database), path(path), manager(device, path.c_str()) {
-    using BillType =
-        std::unordered_map<std::string, std::map<std::string, BillEntry>>;
+    using BillType = std::unordered_map<std::filesystem::path,
+                                        std::map<std::string, BillEntry>>;
 
     std::string filepath = path + "/save.json";
     if (std::filesystem::exists(filepath)) {
@@ -224,13 +231,15 @@ public:
   void draw_export_modal();
   ImageManager manager;
   std::filesystem::path path;
-  bool exporting = true;
+  bool draw_exporting = true;
 
 private:
   Database *database;
   std::string search_query = "";
   std::vector<std::array<std::string, 4>> search_results;
-  std::unordered_map<std::string, std::map<std::string, BillEntry>> bill;
+  std::unordered_map<std::filesystem::path, std::map<std::string, BillEntry>>
+      bill;
+  std::vector<PendingImage> pending;
   void increment_for_id(std::string, std::string);
   void autosave();
   enum class KeyboardNavMode { Search, Billed };
@@ -241,6 +250,9 @@ private:
   bool focus_billed_on_next_frame = false;
   void evaluate();
   void export_images();
+  std::atomic<int> export_progress{0};
+  int export_total{0};
+  bool exporting{false};
+  void process_pending_image(const PendingImage &p, std::mutex &write_mutex);
 };
-
 #endif // !IMAGE_H

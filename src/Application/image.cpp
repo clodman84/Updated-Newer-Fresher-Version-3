@@ -1,15 +1,21 @@
 #include "SDL3/SDL_gpu.h"
 #include <algorithm>
+#include <filesystem>
 #include <string>
 #include <thread>
 #include <vector>
 #define _CRT_SECURE_NO_WARNINGS
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_RESIZE_IMPLEMENTATION
+#define STB_IMAGE_IMPLEMENTATION
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#define STB_TRUETYPE_IMPLEMENTATION
 #include "application.h"
 #include "imgui.h"
 #include "stb_image.h"
 #include "stb_image_resize2.h"
+#include "stb_image_write.h"
+#include "stb_truetype.h"
 #include <SDL3/SDL.h>
 #include <iostream>
 
@@ -203,36 +209,6 @@ Image::Image(Image &&other) noexcept
   other.texture = nullptr;
 }
 
-struct PendingImage {
-  std::string filename;
-  std::string watermark;
-  std::string destination;
-};
-
-void Session::export_images() {
-  std::vector<PendingImage> pending;
-  std::vector<std::thread> workers;
-  std::string roll = path.filename();
-
-  for (const auto image : bill) {
-    // std::cout << image.first << '\n';
-    for (const auto student_id_bill_pairs : image.second) {
-      ExportInfo info =
-          database->get_export_information_from_id(student_id_bill_pairs.first);
-      // std::cout << "\tDatabase: " + info.bhawan << " " << info.roomno + '\n';
-      for (int i = 1; i <= student_id_bill_pairs.second.count; i++) {
-        std::string destination = roll + "_" + info.bhawan + "_" + info.roomno +
-                                  "_" + std::to_string(i) + "_" +
-                                  student_id_bill_pairs.first + ".jpg";
-        std::string watermark = info.bhawan + " " + info.roomno;
-        // std::cout << "\t" << "destination: " << destination
-        // << " | watermark: " << watermark << '\n';
-        pending.push_back({image.first, watermark, destination});
-      }
-    }
-  }
-}
-
 struct PendingThumbnail {
   std::string file_name;
   unsigned char *pixel_data = nullptr;
@@ -240,10 +216,131 @@ struct PendingThumbnail {
   int height = 0;
 };
 
-void ImageManager::load_thumbnails() {
+void Session::process_pending_image(const PendingImage &p,
+                                    std::mutex &write_mutex) {
+  int w, h, channels;
+  unsigned char *pixels =
+      stbi_load(p.source.string().c_str(), &w, &h, &channels, 3);
+  if (!pixels)
+    return;
 
-  // Phase 1 - decode + resize on worker threads.
-  // SDL_GPU uploads are NOT done here; SDL_GPU is not thread-safe for that.
+  std::vector<unsigned char> font_buf;
+  {
+    std::ifstream f("./Data/Quantico-Regular.ttf", std::ios::binary);
+    font_buf.assign(std::istreambuf_iterator<char>(f), {});
+  }
+
+  stbtt_fontinfo font;
+  stbtt_InitFont(&font, font_buf.data(), 0);
+
+  float scale = stbtt_ScaleForPixelHeight(&font, h * 0.04f);
+  int ascent, descent, line_gap;
+  stbtt_GetFontVMetrics(&font, &ascent, &descent, &line_gap);
+
+  int text_w = 0;
+  for (const char *c = p.watermark.c_str(); *c; ++c) {
+    int advance, lsb;
+    stbtt_GetCodepointHMetrics(&font, *c, &advance, &lsb);
+    text_w += (int)(advance * scale);
+  }
+
+  int text_h = (int)((ascent - descent) * scale);
+  int origin_x = w - text_w - 12;
+  int origin_y = h - text_h - 12;
+  int baseline = (int)(ascent * scale);
+
+  struct Pass {
+    int ox, oy;
+    unsigned char r, g, b;
+  };
+  for (auto &pass : {Pass{2, 2, 0, 0, 0}, Pass{0, 0, 255, 255, 0}}) {
+    int cursor_x = origin_x + pass.ox;
+    int cursor_y = origin_y + pass.oy;
+    for (const char *c = p.watermark.c_str(); *c; ++c) {
+      int advance, lsb;
+      stbtt_GetCodepointHMetrics(&font, *c, &advance, &lsb);
+
+      int x0, y0, x1, y1;
+      stbtt_GetCodepointBitmapBox(&font, *c, scale, scale, &x0, &y0, &x1, &y1);
+      int glyph_w = x1 - x0, glyph_h = y1 - y0;
+
+      if (glyph_w > 0 && glyph_h > 0) {
+        int gx0, gy0;
+        unsigned char *bitmap = stbtt_GetCodepointBitmap(
+            &font, scale, scale, *c, &glyph_w, &glyph_h, &gx0, &gy0);
+        for (int gy = 0; gy < glyph_h; ++gy) {
+          for (int gx = 0; gx < glyph_w; ++gx) {
+            int px = cursor_x + gx0 + gx;
+            int py = cursor_y + baseline + gy0 + gy;
+            if (px < 0 || px >= w || py < 0 || py >= h)
+              continue;
+            if (bitmap[gy * glyph_w + gx] > 128) {
+              unsigned char *dst = pixels + (py * w + px) * 3;
+              dst[0] = pass.r;
+              dst[1] = pass.g;
+              dst[2] = pass.b;
+            }
+          }
+        }
+        stbtt_FreeBitmap(bitmap, nullptr);
+      }
+      cursor_x += (int)(advance * scale);
+    }
+  }
+
+  {
+    std::lock_guard<std::mutex> lock(write_mutex);
+    std::filesystem::create_directories(p.destination.parent_path());
+    stbi_write_jpg(p.destination.string().c_str(), w, h, 3, pixels, 95);
+  }
+  stbi_image_free(pixels);
+  export_progress.fetch_add(1);
+}
+
+void Session::export_images() {
+  std::string roll = path.filename();
+
+  for (const auto &image : bill) {
+    std::cout << image.first << '\n';
+    for (const auto &student_id_bill_pairs : image.second) {
+      ExportInfo info =
+          database->get_export_information_from_id(student_id_bill_pairs.first);
+      std::cout << "\tDatabase: " + info.bhawan << " " << info.roomno + '\n';
+      for (int i = 1; i <= student_id_bill_pairs.second.count; i++) {
+        std::string bruh = roll + "_" + info.bhawan + "_" + info.roomno + "_" +
+                           std::to_string(i) + "_" +
+                           student_id_bill_pairs.first + ".jpg";
+        std::filesystem::path destination =
+            std::filesystem::path("./Data/") / roll / bruh;
+        std::string watermark = info.bhawan + " " + info.roomno;
+        std::cout << "\t" << "destination: " << destination
+                  << " | watermark: " << watermark << '\n';
+        pending.push_back({image.first, destination, watermark});
+      }
+    }
+  }
+
+  std::mutex write_mutex;
+  std::atomic<size_t> next_index{0};
+  const size_t thread_count =
+      std::min<size_t>(std::thread::hardware_concurrency(), pending.size());
+  std::vector<std::thread> workers;
+
+  for (size_t t = 0; t < thread_count; ++t) {
+    workers.emplace_back([&]() {
+      while (true) {
+        size_t i = next_index.fetch_add(1);
+        if (i >= pending.size())
+          return;
+        process_pending_image(pending[i], write_mutex);
+      }
+    });
+  }
+  for (auto &t : workers)
+    t.join();
+}
+
+void ImageManager::load_thumbnails() {
   std::vector<PendingThumbnail> pending(image_names.size());
   std::vector<std::thread> workers;
   workers.reserve(image_names.size());
@@ -278,7 +375,6 @@ void ImageManager::load_thumbnails() {
   for (auto &t : workers)
     t.join();
 
-  // Phase 2 - GPU upload on the main thread, in original discovery order.
   for (auto &p : pending) {
     SDL_Log("Uploading thumbnail to GPU: %s", p.file_name.c_str());
     if (!p.pixel_data)
