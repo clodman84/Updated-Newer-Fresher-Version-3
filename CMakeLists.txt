@@ -275,6 +275,7 @@ target_link_libraries(stb_image_wrapper PRIVATE
     SDL3::SDL3
     sqlite
     nlohmann_json
+    ${OPENCV_LINK_LIBS}
 )
 
 target_link_libraries(stb_image_wrapper PRIVATE unfv3_project_optimizations)

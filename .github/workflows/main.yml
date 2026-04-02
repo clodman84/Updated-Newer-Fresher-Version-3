@@ -149,10 +149,10 @@ jobs:
           STAGE_DIR="dist/${PACKAGE_ROOT}"
           mkdir -p "$STAGE_DIR"
 
-          BIN="build/UNFV3"
+          BIN="build/bin/UNFV3"
           BIN_NAME="UNFV3"
           if [ "${{ runner.os }}" = "Windows" ]; then
-            BIN="build/UNFV3.exe"
+            BIN="build/bin/UNFV3.exe"
             BIN_NAME="UNFV3.exe"
           fi
 

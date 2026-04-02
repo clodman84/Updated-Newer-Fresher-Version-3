@@ -15,6 +15,7 @@
 #include "stb_truetype.h"
 
 #include <SDL3/SDL.h>
+#include <opencv2/imgproc.hpp>
 
 #include <algorithm>
 #include <cmath>
