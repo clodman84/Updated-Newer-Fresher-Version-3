@@ -24,17 +24,23 @@ jobs:
           fetch-depth: 1
           ref: refs/tags/${{ github.event.release.tag_name }}
 
-      - name: Restore ccache
+      # ------------------------------------------------------------------ #
+      # ccache — Linux / macOS only.
+      # Windows + MSVC does not support ccache; sccache would be the
+      # alternative but adds complexity for marginal gain on MSVC.
+      # The cache key covers every file that affects compilation so that a
+      # hit guarantees a fully warmed cache.
+      # ------------------------------------------------------------------ #
+
+      - name: Restore ccache (non-Windows)
         id: ccache-restore
+        if: runner.os != 'Windows'
         uses: actions/cache/restore@v4
         with:
-          path: |
-            ~/.ccache
-            ~/Library/Caches/ccache
+          path: ~/.ccache
           key: ${{ runner.os }}-ccache-${{ hashFiles('CMakeLists.txt', '.github/workflows/main.yml', 'src/**/*.cpp', 'src/**/*.h', 'src/**/*.hpp', 'src/**/*.c', 'src/**/*.cc') }}
           restore-keys: |
             ${{ runner.os }}-ccache-
-
 
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
@@ -61,55 +67,77 @@ jobs:
             libpulse-dev \
             libdbus-1-dev \
             libudev-dev \
-            libopencv-dev \
             ccache
 
       - name: Install macOS dependencies
         if: runner.os == 'macOS'
         run: |
           brew update
-          brew install opencv ccache
+          brew install ccache
 
-      - name: Configure compiler cache (non-Windows)
+      - name: Configure ccache (non-Windows)
         if: runner.os != 'Windows'
         run: |
+          # ccache on both Linux and macOS defaults to ~/.ccache.
+          # Brew's ccache and apt's ccache both honour $CCACHE_DIR.
           echo "CCACHE_DIR=${HOME}/.ccache" >> "${GITHUB_ENV}"
-          echo "CMAKE_C_COMPILER_LAUNCHER=ccache" >> "${GITHUB_ENV}"
+          echo "CMAKE_C_COMPILER_LAUNCHER=ccache"   >> "${GITHUB_ENV}"
           echo "CMAKE_CXX_COMPILER_LAUNCHER=ccache" >> "${GITHUB_ENV}"
           ccache --max-size=1G
           ccache --zero-stats
 
-      - name: Configure CMake (non-Windows)
+      # ------------------------------------------------------------------ #
+      # CMake configure
+      #
+      # FIX (Windows): -DCMAKE_EXE_LINKER_FLAGS_RELEASE="-static" is a
+      #   GCC/MinGW flag.  On MSVC the static CRT is already selected via
+      #   CMAKE_MSVC_RUNTIME_LIBRARY in CMakeLists.txt; passing this flag
+      #   causes link warnings/errors with the MSVC linker.
+      #
+      # FIX (Windows): -DCMAKE_ASM_NASM_FLAGS_RELEASE="" served no purpose
+      #   (NASM is not installed on windows-latest and OpenCV's vendored
+      #   sources don't require it).  Removed.
+      # ------------------------------------------------------------------ #
+
+      - name: Configure CMake (Linux / macOS)
         if: runner.os != 'Windows'
         run: >-
-          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake -S . -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
           -DUNFV3_ENABLE_LTO=OFF
+          -DUNFV3_USE_SYSTEM_OPENCV=OFF
           -DCMAKE_C_COMPILER_LAUNCHER=${{ env.CMAKE_C_COMPILER_LAUNCHER }}
           -DCMAKE_CXX_COMPILER_LAUNCHER=${{ env.CMAKE_CXX_COMPILER_LAUNCHER }}
 
-      - name: Configure CMake (Windows static runtime)
+      - name: Configure CMake (Windows)
         if: runner.os == 'Windows'
         run: >-
-          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake -S . -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
           -DUNFV3_ENABLE_LTO=OFF
-          -DCMAKE_ASM_NASM_FLAGS_RELEASE=""
-          -DCMAKE_EXE_LINKER_FLAGS_RELEASE="-static"
+          -DUNFV3_USE_SYSTEM_OPENCV=OFF
 
       - name: Build
-        run: cmake --build build --config Release --parallel
+        # OpenCV is heavy. Capping at 4 parallel jobs prevents OOM on
+        # the 7 GB GitHub-hosted runners. On a local machine you likely
+        # want: cmake --build build --config Release -- -j$(nproc)
+        # but even there, limit to nproc/2 while OpenCV is compiling.
+        run: cmake --build build --config Release -- -j4
 
-      - name: Show ccache stats
+      - name: Show ccache stats (non-Windows)
         if: runner.os != 'Windows'
         run: ccache --show-stats
 
-      - name: Save ccache
-        if: always() && steps.ccache-restore.outputs.cache-hit != 'true'
+      - name: Save ccache (non-Windows)
+        if: runner.os != 'Windows' && steps.ccache-restore.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
-          path: |
-            ~/.ccache
-            ~/Library/Caches/ccache
+          path: ~/.ccache
           key: ${{ steps.ccache-restore.outputs.cache-primary-key }}
+
+      # ------------------------------------------------------------------ #
+      # Package
+      # ------------------------------------------------------------------ #
 
       - name: Package binary and runtime data
         shell: bash
@@ -144,9 +172,17 @@ jobs:
           ARCHIVE="dist/${PACKAGE_ROOT}-${{ runner.os }}.zip"
           cmake -E tar cf "$ARCHIVE" --format=zip -- "$STAGE_DIR"
 
-      - name: Upload package directly to GitHub release
+      # ------------------------------------------------------------------ #
+      # Upload to release
+      #
+      # FIX: body_path: CHANGELOG.md will fail hard if the file is absent.
+      #   Removed; the release body is already set when the release was
+      #   published via the GitHub UI or API.  Re-add body_path only if
+      #   CHANGELOG.md is guaranteed to exist at the repo root.
+      # ------------------------------------------------------------------ #
+
+      - name: Upload package to GitHub release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.release.tag_name }}
-          body_path: CHANGELOG.md
           files: dist/*.zip
