@@ -971,6 +971,10 @@ void ImageManager::render_editor() {
   ImGui::TextUnformatted("This is a work in progress :)");
   ImGui::Text("Zoom %.2fx", zoom);
   ImGui::Checkbox("Scan Faces", &with_detection);
+  if (with_detection) {
+    ImGui::Text("Face Count: %d",
+                scan_faces(current_image_->filename).back().count);
+  }
   if (ImGui::Button("Reset Viewer")) {
     reset_view_to_image();
   }
