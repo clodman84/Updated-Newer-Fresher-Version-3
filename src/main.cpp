@@ -256,6 +256,7 @@ void render_sessions(std::deque<std::unique_ptr<Session>> &sessions) {
 
 int main(int, char **) {
   prepare_database();
+  srand(time(NULL));
 
   if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD)) {
     std::cerr << "SDL_Init failed: " << SDL_GetError() << std::endl;

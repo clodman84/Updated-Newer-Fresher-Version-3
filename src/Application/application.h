@@ -269,6 +269,7 @@ private:
   std::vector<unsigned char> export_font_data;
   std::string export_status_message = "Ready to export";
   std::string export_output_directory;
+  std::string quote;
   bool export_apply_watermark = true;
   KeyboardNavMode keyboard_nav_mode = KeyboardNavMode::Search;
   int selected_search_index = 0;

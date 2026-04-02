@@ -1,4 +1,5 @@
 #include "application.h"
+#include "imgui.h"
 
 #include <SDL3/SDL_log.h>
 
@@ -472,11 +473,226 @@ void Session::load_existing_bill() {
   bill = json_data.get<BillMap>();
 }
 
+const char *get_random_civ6_quote(void) {
+  static const char *quotes[] = {
+      "No man ever wetted clay and then left it, as if there would be bricks "
+      "by chance and fortune. \n— Plutarch",
+      "I thought clay must feel happy in the good potter’s hand. \n— Janet "
+      "Fitch",
+
+      "If there are no dogs in Heaven, then when I die I want to go where they "
+      "went. \n— Will Rogers",
+      "I am fond of pigs. Dogs look up to us. Cats look down on us. Pigs treat "
+      "us as equals. \n— Winston S. Churchill",
+
+      "Who deserves more credit than the wife of a coal miner? \n— Merle "
+      "Travis",
+      "When you find yourself in a hole, quit digging. \n— Will Rogers",
+
+      "Vessels large may venture more, but little boats should keep near "
+      "shore. \n— Benjamin Franklin",
+      "It is not that life ashore is distasteful to me. But life at sea is "
+      "better. \n— Sir Francis Drake",
+
+      "I don’t believe in astrology; I’m a Sagittarius and we’re skeptical. "
+      "\n— "
+      "Arthur C. Clarke",
+      "A physician without a knowledge of astrology has no right to call "
+      "himself a physician. \n— Hippocrates",
+
+      "Thousands have lived without love, not one without water. \n— W. H. "
+      "Auden",
+      "The man who has grit enough to bring about the afforestation or the "
+      "irrigation of a country is not less worthy of honor than its conqueror. "
+      "\n— Sir John Thomson",
+
+      "I shot an arrow into the air. It fell to earth, I knew not where. \n— "
+      "Henry Wadsworth Longfellow",
+      "May the forces of evil become confused while your arrow is on its way "
+      "to the target. \n— George Carlin",
+
+      "Writing means sharing. It’s part of the human condition to want to "
+      "share things thoughts, ideas, opinions. \n— Paulo Coelho",
+      "Writing is easy. All you have to do is cross out the wrong words. \n— "
+      "Mark Twain",
+
+      "Each of us is carving a stone, erecting a column, or cutting a piece of "
+      "stained glass in the construction of something much bigger than "
+      "ourselves. \n— Adrienne Clarkson",
+      "When wasteful war shall statues overturn, and broils root out the work "
+      "of masonry. \n— William Shakespeare",
+
+      "Bronze is the mirror of the form, wine of the mind. \n— Aeschylus",
+      "I’m also interested in creating a lasting legacy… because civ 6 will "
+      "last for thousands of years. \n— Richard MacDonald",
+
+      "Sometimes the wheel turns slowly, but it turns. \n— Lorne Michaels",
+      "Don’t reinvent the wheel, just realign it. \n— Anthony D’Angelo",
+
+      "And all I ask is a tall ship and a star to steer her by. \n— John "
+      "Masefield",
+      "Set your course by the stars, not by the lights of every passing ship. "
+      "\n— Omar Bradley",
+
+      "Wealth consists not in having great possessions, but in having few "
+      "wants. \n— Epictetus",
+      "Money, if it does not bring you happiness, will at least help you be "
+      "miserable in comfort. \n— Helen Gurley Brown",
+
+      "No hour of life is wasted that is spent in the saddle. \n— Winston "
+      "Churchill",
+      "A man on a horse is spiritually as well as physically bigger than a man "
+      "on foot. \n— John Steinbeck",
+
+      "The Lord made us all out of iron. Then he turns up the heat to forge "
+      "some of us into steel. \n— Marie Osmond",
+      "Everything has its limit iron ore cannot be educated into gold. \n— "
+      "Mark "
+      "Twain",
+
+      "I cannot imagine any condition which would cause a ship to founder … "
+      "Modern shipbuilding has gone beyond that. \n— Capt. E.J. Smith",
+      "There is nothing but a plank between a sailor and eternity. \n— Thomas "
+      "Gibbons",
+
+      "Without mathematics, there’s nothing you can do. Everything around you "
+      "is mathematics. Everything around you is numbers. \n— Shakuntala Devi",
+      "If I were again beginning my studies, I would follow the advice of "
+      "Plato and start with mathematics. \n— Galileo Galilei",
+
+      "Create with the heart; build with the mind. \n— Criss Jami",
+      "The four building blocks of the universe are fire, water, gravel and "
+      "vinyl. \n— Dave Barry",
+
+      "One man’s ‘magic’ is another man’s engineering. \n— Robert Heinlein",
+      "Normal people believe that if it ain’t broke, don’t fix it. Engineers "
+      "believe that if it ain’t broke, it doesn’t have enough features yet. "
+      "\n— "
+      "Scott Adams",
+
+      "Tactics mean doing what you can with what you have. \n— Saul Alinsky",
+      "Strategy requires thought; tactics require observation. \n— Max Euwe",
+
+      "We are all apprentices in a craft where no one ever becomes a master. "
+      "\n— "
+      "Ernest Hemingway",
+      "There is no easy way to train an apprentice. My two tools are example "
+      "and nagging. \n— Lemony Snicket",
+
+      "Few inventions have been so simple as the stirrup, but few have had so "
+      "catalytic an influence on history. \n— Lynn White Jr.",
+      "Betwixt the stirrup and the ground, Mercy I asked, mercy I found. \n— "
+      "William Camden",
+
+      "I’d imagine the whole world as one big machine. Machines never come "
+      "with any spare parts, you know. They always come with the exact amount "
+      "they need. \n— Hugo Cabret",
+      "Remember that people break down, too, not just machinery. \n— Gregory "
+      "Benford",
+
+      "The purpose of education is to replace an empty mind with an open one. "
+      "\n— Malcolm Forbes",
+      "It is the mark of an educated mind to be able to entertain a thought "
+      "without accepting it. \n— Aristotle",
+
+      "Blast Build Battle \n— Motto of the U.S. 6th Engineer Brigade",
+      "The more science intervenes in warfare, the more will be the need for "
+      "engineers in the field armies. \n— Bernard Montgomery",
+
+      "Rocks in my path? I keep them all. With them I shall build my castle. "
+      "\n— "
+      "Nemo Nox",
+      "If you see a castle under fog, you must walk there to meet the "
+      "extraordinary dreams. \n— Mehmet Murat Ildan",
+
+      "If your actions inspire others to dream more, learn more, do more and "
+      "become more, you are a cartographer. \n— John Quincy Adams",
+      "Not all who wander are lost. \n— J.R.R. Tolkien",
+
+      "People can have the Model T in any color so long as it’s black. \n— "
+      "Henry "
+      "Ford",
+      "What can be labeled, packaged, mass produced is neither truth nor art. "
+      "\n— Marty Rubin",
+
+      "If you owe the bank $100 that’s your problem. If you owe the bank $100 "
+      "million, that’s the bank’s problem. \n— J. Paul Getty",
+      "I saw a bank that said 24Hour Banking, but I didn’t have that much "
+      "time. \n— Steven Wright",
+
+      "The real use of gunpowder is to make all men tall. \n— Thomas Carlyle",
+      "Man is a military animal, glories in gunpowder, and loves parades. \n— "
+      "Philip Bailey",
+
+      "The pen might not be mightier than the sword, but maybe the printing "
+      "press is heavier than the siege weapon. \n— Terry Pratchett",
+      "What gunpowder did for war the printing press has done for the mind. "
+      "\n— "
+      "Wendell Phillips",
+
+      "There is little man has made that approaches anything in nature, but a "
+      "sailing ship does. \n— Allan Villiers",
+      "It’s not the towering sails, but the unseen wind that moves a ship. \n— "
+      "English Proverb",
+
+      "Astronomy compels the soul to look upwards and leads us from this world "
+      "to another. \n— Plato",
+      "Astronomy’s much more fun when you’re not an astronomer. \n— Brian May",
+
+      "The lowest is to attack a city. Siege of a city is only done as a last "
+      "resort. \n— Sun Tzu",
+      "All the best romances bloom in the midst of a good siege. \n— Miles "
+      "Cameron",
+
+      "Claims that cannot be tested are worthless. \n— Carl Sagan",
+      "If facts don’t fit the theory, change the facts. \n— Albert Einstein",
+
+      "However beautiful the strategy, you should occasionally look at the "
+      "results. \n— Winston Churchill",
+      "No one starts a war without knowing what they intend to achieve. \n— "
+      "Karl "
+      "von Clausewitz",
+
+      "To err is human, but to really foul things up you need a computer. \n— "
+      "Paul R. Ehrlich",
+      "The good thing about computers is that they do what you tell them to "
+      "do. \n— Ted Nelson",
+
+      "If you go on with this nuclear arms race, all you are going to do is "
+      "make the rubble bounce. \n— Winston Churchill",
+      "Leave the atom alone. \n— E. Y. Harburg",
+
+      "Mr. Watson… Come here… I want to see you. \n— Alexander Graham Bell",
+      "The single biggest problem in communication is the illusion that it has "
+      "taken place. \n— George Bernard Shaw",
+
+      "When God said, Let there be light, he surely must have meant perfectly "
+      "coherent light. \n— Charles Townes",
+      "I’m a big laser believer I really think they are the wave of the "
+      "future. \n— Courteney Cox",
+
+      "I’ll be back. \n— Terminator",
+
+      "If technology is the engine of change, then nanotechnology is the fuel "
+      "for humanity’s future. \n— Natasha Vita-More",
+      "Many rules had begun to bend at the hand of nanotechnology. \n— Matt "
+      "Spire",
+
+      "There is nothing like a dream to create the future. \n— Victor Hugo",
+      "Even though the future seems far away, it is actually beginning right "
+      "now. \n— Mattie Stepanek"};
+
+  int num_quotes = sizeof(quotes) / sizeof(quotes[0]);
+  int index = rand() % num_quotes;
+  return quotes[index];
+}
+
 void Session::open_export_modal() {
   if (!exporting) {
     prepare_export_queue();
   }
   draw_exporting = true;
+  quote = get_random_civ6_quote();
 }
 
 void Session::prepare_export_queue() {
@@ -614,7 +830,10 @@ void Session::render_export_modal() {
     return;
   }
 
-  ImGui::TextColored(ImVec4(0.93f, 0.73f, 0.24f, 1.0f), "Export billed images");
+  ImGui::PushTextWrapPos(0.0f); // wrap at window edge
+  ImGui::TextColored(ImVec4(0.93f, 0.73f, 0.24f, 1.0f), quote.c_str());
+  ImGui::PopTextWrapPos();
+
   ImGui::Separator();
 
   ImGui::Text("Roll");
