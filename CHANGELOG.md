@@ -1,3 +1,13 @@
+# v0.5.2-beta
+
+* Added Face Counting
+
+## Planned For Next Release
+
+* Add clipboard integration, copy paste into the search bar straight from WhatsApp
+* Add helper to show what bhawan codes are available
+* Add simple image editor
+
 # v0.5.1-beta
 
 * Improved keyboard navigation
@@ -7,12 +17,6 @@
 * Added export button
 * Added same as button
 * Made app usable
-
-## Planned For Next Release
-
-* Add clipboard integration, copy paste into the search bar straight from WhatsApp
-* Add helper to show what bhawan codes are available
-* Add simple image editor
 
 # v0.5-beta
 
@@ -30,6 +34,7 @@
 * Removed nickname management
 
 ## Technical 
+
 * Rewrote program in C++
 * Smaller binaries Windows executable is now at ~5MB in size, (down from ~150MB)
 * Image caching has been removed as it is no longer needed - RAM usage at around ~70-100MB on Windows (down from 5.8GB)

@@ -97,6 +97,14 @@ struct BillEntry {
   NLOHMANN_DEFINE_TYPE_INTRUSIVE(BillEntry, name, count);
 };
 
+struct FaceRect {
+  ImVec2 bounds_min;
+  ImVec2 bounds_max;
+  int count;
+};
+
+std::vector<FaceRect> scan_faces(std::filesystem::path);
+
 class ImageManager {
 public:
   ImageManager(SDL_GPUDevice *device,
@@ -120,11 +128,12 @@ public:
   bool has_images() const;
   const std::filesystem::path &folder() const;
 
-  void draw_manager();
+  void render_manager();
   void load_thumbnails();
 
   int index = 0;
   int size = 0;
+  bool with_detection = false;
 
 private:
   void load_folder(const std::filesystem::path &folder);
@@ -133,9 +142,9 @@ private:
   void reset_view_to_image();
   void queue_image_by_index(int next_index);
   void apply_pending_selection();
-  void draw_viewer();
-  void draw_editor();
-  void draw_carousel(float carousel_height);
+  void render_viewer();
+  void render_editor();
+  void render_carousel(float carousel_height);
 
   std::filesystem::path image_folder_;
   std::unique_ptr<Image> current_image_;
@@ -213,7 +222,7 @@ public:
   void render_billed();
   void handle_keyboard_nav();
   void open_export_modal();
-  void draw_export_modal();
+  void render_export_modal();
   const std::filesystem::path &session_path() const;
   const std::filesystem::path &image_folder() const;
 

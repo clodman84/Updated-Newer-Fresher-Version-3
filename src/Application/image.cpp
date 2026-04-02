@@ -34,11 +34,25 @@ template <typename T> static inline T Clamp(T value, T lo, T hi) {
 inline ImVec2 operator+(const ImVec2 &a, const ImVec2 &b) {
   return ImVec2(a.x + b.x, a.y + b.y);
 }
+
+inline ImVec2 operator+=(ImVec2 &a, const ImVec2 &b) {
+  a.x += b.x;
+  a.y += b.y;
+  return a;
+}
+
 inline ImVec2 operator-(const ImVec2 &a, const ImVec2 &b) {
   return ImVec2(a.x - b.x, a.y - b.y);
 }
+
 inline ImVec2 operator*(const ImVec2 &a, float scalar) {
   return ImVec2(a.x * scalar, a.y * scalar);
+}
+
+inline ImVec2 operator*=(ImVec2 &a, float scalar) {
+  a.x = a.x * scalar;
+  a.y = a.y * scalar;
+  return a;
 }
 
 namespace {
@@ -662,7 +676,7 @@ const std::filesystem::path &ImageManager::folder() const {
   return image_folder_;
 }
 
-void ImageManager::draw_viewer() {
+void ImageManager::render_viewer() {
   ImGui::TableNextColumn();
   ImGui::BeginChild("ViewerChild", ImVec2(0, 0));
 
@@ -726,24 +740,38 @@ void ImageManager::draw_viewer() {
       texture_id, image_pos,
       ImVec2(image_pos.x + image_size.x, image_pos.y + image_size.y),
       ImVec2(0, 0), ImVec2(1, 1));
+
+  if (with_detection) {
+    for (auto face : scan_faces(current_image_->filename)) {
+      draw_list->AddRect(face.bounds_min * zoom + image_pos,
+                         face.bounds_max * zoom + image_pos,
+                         ImGui::GetColorU32({0, 255, 0, 255}));
+      draw_list->AddText({face.bounds_min.x * zoom + image_pos.x,
+                          face.bounds_max.y * zoom + image_pos.y},
+                         ImGui::GetColorU32({0, 255, 0, 255}),
+                         std::to_string(face.count).c_str());
+    }
+  }
+
   draw_list->PopClipRect();
   ImGui::EndChild();
 }
 
-void ImageManager::draw_editor() {
+void ImageManager::render_editor() {
   ImGui::TableNextColumn();
   ImGui::BeginChild("EditingPanel", ImVec2(0, 0));
   ImGui::Text("Editing Panel");
   ImGui::Separator();
   ImGui::TextUnformatted("This is a work in progress :)");
   ImGui::Text("Zoom %.2fx", zoom);
-  if (ImGui::Button("Reset View")) {
+  ImGui::Checkbox("Scan Faces", &with_detection);
+  if (ImGui::Button("Reset Viewer")) {
     reset_view_to_image();
   }
   ImGui::EndChild();
 }
 
-void ImageManager::draw_carousel(float carousel_height) {
+void ImageManager::render_carousel(float carousel_height) {
   ImGui::BeginChild("Carousel", ImVec2(0, carousel_height),
                     ImGuiChildFlags_Borders,
                     ImGuiWindowFlags_HorizontalScrollbar);
@@ -791,7 +819,7 @@ void ImageManager::draw_carousel(float carousel_height) {
   ImGui::EndChild();
 }
 
-void ImageManager::draw_manager() {
+void ImageManager::render_manager() {
 #ifdef TRACY_ENABLE
   ZoneScopedN("ImageManager::draw_manager");
 #endif
@@ -812,13 +840,13 @@ void ImageManager::draw_manager() {
     ImGui::TableSetupColumn("Viewer", ImGuiTableColumnFlags_WidthStretch, 3.0f);
     ImGui::TableSetupColumn("Editor", ImGuiTableColumnFlags_WidthStretch, 1.0f);
     ImGui::TableNextRow();
-    draw_viewer();
-    draw_editor();
+    render_viewer();
+    render_editor();
     ImGui::EndTable();
   }
 
   ImGui::EndChild();
-  draw_carousel(carousel_height);
+  render_carousel(carousel_height);
   ImGui::EndChild();
   last_drawn_index = index;
 }

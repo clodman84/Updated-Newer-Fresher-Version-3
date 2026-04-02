@@ -219,7 +219,7 @@ void render_sessions(std::deque<std::unique_ptr<Session>> &sessions) {
     for (auto it = sessions.begin(); it != sessions.end();) {
       Session &session = **it;
       if (session.draw_exporting) {
-        session.draw_export_modal();
+        session.render_export_modal();
       }
 
       bool open = true;
@@ -236,7 +236,7 @@ void render_sessions(std::deque<std::unique_ptr<Session>> &sessions) {
         ImGui::EndChild();
         ImGui::SameLine();
 
-        session.manager.draw_manager();
+        session.manager.render_manager();
         ImGui::EndTabItem();
       }
 

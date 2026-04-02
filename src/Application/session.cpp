@@ -596,7 +596,7 @@ void Session::finish_export_if_ready() {
   export_status_message = status.str();
 }
 
-void Session::draw_export_modal() {
+void Session::render_export_modal() {
 #ifdef TRACY_ENABLE
   ZoneScopedN("Session::draw_export_modal");
 #endif
