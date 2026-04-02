@@ -21,16 +21,19 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
+          fetch-depth: 1
           ref: refs/tags/${{ github.event.release.tag_name }}
 
-      - name: Restore build cache
-        id: build-cache
+      - name: Restore ccache
+        id: ccache-restore
         uses: actions/cache/restore@v4
         with:
-          path: build
-          key: ${{ runner.os }}-cmake-build-${{ hashFiles('CMakeLists.txt', 'src/**/*.cpp', 'src/**/*.h', 'src/**/*.hpp', 'src/**/*.c', 'src/**/*.cc') }}
+          path: |
+            ~/.ccache
+            ~/Library/Caches/ccache
+          key: ${{ runner.os }}-ccache-${{ hashFiles('CMakeLists.txt', '.github/workflows/main.yml', 'src/**/*.cpp', 'src/**/*.h', 'src/**/*.hpp', 'src/**/*.c', 'src/**/*.cc') }}
           restore-keys: |
-            ${{ runner.os }}-cmake-build-
+            ${{ runner.os }}-ccache-
 
 
       - name: Install Linux dependencies
@@ -57,29 +60,56 @@ jobs:
             libasound2-dev \
             libpulse-dev \
             libdbus-1-dev \
-            libudev-dev
+            libudev-dev \
+            libopencv-dev \
+            ccache
+
+      - name: Install macOS dependencies
+        if: runner.os == 'macOS'
+        run: |
+          brew update
+          brew install opencv ccache
+
+      - name: Configure compiler cache (non-Windows)
+        if: runner.os != 'Windows'
+        run: |
+          echo "CCACHE_DIR=${HOME}/.ccache" >> "${GITHUB_ENV}"
+          echo "CMAKE_C_COMPILER_LAUNCHER=ccache" >> "${GITHUB_ENV}"
+          echo "CMAKE_CXX_COMPILER_LAUNCHER=ccache" >> "${GITHUB_ENV}"
+          ccache --max-size=1G
+          ccache --zero-stats
 
       - name: Configure CMake (non-Windows)
         if: runner.os != 'Windows'
-        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+        run: >-
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          -DUNFV3_ENABLE_LTO=OFF
+          -DCMAKE_C_COMPILER_LAUNCHER=${{ env.CMAKE_C_COMPILER_LAUNCHER }}
+          -DCMAKE_CXX_COMPILER_LAUNCHER=${{ env.CMAKE_CXX_COMPILER_LAUNCHER }}
 
       - name: Configure CMake (Windows static runtime)
         if: runner.os == 'Windows'
         run: >-
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-          -DCMAKE_C_FLAGS_RELEASE="-O3 -static -static-libgcc"
-          -DCMAKE_CXX_FLAGS_RELEASE="-O3 -static -static-libgcc -static-libstdc++"
+          -DUNFV3_ENABLE_LTO=OFF
+          -DCMAKE_ASM_NASM_FLAGS_RELEASE=""
           -DCMAKE_EXE_LINKER_FLAGS_RELEASE="-static"
 
       - name: Build
         run: cmake --build build --config Release --parallel
 
-      - name: Save build cache
-        if: always() && steps.build-cache.outputs.cache-hit != 'true'
+      - name: Show ccache stats
+        if: runner.os != 'Windows'
+        run: ccache --show-stats
+
+      - name: Save ccache
+        if: always() && steps.ccache-restore.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
-          path: build
-          key: ${{ steps.build-cache.outputs.cache-primary-key }}
+          path: |
+            ~/.ccache
+            ~/Library/Caches/ccache
+          key: ${{ steps.ccache-restore.outputs.cache-primary-key }}
 
       - name: Package binary and runtime data
         shell: bash

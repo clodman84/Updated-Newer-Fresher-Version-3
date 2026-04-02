@@ -4,6 +4,7 @@ project(UNFV3)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # --------------------------------------------------
 # Global build type default
@@ -14,8 +15,10 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
 
-# LTO for release (supported on all three platforms)
-set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
+option(UNFV3_ENABLE_LTO "Enable link-time optimization for Release builds" OFF)
+if(UNFV3_ENABLE_LTO)
+    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
+endif()
 
 # --------------------------------------------------
 # Platform: Windows static-runtime + no DLLs
@@ -28,35 +31,26 @@ if(WIN32)
 endif()
 
 # --------------------------------------------------
-# Cross-platform compiler flags
-#
-# Intentionally NO -march=native here: that flag encodes the *build*
-# machine's ISA into the binary, which silently breaks on any other CPU.
-# OpenCV's own CPU dispatcher handles SIMD at runtime instead (see below).
+# Project optimization profile (applies only to our targets)
 # --------------------------------------------------
 
-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    add_compile_options(
-        -fomit-frame-pointer
-        $<$<CONFIG:Release>:-O3>
-        $<$<CONFIG:Release>:-ffast-math>
-        $<$<CONFIG:Release>:-funroll-loops>
-        $<$<CONFIG:RelWithDebInfo>:-O2>
-    )
-elseif(MSVC)
-    add_compile_options(
-        /fp:fast
-        $<$<CONFIG:Release>:/O2>
-        $<$<CONFIG:Release>:/GL>
-        $<$<CONFIG:Release>:/Gy>
-        $<$<CONFIG:Release>:/Gw>
-    )
-    add_link_options(
-        $<$<CONFIG:Release>:/LTCG>
-        $<$<CONFIG:Release>:/OPT:REF>
-        $<$<CONFIG:Release>:/OPT:ICF>
-    )
-endif()
+add_library(unfv3_project_optimizations INTERFACE)
+target_compile_options(unfv3_project_optimizations INTERFACE
+    $<$<AND:$<COMPILE_LANGUAGE:C,CXX>,$<CXX_COMPILER_ID:GNU,Clang>>:-fomit-frame-pointer>
+    $<$<AND:$<COMPILE_LANGUAGE:C,CXX>,$<CXX_COMPILER_ID:GNU,Clang>,$<CONFIG:Release>>:-O2>
+    $<$<AND:$<COMPILE_LANGUAGE:C,CXX>,$<CXX_COMPILER_ID:GNU,Clang>,$<CONFIG:RelWithDebInfo>>:-O2>
+    $<$<AND:$<COMPILE_LANGUAGE:C,CXX>,$<CXX_COMPILER_ID:GNU,Clang>,$<CONFIG:MinSizeRel>>:-Os>
+    $<$<AND:$<COMPILE_LANGUAGE:C,CXX>,$<CXX_COMPILER_ID:MSVC>,$<CONFIG:Release>>:/O2>
+    $<$<AND:$<COMPILE_LANGUAGE:C,CXX>,$<CXX_COMPILER_ID:MSVC>,$<CONFIG:Release>>:/GL>
+    $<$<AND:$<COMPILE_LANGUAGE:C,CXX>,$<CXX_COMPILER_ID:MSVC>,$<CONFIG:Release>>:/Gy>
+    $<$<AND:$<COMPILE_LANGUAGE:C,CXX>,$<CXX_COMPILER_ID:MSVC>,$<CONFIG:Release>>:/Gw>
+)
+
+target_link_options(unfv3_project_optimizations INTERFACE
+    $<$<AND:$<CXX_COMPILER_ID:MSVC>,$<CONFIG:Release>>:/LTCG>
+    $<$<AND:$<CXX_COMPILER_ID:MSVC>,$<CONFIG:Release>>:/OPT:REF>
+    $<$<AND:$<CXX_COMPILER_ID:MSVC>,$<CONFIG:Release>>:/OPT:ICF>
+)
 
 # --------------------------------------------------
 # SDL3
@@ -145,11 +139,6 @@ else()
     set(CPU_BASELINE "SSE4_2"   CACHE STRING "" FORCE)
     set(CPU_DISPATCH "AVX;AVX2" CACHE STRING "" FORCE)
 
-    # ---- Parallel build hint for the sub-project ----
-    # (CMake 3.12+) Doesn't speed up the outer build but helps ninja/make
-    # inside the opencv subdirectory use all cores.
-    set(CMAKE_BUILD_PARALLEL_LEVEL "" CACHE STRING "" FORCE)
-
     add_subdirectory(vendored/opencv)
 
     set(OPENCV_LINK_LIBS
@@ -224,12 +213,7 @@ target_compile_definitions(sqlite PRIVATE
     SQLITE_USE_ALLOCA
 )
 
-# SQLite is pure C and benefits from max opt regardless of build type
-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    target_compile_options(sqlite PRIVATE -O3)
-elseif(MSVC)
-    target_compile_options(sqlite PRIVATE /O2)
-endif()
+target_link_libraries(sqlite PRIVATE unfv3_project_optimizations)
 
 # --------------------------------------------------
 # nlohmann_json (header-only)
@@ -255,11 +239,7 @@ target_link_libraries(stb_image_wrapper PRIVATE
     nlohmann_json
 )
 
-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    target_compile_options(stb_image_wrapper PRIVATE -O3 -ffast-math -funroll-loops)
-elseif(MSVC)
-    target_compile_options(stb_image_wrapper PRIVATE /O2)
-endif()
+target_link_libraries(stb_image_wrapper PRIVATE unfv3_project_optimizations)
 
 # --------------------------------------------------
 # Main executable
@@ -279,6 +259,9 @@ target_include_directories(UNFV3 PRIVATE src/Application)
 # (add_subdirectory sets them on targets directly; find_package needs this)
 if(OpenCV_FOUND)
     target_include_directories(UNFV3 PRIVATE ${OpenCV_INCLUDE_DIRS})
+else()
+    # Ensure OpenCV headers are discoverable while vendored OpenCV is being built.
+    target_include_directories(UNFV3 PRIVATE vendored/opencv/include)
 endif()
 
 target_link_libraries(UNFV3 PRIVATE
@@ -287,6 +270,7 @@ target_link_libraries(UNFV3 PRIVATE
     sqlite
     nlohmann_json
     stb_image_wrapper
+    unfv3_project_optimizations
     ${OPENCV_LINK_LIBS}
 )
 
