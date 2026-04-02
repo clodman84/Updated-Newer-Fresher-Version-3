@@ -61,38 +61,24 @@ set(SDL_STATIC ON  CACHE BOOL "" FORCE)
 add_subdirectory(vendored/SDL)
 
 # --------------------------------------------------
-# OpenCV  --  find system install first, build only if missing
+# OpenCV  --  static-first configuration
 #
-# WHY: building OpenCV from source takes 5-20 min.  A system/prebuilt
-# install (brew, apt, vcpkg, the official Windows installer) is instant.
-#
-# HOW TO INSTALL (one-time, per machine):
-#   macOS:   brew install opencv
-#   Ubuntu:  sudo apt install libopencv-dev
-#   Windows: winget install opencv  OR  use vcpkg:
-#            vcpkg install opencv[dnn]:x64-windows-static
-#            then pass -DCMAKE_TOOLCHAIN_FILE=<vcpkg>/scripts/buildsystems/vcpkg.cmake
-#
-# If none of the above are present the submodule is built as a last resort,
-# with every unnecessary module and dependency stripped out.
+# Default is vendored static OpenCV so the app does not depend on OpenCV
+# shared libraries at runtime.
 # --------------------------------------------------
 
 # We only need these modules — tell find_package to check for them.
 # objdetect is required for cv::FaceDetectorYN (lives there, not in dnn).
 set(UNFV3_OPENCV_COMPONENTS core imgproc imgcodecs dnn objdetect)
+if(UNFV3_USE_SYSTEM_OPENCV)
+    find_package(OpenCV QUIET COMPONENTS ${UNFV3_OPENCV_COMPONENTS})
+endif()
 
-find_package(OpenCV QUIET COMPONENTS ${UNFV3_OPENCV_COMPONENTS})
-
-if(OpenCV_FOUND)
-    message(STATUS "Found system OpenCV ${OpenCV_VERSION} -- skipping source build")
-    # find_package sets OpenCV_LIBS and OpenCV_INCLUDE_DIRS automatically.
+if(OpenCV_FOUND AND UNFV3_USE_SYSTEM_OPENCV)
+    message(STATUS "Found system OpenCV ${OpenCV_VERSION} -- using system package")
     set(OPENCV_LINK_LIBS ${OpenCV_LIBS})
 else()
-    message(STATUS "System OpenCV not found -- building from submodule (this will be slow)")
-    message(STATUS "  Tip: install OpenCV system-wide to skip this (see CMakeLists comments)")
-
-    # Everything must be static; set before any add_subdirectory
-    set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+    message(STATUS "Using vendored static OpenCV")
 
     # ---- Disable IPP (causes header-ordering build errors on Linux) ----
     set(WITH_IPP     OFF CACHE BOOL "" FORCE)
@@ -257,7 +243,7 @@ target_include_directories(UNFV3 PRIVATE src/Application)
 
 # Propagate OpenCV include dirs when using a system install
 # (add_subdirectory sets them on targets directly; find_package needs this)
-if(OpenCV_FOUND)
+if(OpenCV_FOUND AND UNFV3_USE_SYSTEM_OPENCV)
     target_include_directories(UNFV3 PRIVATE ${OpenCV_INCLUDE_DIRS})
 else()
     # Ensure OpenCV headers are discoverable while vendored OpenCV is being built.
