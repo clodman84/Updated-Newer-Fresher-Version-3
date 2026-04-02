@@ -4,6 +4,8 @@ project(UNFV3)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+set(BUILD_SHARED_LIBS OFF)
 
 # --------------------------------------------------
 # Global build type default
@@ -14,8 +16,11 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
 
-# LTO for release (supported on all three platforms)
-set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
+option(UNFV3_ENABLE_LTO "Enable link-time optimization for Release builds" OFF)
+option(UNFV3_USE_SYSTEM_OPENCV "Use system OpenCV (may pull shared libs at runtime)" OFF)
+if(UNFV3_ENABLE_LTO)
+    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
+endif()
 
 # --------------------------------------------------
 # Platform: Windows static-runtime + no DLLs
@@ -28,35 +33,26 @@ if(WIN32)
 endif()
 
 # --------------------------------------------------
-# Cross-platform compiler flags
-#
-# Intentionally NO -march=native here: that flag encodes the *build*
-# machine's ISA into the binary, which silently breaks on any other CPU.
-# OpenCV's own CPU dispatcher handles SIMD at runtime instead (see below).
+# Project optimization profile (applies only to our targets)
 # --------------------------------------------------
 
-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    add_compile_options(
-        -fomit-frame-pointer
-        $<$<CONFIG:Release>:-O3>
-        $<$<CONFIG:Release>:-ffast-math>
-        $<$<CONFIG:Release>:-funroll-loops>
-        $<$<CONFIG:RelWithDebInfo>:-O2>
-    )
-elseif(MSVC)
-    add_compile_options(
-        /fp:fast
-        $<$<CONFIG:Release>:/O2>
-        $<$<CONFIG:Release>:/GL>
-        $<$<CONFIG:Release>:/Gy>
-        $<$<CONFIG:Release>:/Gw>
-    )
-    add_link_options(
-        $<$<CONFIG:Release>:/LTCG>
-        $<$<CONFIG:Release>:/OPT:REF>
-        $<$<CONFIG:Release>:/OPT:ICF>
-    )
-endif()
+add_library(unfv3_project_optimizations INTERFACE)
+target_compile_options(unfv3_project_optimizations INTERFACE
+    $<$<AND:$<COMPILE_LANGUAGE:C,CXX>,$<CXX_COMPILER_ID:GNU,Clang>>:-fomit-frame-pointer>
+    $<$<AND:$<COMPILE_LANGUAGE:C,CXX>,$<CXX_COMPILER_ID:GNU,Clang>,$<CONFIG:Release>>:-O2>
+    $<$<AND:$<COMPILE_LANGUAGE:C,CXX>,$<CXX_COMPILER_ID:GNU,Clang>,$<CONFIG:RelWithDebInfo>>:-O2>
+    $<$<AND:$<COMPILE_LANGUAGE:C,CXX>,$<CXX_COMPILER_ID:GNU,Clang>,$<CONFIG:MinSizeRel>>:-Os>
+    $<$<AND:$<COMPILE_LANGUAGE:C,CXX>,$<CXX_COMPILER_ID:MSVC>,$<CONFIG:Release>>:/O2>
+    $<$<AND:$<COMPILE_LANGUAGE:C,CXX>,$<CXX_COMPILER_ID:MSVC>,$<CONFIG:Release>>:/GL>
+    $<$<AND:$<COMPILE_LANGUAGE:C,CXX>,$<CXX_COMPILER_ID:MSVC>,$<CONFIG:Release>>:/Gy>
+    $<$<AND:$<COMPILE_LANGUAGE:C,CXX>,$<CXX_COMPILER_ID:MSVC>,$<CONFIG:Release>>:/Gw>
+)
+
+target_link_options(unfv3_project_optimizations INTERFACE
+    $<$<AND:$<CXX_COMPILER_ID:MSVC>,$<CONFIG:Release>>:/LTCG>
+    $<$<AND:$<CXX_COMPILER_ID:MSVC>,$<CONFIG:Release>>:/OPT:REF>
+    $<$<AND:$<CXX_COMPILER_ID:MSVC>,$<CONFIG:Release>>:/OPT:ICF>
+)
 
 # --------------------------------------------------
 # SDL3
@@ -67,38 +63,24 @@ set(SDL_STATIC ON  CACHE BOOL "" FORCE)
 add_subdirectory(vendored/SDL)
 
 # --------------------------------------------------
-# OpenCV  --  find system install first, build only if missing
+# OpenCV  --  static-first configuration
 #
-# WHY: building OpenCV from source takes 5-20 min.  A system/prebuilt
-# install (brew, apt, vcpkg, the official Windows installer) is instant.
-#
-# HOW TO INSTALL (one-time, per machine):
-#   macOS:   brew install opencv
-#   Ubuntu:  sudo apt install libopencv-dev
-#   Windows: winget install opencv  OR  use vcpkg:
-#            vcpkg install opencv[dnn]:x64-windows-static
-#            then pass -DCMAKE_TOOLCHAIN_FILE=<vcpkg>/scripts/buildsystems/vcpkg.cmake
-#
-# If none of the above are present the submodule is built as a last resort,
-# with every unnecessary module and dependency stripped out.
+# Default is vendored static OpenCV so the app does not depend on OpenCV
+# shared libraries at runtime.
 # --------------------------------------------------
 
 # We only need these modules — tell find_package to check for them.
 # objdetect is required for cv::FaceDetectorYN (lives there, not in dnn).
 set(UNFV3_OPENCV_COMPONENTS core imgproc imgcodecs dnn objdetect)
+if(UNFV3_USE_SYSTEM_OPENCV)
+    find_package(OpenCV QUIET COMPONENTS ${UNFV3_OPENCV_COMPONENTS})
+endif()
 
-find_package(OpenCV QUIET COMPONENTS ${UNFV3_OPENCV_COMPONENTS})
-
-if(OpenCV_FOUND)
-    message(STATUS "Found system OpenCV ${OpenCV_VERSION} -- skipping source build")
-    # find_package sets OpenCV_LIBS and OpenCV_INCLUDE_DIRS automatically.
+if(OpenCV_FOUND AND UNFV3_USE_SYSTEM_OPENCV)
+    message(STATUS "Found system OpenCV ${OpenCV_VERSION} -- using system package")
     set(OPENCV_LINK_LIBS ${OpenCV_LIBS})
 else()
-    message(STATUS "System OpenCV not found -- building from submodule (this will be slow)")
-    message(STATUS "  Tip: install OpenCV system-wide to skip this (see CMakeLists comments)")
-
-    # Everything must be static; set before any add_subdirectory
-    set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+    message(STATUS "Using vendored static OpenCV")
 
     # ---- Disable IPP (causes header-ordering build errors on Linux) ----
     set(WITH_IPP     OFF CACHE BOOL "" FORCE)
@@ -144,11 +126,6 @@ else()
     # AVX/AVX2 are dispatched at runtime so the binary runs everywhere.
     set(CPU_BASELINE "SSE4_2"   CACHE STRING "" FORCE)
     set(CPU_DISPATCH "AVX;AVX2" CACHE STRING "" FORCE)
-
-    # ---- Parallel build hint for the sub-project ----
-    # (CMake 3.12+) Doesn't speed up the outer build but helps ninja/make
-    # inside the opencv subdirectory use all cores.
-    set(CMAKE_BUILD_PARALLEL_LEVEL "" CACHE STRING "" FORCE)
 
     add_subdirectory(vendored/opencv)
 
@@ -224,12 +201,7 @@ target_compile_definitions(sqlite PRIVATE
     SQLITE_USE_ALLOCA
 )
 
-# SQLite is pure C and benefits from max opt regardless of build type
-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    target_compile_options(sqlite PRIVATE -O3)
-elseif(MSVC)
-    target_compile_options(sqlite PRIVATE /O2)
-endif()
+target_link_libraries(sqlite PRIVATE unfv3_project_optimizations)
 
 # --------------------------------------------------
 # nlohmann_json (header-only)
@@ -255,11 +227,7 @@ target_link_libraries(stb_image_wrapper PRIVATE
     nlohmann_json
 )
 
-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    target_compile_options(stb_image_wrapper PRIVATE -O3 -ffast-math -funroll-loops)
-elseif(MSVC)
-    target_compile_options(stb_image_wrapper PRIVATE /O2)
-endif()
+target_link_libraries(stb_image_wrapper PRIVATE unfv3_project_optimizations)
 
 # --------------------------------------------------
 # Main executable
@@ -277,8 +245,11 @@ target_include_directories(UNFV3 PRIVATE src/Application)
 
 # Propagate OpenCV include dirs when using a system install
 # (add_subdirectory sets them on targets directly; find_package needs this)
-if(OpenCV_FOUND)
+if(OpenCV_FOUND AND UNFV3_USE_SYSTEM_OPENCV)
     target_include_directories(UNFV3 PRIVATE ${OpenCV_INCLUDE_DIRS})
+else()
+    # Ensure OpenCV headers are discoverable while vendored OpenCV is being built.
+    target_include_directories(UNFV3 PRIVATE vendored/opencv/include)
 endif()
 
 target_link_libraries(UNFV3 PRIVATE
@@ -287,6 +258,7 @@ target_link_libraries(UNFV3 PRIVATE
     sqlite
     nlohmann_json
     stb_image_wrapper
+    unfv3_project_optimizations
     ${OPENCV_LINK_LIBS}
 )
 
