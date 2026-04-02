@@ -61,13 +61,14 @@ jobs:
             libpulse-dev \
             libdbus-1-dev \
             libudev-dev \
+            libopencv-dev \
             ccache
 
       - name: Install macOS dependencies
         if: runner.os == 'macOS'
         run: |
           brew update
-          brew install ccache
+          brew install opencv ccache
 
       - name: Configure compiler cache (non-Windows)
         if: runner.os != 'Windows'
@@ -83,7 +84,6 @@ jobs:
         run: >-
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
           -DUNFV3_ENABLE_LTO=OFF
-          -DUNFV3_USE_SYSTEM_OPENCV=OFF
           -DCMAKE_C_COMPILER_LAUNCHER=${{ env.CMAKE_C_COMPILER_LAUNCHER }}
           -DCMAKE_CXX_COMPILER_LAUNCHER=${{ env.CMAKE_CXX_COMPILER_LAUNCHER }}
 
@@ -92,7 +92,6 @@ jobs:
         run: >-
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
           -DUNFV3_ENABLE_LTO=OFF
-          -DUNFV3_USE_SYSTEM_OPENCV=OFF
           -DCMAKE_ASM_NASM_FLAGS_RELEASE=""
           -DCMAKE_EXE_LINKER_FLAGS_RELEASE="-static"
 

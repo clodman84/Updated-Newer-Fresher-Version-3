@@ -1186,8 +1186,8 @@ void Session::prepare_export_queue() {
       for (int copy_index = 1; copy_index <= entry.count; ++copy_index) {
         const std::string filename = roll + "_" + image_path.stem().string() +
                                      "_" + info.bhawan + "_" + info.roomno +
-                                     "_" + student_id +
-                                     std::to_string(copy_index) + "_" + ".jpg";
+                                     "_" + student_id + "_" +
+                                     std::to_string(copy_index) + ".jpg";
         pending.push_back(
             {image_path,
              std::filesystem::path(export_output_directory) / filename,
