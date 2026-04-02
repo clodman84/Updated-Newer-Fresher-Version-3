@@ -1,6 +1,7 @@
-# v0.5.2-beta
+# What's Changed 
 
 * Added Face Counting
+* Images always open the right way up now
 
 ## Planned For Next Release
 
