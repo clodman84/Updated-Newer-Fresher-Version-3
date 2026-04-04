@@ -649,7 +649,7 @@ void ImageManager::load_thumbnails() {
 
 ImageManager::ImageManager(SDL_GPUDevice *device,
                            const std::filesystem::path &image_folder)
-    : image_folder_(image_folder), device(device) {
+    : image_folder_(image_folder), device(device), editor(device) {
 #ifdef TRACY_ENABLE
   ZoneScopedN("ImageManager::ImageManager");
 #endif
@@ -672,7 +672,7 @@ ImageManager::ImageManager(ImageManager &&other) noexcept
       thumbnails(std::move(other.thumbnails)), device(other.device),
       zoom(other.zoom), canvas_size(other.canvas_size), pan(other.pan),
       pending_index(other.pending_index),
-      last_drawn_index(other.last_drawn_index) {
+      last_drawn_index(other.last_drawn_index), editor(other.editor) {
   other.device = nullptr;
   other.index = 0;
   other.size = 0;
@@ -851,4 +851,33 @@ bool ImageManager::has_images() const { return !image_names.empty(); }
 
 const std::filesystem::path &ImageManager::folder() const {
   return image_folder_;
+}
+
+void ImageEditor::load_path(std::filesystem::path path) {
+  image_path = path;
+  int src_w = 0;
+  int src_h = 0;
+  unsigned char *src = load_texture_data_from_file(path, &src_w, &src_h);
+  if (src == nullptr || src_h <= 0) {
+    return;
+  }
+
+  constexpr int dst_h = 1024;
+  const float factor = static_cast<float>(dst_h) / src_h;
+  const int dst_w = std::max(1, static_cast<int>(src_w * factor));
+
+  unsigned char *dst =
+      static_cast<unsigned char *>(IM_ALLOC(dst_w * dst_h * 4));
+  stbir_resize_uint8_linear(src, src_w, src_h, 0, dst, dst_w, dst_h, 0,
+                            STBIR_RGBA);
+  stbi_image_free(src);
+
+  width = dst_w;
+  height = dst_h;
+
+  SDL_GPUTexture *texture;
+  upload_texture_data_to_gpu(dst, dst_w, dst_h, device, &texture, false);
+  if (preview_texture != nullptr)
+    SDL_ReleaseGPUTexture(device, texture);
+  preview_texture = texture;
 }

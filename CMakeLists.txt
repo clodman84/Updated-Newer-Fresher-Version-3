@@ -282,6 +282,7 @@ add_executable(UNFV3
     src/Application/search_engine.cpp
     src/Application/detection.cpp
     src/Application/ui.cpp
+    src/Application/image_editor.cpp
 )
 
 target_include_directories(UNFV3 PRIVATE src/Application)

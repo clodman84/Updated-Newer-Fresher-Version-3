@@ -1,6 +1,7 @@
 #ifndef IMAGE_H
 #define IMAGE_H
 
+#include <cstddef>
 #define _CRT_SECURE_NO_WARNINGS
 
 #include "imgui.h"
@@ -105,6 +106,20 @@ struct FaceRect {
 
 std::vector<FaceRect> scan_faces(std::filesystem::path);
 
+class ImageEditor {
+public:
+  ImageEditor(SDL_GPUDevice *device) : device(device) {};
+  ~ImageEditor();
+  SDL_GPUTexture *preview_texture = nullptr;
+  std::filesystem::path image_path;
+  int width;
+  int height;
+  void load_path(std::filesystem::path);
+
+private:
+  SDL_GPUDevice *device = nullptr;
+};
+
 class ImageManager {
 public:
   ImageManager(SDL_GPUDevice *device,
@@ -115,6 +130,8 @@ public:
   ImageManager &operator=(ImageManager &&other) noexcept;
   ImageManager(const ImageManager &) = delete;
   ImageManager &operator=(const ImageManager &) = delete;
+
+  ImageEditor editor;
 
   Image *load_image();
   Image *load_next();
@@ -142,7 +159,8 @@ private:
   void reset_view_to_image();
   void queue_image_by_index(int next_index);
   void apply_pending_selection();
-  void render_viewer(const char *id);
+  void render_viewer();
+  void render_preview();
   void render_editor();
   void render_carousel(float carousel_height);
 

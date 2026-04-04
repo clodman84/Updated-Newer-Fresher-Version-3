@@ -1,5 +1,6 @@
 #include "application.h"
 #include "imgui.h"
+#include <cstring>
 #include <misc/cpp/imgui_stdlib.h>
 
 template <typename T> static inline T Clamp(T value, T lo, T hi) {
@@ -30,9 +31,77 @@ inline ImVec2 operator*=(ImVec2 &a, float scalar) {
   return a;
 }
 
-void ImageManager::render_viewer(const char *id) {
+void ImageManager::render_preview() {
+  ImGui::PushID("Preview");
   ImGui::TableNextColumn();
-  ImGui::PushID(id);
+  ImGui::BeginChild("ViewerChild", ImVec2(0, 0));
+
+  if (editor.preview_texture == nullptr) {
+    ImGui::TextUnformatted("Loading...");
+    ImGui::EndChild();
+    return;
+  }
+
+  ImTextureRef texture_id = editor.preview_texture;
+  const ImVec2 canvas_pos = ImGui::GetCursorScreenPos();
+  canvas_size = ImGui::GetContentRegionAvail();
+
+  if (zoom <= 0.0f) {
+    reset_view_to_image();
+  }
+
+  ImGui::InvisibleButton("canvas", canvas_size,
+                         ImGuiButtonFlags_MouseButtonLeft);
+  const bool hovered = ImGui::IsItemHovered();
+  const bool active = ImGui::IsItemActive();
+
+  auto io = ImGui::GetIO();
+  if (hovered && io.MouseWheel != 0.0f) {
+    const float old_zoom = zoom;
+    zoom *= powf(1.1f, io.MouseWheel);
+    zoom = Clamp(zoom, 0.1f, 20.0f);
+
+    ImVec2 mouse_local;
+    mouse_local.x = io.MousePos.x - canvas_pos.x - pan.x;
+    mouse_local.y = io.MousePos.y - canvas_pos.y - pan.y;
+    const float scale = zoom / old_zoom - 1.0f;
+    pan.x -= mouse_local.x * scale;
+    pan.y -= mouse_local.y * scale;
+  }
+  if (active && ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
+    pan.x += io.MouseDelta.x;
+    pan.y += io.MouseDelta.y;
+  }
+
+  ImVec2 image_size = {editor.width * zoom, editor.height * zoom};
+  if (image_size.x <= canvas_size.x) {
+    pan.x = (canvas_size.x - image_size.x) * 0.5f;
+  } else {
+    pan.x = Clamp(pan.x, canvas_size.x - image_size.x, 0.0f);
+  }
+  if (image_size.y <= canvas_size.y) {
+    pan.y = (canvas_size.y - image_size.y) * 0.5f;
+  } else {
+    pan.y = Clamp(pan.y, canvas_size.y - image_size.y, 0.0f);
+  }
+
+  ImDrawList *draw_list = ImGui::GetWindowDrawList();
+  draw_list->PushClipRect(
+      canvas_pos,
+      ImVec2(canvas_pos.x + canvas_size.x, canvas_pos.y + canvas_size.y), true);
+  const ImVec2 image_pos = {canvas_pos.x + pan.x, canvas_pos.y + pan.y};
+  draw_list->AddImage(
+      texture_id, image_pos,
+      ImVec2(image_pos.x + image_size.x, image_pos.y + image_size.y),
+      ImVec2(0, 0), ImVec2(1, 1));
+
+  draw_list->PopClipRect();
+  ImGui::EndChild();
+  ImGui::PopID();
+}
+
+void ImageManager::render_viewer() {
+  ImGui::TableNextColumn();
   ImGui::BeginChild("ViewerChild", ImVec2(0, 0));
 
   const Image *image = current_image_.get();
@@ -110,26 +179,27 @@ void ImageManager::render_viewer(const char *id) {
 
   draw_list->PopClipRect();
   ImGui::EndChild();
-  ImGui::PopID();
 }
 
 void ImageManager::render_editor() {
   ImGui::TableNextColumn();
-  ImGui::BeginChild("EditingPanel", ImVec2(0, 0));
-  ImGui::Text("Editing Panel");
+  ImGui::BeginChild("Control Panel", ImVec2(0, 0));
+  ImGui::Text("Control Panel");
   ImGui::Separator();
   ImGui::TextUnformatted("This is a work in progress :)");
   ImGui::Checkbox("Scan Faces", &with_detection);
   if (with_detection) {
     ImGui::SameLine();
-    ImGui::TextColored(ImVec4(0.93f, 0.73f, 0.24f, 1.0f), "Face Count: %d",
-                       scan_faces(current_image_->filename).back().count);
+    ImGui::TextColored(ImVec4(0.93f, 0.73f, 0.24f, 1.0f), "Face Count: %ld",
+                       scan_faces(current_image_->filename).size());
   }
   if (ImGui::Button("Reset Viewer")) {
     reset_view_to_image();
   }
   if (ImGui::TreeNode("Edit")) {
     with_preview = true;
+    if (editor.image_path != current_image_->filename)
+      editor.load_path(current_image_->filename);
     ImGui::TextUnformatted("Drawing Image Preview");
     ImGui::TreePop();
   } else
@@ -211,9 +281,9 @@ void ImageManager::render_manager() {
                               3.0f);
     ImGui::TableSetupColumn("Editor", ImGuiTableColumnFlags_WidthStretch, 1.0f);
     ImGui::TableNextRow();
-    render_viewer("viewer");
+    render_viewer();
     if (with_preview)
-      render_viewer("preview");
+      render_preview();
     render_editor();
     ImGui::EndTable();
   }
