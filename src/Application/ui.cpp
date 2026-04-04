@@ -37,8 +37,9 @@ void ImageEditor::render_preview() {
   ImGui::BeginChild("ViewerChild", ImVec2(0, 0));
 
   if (preview_texture == nullptr) {
-    ImGui::TextUnformatted("Loading...");
+    ImGui::TextUnformatted("Bruh Moment");
     ImGui::EndChild();
+    ImGui::PopID();
     return;
   }
 
@@ -182,24 +183,33 @@ void ImageManager::render_viewer() {
 }
 
 void ImageManager::render_editor() {
+  const Image *image = current_image_.get();
+
   ImGui::TableNextColumn();
   ImGui::BeginChild("Control Panel", ImVec2(0, 0));
   ImGui::Text("Control Panel");
   ImGui::Separator();
   ImGui::TextUnformatted("This is a work in progress :)");
+
+  if (image == nullptr || !image->is_valid()) {
+    with_preview = false;
+    with_detection = false;
+    ImGui::TextDisabled("Load an image to enable editor tools.");
+    ImGui::EndChild();
+    return;
+  }
+
   ImGui::Checkbox("Scan Faces", &with_detection);
-  if (with_detection) {
+  if (with_detection && image != nullptr) {
     ImGui::SameLine();
     ImGui::TextColored(ImVec4(0.93f, 0.73f, 0.24f, 1.0f), "Face Count: %ld",
-                       scan_faces(current_image_->filename).size());
+                       scan_faces(image->filename).size());
   }
   if (ImGui::Button("Reset Viewer")) {
     reset_view_to_image();
   }
   if (ImGui::TreeNode("Edit")) {
     with_preview = true;
-    if (editor.image_path != current_image_->filename)
-      editor.load_path(current_image_->filename);
     ImGui::TextUnformatted("Drawing Image Preview");
     ImGui::TreePop();
   } else
@@ -260,6 +270,11 @@ void ImageManager::render_manager() {
   ZoneScopedN("ImageManager::draw_manager");
 #endif
   apply_pending_selection();
+  if (with_preview && current_image_ != nullptr && current_image_->is_valid() &&
+      (editor.preview_texture == nullptr ||
+       editor.image_path != current_image_->filename)) {
+    editor.load_path(current_image_->filename);
+  }
   auto io = ImGui::GetIO();
 
   ImGui::BeginChild("ImagePanel");

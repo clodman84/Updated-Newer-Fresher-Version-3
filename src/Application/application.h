@@ -112,8 +112,8 @@ public:
   ~ImageEditor();
   SDL_GPUTexture *preview_texture = nullptr;
   std::filesystem::path image_path;
-  int width;
-  int height;
+  int width = 0;
+  int height = 0;
   void load_path(std::filesystem::path);
   void render_preview();
 

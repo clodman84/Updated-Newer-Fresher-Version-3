@@ -869,30 +869,29 @@ const std::filesystem::path &ImageManager::folder() const {
 }
 
 void ImageEditor::load_path(std::filesystem::path path) {
-  image_path = path;
+  image_path = std::move(path);
   int src_w = 0;
   int src_h = 0;
-  unsigned char *src = load_texture_data_from_file(path, &src_w, &src_h);
-  if (src == nullptr || src_h <= 0) {
-    return;
-  }
+  unsigned char *src = load_texture_data_from_file(image_path, &src_w, &src_h);
 
   constexpr int dst_h = 1024;
   const float factor = static_cast<float>(dst_h) / src_h;
   const int dst_w = std::max(1, static_cast<int>(src_w * factor));
 
-  unsigned char *dst =
-      static_cast<unsigned char *>(IM_ALLOC(dst_w * dst_h * 4));
+  unsigned char *dst = static_cast<unsigned char *>(
+      IM_ALLOC(static_cast<size_t>(dst_w) * dst_h * 4));
   stbir_resize_uint8_linear(src, src_w, src_h, 0, dst, dst_w, dst_h, 0,
                             STBIR_RGBA);
   stbi_image_free(src);
 
+  SDL_GPUTexture *texture = nullptr;
+  upload_texture_data_to_gpu(dst, dst_w, dst_h, device, &texture, false);
+  if (preview_texture != nullptr) {
+    SDL_ReleaseGPUTexture(device, preview_texture);
+  }
+
+  preview_texture = texture;
   width = dst_w;
   height = dst_h;
-
-  SDL_GPUTexture *texture;
-  upload_texture_data_to_gpu(dst, dst_w, dst_h, device, &texture, false);
-  if (preview_texture != nullptr)
-    SDL_ReleaseGPUTexture(device, texture);
-  preview_texture = texture;
+  reset_view_to_image();
 }
