@@ -762,6 +762,21 @@ void ImageManager::reset_view_to_image() {
   pan = ImVec2(0.0f, 0.0f);
 }
 
+void ImageEditor::reset_view_to_image() {
+  if (preview_texture == nullptr) {
+    zoom = 0.0f;
+    pan = ImVec2(0.0f, 0.0f);
+    return;
+  }
+
+  if (canvas_size.x > 0.0f && canvas_size.y > 0.0f) {
+    zoom = std::min(canvas_size.x / width, canvas_size.y / height);
+  } else {
+    zoom = 0.0f;
+  }
+  pan = ImVec2(0.0f, 0.0f);
+}
+
 void ImageManager::queue_image_by_index(int next_index) {
   if (next_index < 0 || next_index >= static_cast<int>(image_names.size())) {
     return;

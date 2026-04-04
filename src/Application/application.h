@@ -115,9 +115,14 @@ public:
   int width;
   int height;
   void load_path(std::filesystem::path);
+  void render_preview();
 
 private:
   SDL_GPUDevice *device = nullptr;
+  float zoom = 0.0f;
+  ImVec2 canvas_size = ImVec2(0.0f, 0.0f);
+  ImVec2 pan = ImVec2(0.0f, 0.0f);
+  void reset_view_to_image();
 };
 
 class ImageManager {
@@ -160,7 +165,6 @@ private:
   void queue_image_by_index(int next_index);
   void apply_pending_selection();
   void render_viewer();
-  void render_preview();
   void render_editor();
   void render_carousel(float carousel_height);
 

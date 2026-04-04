@@ -31,18 +31,18 @@ inline ImVec2 operator*=(ImVec2 &a, float scalar) {
   return a;
 }
 
-void ImageManager::render_preview() {
+void ImageEditor::render_preview() {
   ImGui::PushID("Preview");
   ImGui::TableNextColumn();
   ImGui::BeginChild("ViewerChild", ImVec2(0, 0));
 
-  if (editor.preview_texture == nullptr) {
+  if (preview_texture == nullptr) {
     ImGui::TextUnformatted("Loading...");
     ImGui::EndChild();
     return;
   }
 
-  ImTextureRef texture_id = editor.preview_texture;
+  ImTextureRef texture_id = preview_texture;
   const ImVec2 canvas_pos = ImGui::GetCursorScreenPos();
   canvas_size = ImGui::GetContentRegionAvail();
 
@@ -73,7 +73,7 @@ void ImageManager::render_preview() {
     pan.y += io.MouseDelta.y;
   }
 
-  ImVec2 image_size = {editor.width * zoom, editor.height * zoom};
+  ImVec2 image_size = {width * zoom, height * zoom};
   if (image_size.x <= canvas_size.x) {
     pan.x = (canvas_size.x - image_size.x) * 0.5f;
   } else {
@@ -283,7 +283,7 @@ void ImageManager::render_manager() {
     ImGui::TableNextRow();
     render_viewer();
     if (with_preview)
-      render_preview();
+      editor.render_preview();
     render_editor();
     ImGui::EndTable();
   }
