@@ -38,14 +38,6 @@ endif()
 # --------------------------------------------------
 # Project optimization profile (applies only to our targets)
 #
-# FIX: $<COMPILE_LANGUAGE:C,CXX> is not valid CMake syntax — a generator
-#      expression language filter accepts exactly one language.  Use
-#      $<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>> instead.
-#
-# FIX: /GL (whole-program optimisation) and /LTCG are MSVC's LTO mechanism.
-#      They must only be active when UNFV3_ENABLE_LTO is ON, otherwise they
-#      conflict with the separate UNFV3_ENABLE_LTO=OFF default and add
-#      significant link time for no benefit.
 # --------------------------------------------------
 
 set(_gnu_clang "$<CXX_COMPILER_ID:GNU,Clang>")
@@ -289,6 +281,7 @@ add_executable(UNFV3
     src/Application/session.cpp
     src/Application/search_engine.cpp
     src/Application/detection.cpp
+    src/Application/ui.cpp
 )
 
 target_include_directories(UNFV3 PRIVATE src/Application)

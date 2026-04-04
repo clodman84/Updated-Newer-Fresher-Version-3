@@ -142,7 +142,7 @@ private:
   void reset_view_to_image();
   void queue_image_by_index(int next_index);
   void apply_pending_selection();
-  void render_viewer();
+  void render_viewer(const char *id);
   void render_editor();
   void render_carousel(float carousel_height);
 
@@ -157,6 +157,7 @@ private:
   ImVec2 pan = ImVec2(0.0f, 0.0f);
   int pending_index = -1;
   int last_drawn_index = -1;
+  bool with_preview = false;
 };
 
 void prepare_database();

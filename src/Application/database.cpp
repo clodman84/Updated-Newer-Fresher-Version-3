@@ -275,46 +275,6 @@ std::string Database::modify_query_for_id(std::string s) {
   return s;
 }
 
-void Database::render_loaded_csv() {
-  if (!show_loaded_csv) {
-    return;
-  }
-
-#ifdef TRACY_ENABLE
-  ZoneScopedN("Database::render_loaded_csv");
-#endif
-  if (!ImGui::Begin("Loaded Mess List", &show_loaded_csv)) {
-    ImGui::End();
-    return;
-  }
-
-  ImGui::Text("%zu CSV rows parsed. Review before importing.", loaded.size());
-  if (ImGui::BeginTable("##loaded_csv", 5,
-                        ImGuiTableFlags_RowBg |
-                            ImGuiTableFlags_SizingFixedFit)) {
-    ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_WidthFixed, 120.0f);
-    ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthStretch, 2.0f);
-    ImGui::TableSetupColumn("Sex", ImGuiTableColumnFlags_WidthFixed, 40.0f);
-    ImGui::TableSetupColumn("Bhawan", ImGuiTableColumnFlags_WidthFixed, 50.0f);
-    ImGui::TableSetupColumn("Room", ImGuiTableColumnFlags_WidthFixed, 40.0f);
-    ImGui::TableHeadersRow();
-
-    for (const auto &line : loaded) {
-      ImGui::TableNextRow();
-      for (const auto &item : line) {
-        ImGui::TableNextColumn();
-        ImGui::TextUnformatted(item.c_str());
-      }
-    }
-    ImGui::EndTable();
-  }
-
-  if (ImGui::Button("Looks good to me, load this messlist")) {
-    insert_data();
-  }
-  ImGui::End();
-}
-
 void prepare_database() {
 #ifdef TRACY_ENABLE
   ZoneScopedN("prepare_database");
