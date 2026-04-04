@@ -31,6 +31,25 @@ inline ImVec2 operator*=(ImVec2 &a, float scalar) {
   return a;
 }
 
+static float linked_zoom_for_target(float source_zoom, int source_width,
+                                    int source_height, int target_width,
+                                    int target_height) {
+  if (source_width <= 0 || source_height <= 0 || target_width <= 0 ||
+      target_height <= 0) {
+    return source_zoom;
+  }
+
+  const float ratio_x =
+      static_cast<float>(source_width) / static_cast<float>(target_width);
+  const float ratio_y =
+      static_cast<float>(source_height) / static_cast<float>(target_height);
+
+  if (std::fabs(ratio_x - ratio_y) < 0.0001f) {
+    return source_zoom * ratio_x;
+  }
+  return source_zoom * std::sqrt(ratio_x * ratio_y);
+}
+
 void ImageEditor::render_preview() {
   ImGui::PushID("Preview");
   ImGui::TableNextColumn();
@@ -200,6 +219,7 @@ void ImageManager::render_editor() {
   }
 
   ImGui::Checkbox("Scan Faces", &with_detection);
+
   if (with_detection && image != nullptr) {
     ImGui::SameLine();
     ImGui::TextColored(ImVec4(0.93f, 0.73f, 0.24f, 1.0f), "Face Count: %ld",
@@ -210,7 +230,12 @@ void ImageManager::render_editor() {
   }
   if (ImGui::TreeNode("Edit")) {
     with_preview = true;
-    ImGui::TextUnformatted("Drawing Image Preview");
+    if (ImGui::Checkbox("Link Viewers", &link_preview_viewer) &&
+        link_preview_viewer) {
+      editor.set_view(linked_zoom_for_target(zoom, image->width, image->height,
+                                             editor.width, editor.height),
+                      pan);
+    }
     ImGui::TreePop();
   } else
     with_preview = false;
@@ -297,8 +322,21 @@ void ImageManager::render_manager() {
     ImGui::TableSetupColumn("Editor", ImGuiTableColumnFlags_WidthStretch, 1.0f);
     ImGui::TableNextRow();
     render_viewer();
-    if (with_preview)
+    if (with_preview) {
+      if (link_preview_viewer) {
+        editor.set_view(linked_zoom_for_target(zoom, current_image_->width,
+                                               current_image_->height,
+                                               editor.width, editor.height),
+                        pan);
+      }
       editor.render_preview();
+      if (link_preview_viewer) {
+        zoom = linked_zoom_for_target(editor.get_zoom(), editor.width,
+                                      editor.height, current_image_->width,
+                                      current_image_->height);
+        pan = editor.get_pan();
+      }
+    }
     render_editor();
     ImGui::EndTable();
   }

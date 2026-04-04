@@ -116,6 +116,12 @@ public:
   int height = 0;
   void load_path(std::filesystem::path);
   void render_preview();
+  float get_zoom() const { return zoom; }
+  ImVec2 get_pan() const { return pan; }
+  void set_view(float next_zoom, ImVec2 next_pan) {
+    zoom = next_zoom;
+    pan = next_pan;
+  }
 
 private:
   SDL_GPUDevice *device = nullptr;
@@ -180,6 +186,7 @@ private:
   int pending_index = -1;
   int last_drawn_index = -1;
   bool with_preview = false;
+  bool link_preview_viewer = false;
 };
 
 void prepare_database();
