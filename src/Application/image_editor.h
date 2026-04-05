@@ -5,11 +5,21 @@
 #include <filesystem>
 #include <gegl.h>
 #include <imgui.h>
+#include <vector>
 
 struct BrightnessContrastState {
   double contrast = 1.0;
   double brightness = 0.0;
 };
+
+enum class EffectType { BrightnessContrast };
+
+struct Effect {
+  GeglNode *node = nullptr;
+  EffectType type;
+};
+
+Effect &get_or_create_effect(EffectType type);
 
 class ImageEditor {
 public:
@@ -39,11 +49,15 @@ private:
   void apply_gegl_texture();
   BrightnessContrastState brightness_contrast_state;
   void *image_src = nullptr;
-  GeglBuffer *image_buffer = nullptr;
 
+  std::vector<Effect> effects;
+  Effect &get_or_create_effect(EffectType type);
+
+  GeglBuffer *image_buffer = nullptr;
   GeglNode *graph = nullptr;
   GeglNode *sink = nullptr;
   GeglNode *source = nullptr;
+  GeglNode *last_node = nullptr;
 };
 
 #endif // !IMAGE_EDITOR

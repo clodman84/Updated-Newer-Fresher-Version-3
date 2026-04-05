@@ -1,8 +1,10 @@
 #include "image_editor.h"
+#include "gegl-node.h"
+#include "gegl-types.h"
 #include "gpu_utils.h"
+#include "imgui.h"
 #include "stb_image.h"
 #include <gegl.h>
-#include <iostream>
 
 ImageEditor::~ImageEditor() {
   if (preview_texture != nullptr)
@@ -55,31 +57,57 @@ void ImageEditor::apply_gegl_texture() {
 
   SDL_GPUTexture *texture = nullptr;
   upload_texture_data_to_gpu(pixels, width, height, device, &texture, false);
-
   if (preview_texture != nullptr) {
     SDL_ReleaseGPUTexture(device, preview_texture);
   }
   preview_texture = texture;
 }
 
-bool DrawGeglBrightnessContrastNode(BrightnessContrastState &s) {
-  bool changed = false;
-  if (!ImGui::TreeNodeEx("Brightness / Contrast",
-                         ImGuiTreeNodeFlags_DefaultOpen |
-                             ImGuiTreeNodeFlags_SpanAvailWidth))
-    return false;
-  float c = (float)s.contrast;
-  if (ImGui::SliderFloat("Contrast", &c, 0.0f, 2.0f, "%.3f")) {
-    changed = true;
+Effect &ImageEditor::get_or_create_effect(EffectType type) {
+  for (auto &effect : effects)
+    if (effect.type == type)
+      return effect;
+
+  Effect e;
+  e.type = type;
+
+  switch (type) {
+  case EffectType::BrightnessContrast:
+    e.node = gegl_node_new_child(
+        graph, "operation", "gegl:brightness-contrast", "brightness",
+        (gdouble)brightness_contrast_state.brightness, "contrast",
+        (gdouble)brightness_contrast_state.contrast, NULL);
+    break;
   }
-  float b = (float)s.brightness;
-  if (ImGui::SliderFloat("Brightness", &b, -1.0f, 1.0f, "%.3f")) {
-    changed = true;
-  }
-  ImGui::TreePop();
-  return changed;
+
+  GeglNode *before_sink = effects.empty() ? source : effects.back().node;
+
+  gegl_node_link(before_sink, e.node);
+  gegl_node_link(e.node, sink);
+
+  effects.emplace_back(e);
+  return effects.back();
 }
 
 void ImageEditor::render_controls() {
-  DrawGeglBrightnessContrastNode(brightness_contrast_state);
+  if (ImGui::TreeNode("Brightness / Contrast")) {
+    bool changed = false;
+    static const double brightness_min = -1.0, brightness_max = 1.0;
+    static const double contrast_min = 0.0, contrast_max = 2.0;
+
+    changed |= ImGui::SliderScalar("Brightness", ImGuiDataType_Double,
+                                   &brightness_contrast_state.brightness,
+                                   &brightness_min, &brightness_max, "%.2f");
+    changed |= ImGui::SliderScalar("Contrast", ImGuiDataType_Double,
+                                   &brightness_contrast_state.contrast,
+                                   &contrast_min, &contrast_max, "%.2f");
+
+    if (changed) {
+      Effect &e = get_or_create_effect(EffectType::BrightnessContrast);
+      gegl_node_set(e.node, "brightness", brightness_contrast_state.brightness,
+                    "contrast", brightness_contrast_state.contrast, NULL);
+      apply_gegl_texture();
+    }
+    ImGui::TreePop();
+  }
 }
