@@ -257,16 +257,6 @@ void render_sessions(std::deque<std::unique_ptr<Session>> &sessions) {
 
 int main(int, char **) {
   prepare_database();
-
-  if (char *base_path = SDL_GetBasePath()) {
-    std::filesystem::path babl_path =
-        std::filesystem::path(base_path).parent_path() / "lib" / "babl-0.1";
-    if (std::filesystem::exists(babl_path)) {
-      SDL_setenv("BABL_PATH", babl_path.string().c_str(), 1);
-    }
-    SDL_free(base_path);
-  }
-
   gegl_init(0, nullptr);
   srand(time(NULL));
 

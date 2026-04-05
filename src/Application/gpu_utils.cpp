@@ -271,15 +271,20 @@ bool upload_texture_data_to_gpu(unsigned char *image_data, int width,
 #ifdef TRACY_ENABLE
   ZoneScopedN("upload_texture_data_to_gpu");
 #endif
-  if (image_data == nullptr || width <= 0 || height <= 0 || device == nullptr ||
-      out_texture == nullptr) {
+  auto cleanup = [&]() {
     if (image_data != nullptr) {
       if (free_with_stbi) {
         stbi_image_free(image_data);
       } else {
         IM_FREE(image_data);
       }
+      image_data = nullptr;
     }
+  };
+
+  if (image_data == nullptr || width <= 0 || height <= 0 || device == nullptr ||
+      out_texture == nullptr) {
+    cleanup();
     return false;
   }
 
@@ -297,11 +302,7 @@ bool upload_texture_data_to_gpu(unsigned char *image_data, int width,
   if (texture == nullptr) {
     std::cerr << "Failed to create GPU texture: " << SDL_GetError()
               << std::endl;
-    if (free_with_stbi) {
-      stbi_image_free(image_data);
-    } else {
-      IM_FREE(image_data);
-    }
+    cleanup();
     return false;
   }
 
@@ -314,11 +315,7 @@ bool upload_texture_data_to_gpu(unsigned char *image_data, int width,
     std::cerr << "Failed to create GPU transfer buffer: " << SDL_GetError()
               << std::endl;
     SDL_ReleaseGPUTexture(device, texture);
-    if (free_with_stbi) {
-      stbi_image_free(image_data);
-    } else {
-      IM_FREE(image_data);
-    }
+    cleanup();
     return false;
   }
 
@@ -349,11 +346,7 @@ bool upload_texture_data_to_gpu(unsigned char *image_data, int width,
   SDL_SubmitGPUCommandBuffer(cmd);
   SDL_ReleaseGPUTransferBuffer(device, transfer_buffer);
 
-  if (free_with_stbi) {
-    stbi_image_free(image_data);
-  } else {
-    IM_FREE(image_data);
-  }
+  cleanup();
 
   *out_texture = texture;
   return true;

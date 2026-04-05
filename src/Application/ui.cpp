@@ -110,7 +110,7 @@ void ImageEditor::render_preview() {
       canvas_pos,
       ImVec2(canvas_pos.x + canvas_size.x, canvas_pos.y + canvas_size.y), true);
   const ImVec2 image_pos = {canvas_pos.x + pan.x, canvas_pos.y + pan.y};
-  if (texture_id != nullptr) {
+  if (preview_texture != nullptr) {
     draw_list->AddImage(
         texture_id, image_pos,
         ImVec2(image_pos.x + image_size.x, image_pos.y + image_size.y),
