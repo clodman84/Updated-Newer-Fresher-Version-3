@@ -271,25 +271,6 @@ add_library(nlohmann_json INTERFACE)
 target_include_directories(nlohmann_json INTERFACE vendored/json)
 
 # --------------------------------------------------
-# stb_image wrapper
-# --------------------------------------------------
-
-add_library(stb_image_wrapper STATIC
-    src/Application/image.cpp
-)
-
-target_include_directories(stb_image_wrapper PRIVATE src/Application)
-
-target_link_libraries(stb_image_wrapper PRIVATE
-    imgui
-    SDL3::SDL3
-    sqlite
-    nlohmann_json
-)
-
-target_link_libraries(stb_image_wrapper PRIVATE unfv3_project_optimizations)
-
-# --------------------------------------------------
 # Main executable
 # --------------------------------------------------
 
@@ -301,6 +282,7 @@ add_executable(UNFV3
     src/Application/detection.cpp
     src/Application/ui.cpp
     src/Application/image_editor.cpp
+    src/Application/image.cpp
 )
 
 target_include_directories(UNFV3 PRIVATE src/Application)
@@ -312,7 +294,6 @@ target_link_libraries(UNFV3 PRIVATE
     SDL3::SDL3
     sqlite
     nlohmann_json
-    stb_image_wrapper
     unfv3_project_optimizations
     ${OPENCV_LINK_LIBS}
     ${GEGL_LIBS}
@@ -329,8 +310,6 @@ endif()
 if(UNFV3_ENABLE_TRACY)
     target_link_libraries(UNFV3 PRIVATE TracyClient)
     target_compile_definitions(UNFV3 PRIVATE TRACY_ENABLE)
-    target_link_libraries(stb_image_wrapper PRIVATE TracyClient)
-    target_compile_definitions(stb_image_wrapper PRIVATE TRACY_ENABLE)
 endif()
 
 # --------------------------------------------------

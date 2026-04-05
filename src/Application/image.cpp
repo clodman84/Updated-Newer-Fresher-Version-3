@@ -887,15 +887,17 @@ void ImageEditor::load_path(std::filesystem::path path) {
   stbir_resize_uint8_linear(src, src_w, src_h, 0, dst, dst_w, dst_h, 0,
                             STBIR_RGBA);
   stbi_image_free(src);
-
-  SDL_GPUTexture *texture = nullptr;
-  upload_texture_data_to_gpu(dst, dst_w, dst_h, device, &texture, false);
-  if (preview_texture != nullptr) {
-    SDL_ReleaseGPUTexture(device, preview_texture);
-  }
-
-  preview_texture = texture;
+  image_src = dst;
   width = dst_w;
   height = dst_h;
+  prepare_gegl_graph();
+  // SDL_GPUTexture *texture = nullptr;
+  // upload_texture_data_to_gpu(dst, dst_w, dst_h, device, &texture, false);
+  // if (preview_texture != nullptr) {
+  //   SDL_ReleaseGPUTexture(device, preview_texture);
+  // }
+  //
+  // preview_texture = texture;
+  apply_gegl_texture();
   reset_view_to_image();
 }
