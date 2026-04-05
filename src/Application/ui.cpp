@@ -110,10 +110,12 @@ void ImageEditor::render_preview() {
       canvas_pos,
       ImVec2(canvas_pos.x + canvas_size.x, canvas_pos.y + canvas_size.y), true);
   const ImVec2 image_pos = {canvas_pos.x + pan.x, canvas_pos.y + pan.y};
-  draw_list->AddImage(
-      texture_id, image_pos,
-      ImVec2(image_pos.x + image_size.x, image_pos.y + image_size.y),
-      ImVec2(0, 0), ImVec2(1, 1));
+  if (preview_texture != nullptr) {
+    draw_list->AddImage(
+        texture_id, image_pos,
+        ImVec2(image_pos.x + image_size.x, image_pos.y + image_size.y),
+        ImVec2(0, 0), ImVec2(1, 1));
+  }
 
   draw_list->PopClipRect();
   ImGui::EndChild();
@@ -295,6 +297,7 @@ void ImageManager::render_manager() {
 #ifdef TRACY_ENABLE
   ZoneScopedN("ImageManager::draw_manager");
 #endif
+  editor.cleanup_stale_resources();
   apply_pending_selection();
   if (with_preview && current_image_ != nullptr && current_image_->is_valid() &&
       (editor.preview_texture == nullptr ||

@@ -7,11 +7,36 @@
 #include <gegl.h>
 
 ImageEditor::~ImageEditor() {
-  if (preview_texture != nullptr)
+  if (preview_texture != nullptr) {
     SDL_ReleaseGPUTexture(device, preview_texture);
+    preview_texture = nullptr;
+  }
+  cleanup_stale_resources();
+
+  if (graph != nullptr) {
+    g_object_unref(graph);
+    graph = nullptr;
+  }
+  if (image_buffer != nullptr) {
+    g_object_unref(image_buffer);
+    image_buffer = nullptr;
+  }
+  if (image_src != nullptr) {
+    IM_FREE(image_src);
+    image_src = nullptr;
+  }
+}
+
+void ImageEditor::cleanup_stale_resources() {
+  for (auto *tex : textures_to_release) {
+    SDL_ReleaseGPUTexture(device, tex);
+  }
+  textures_to_release.clear();
 }
 
 void ImageEditor::prepare_gegl_graph() {
+  effects.clear();
+
   // Clean up previous graph and buffer
   if (graph != nullptr) {
     g_object_unref(graph);
@@ -49,6 +74,8 @@ void ImageEditor::apply_gegl_texture() {
   GeglRectangle roi = {0, 0, width, height};
   const size_t buf_size = static_cast<size_t>(width) * height * 4;
   unsigned char *pixels = static_cast<unsigned char *>(IM_ALLOC(buf_size));
+  if (pixels == nullptr)
+    return;
 
   gegl_node_blit(sink,
                  1.0, // scale — 1:1 since you already downsampled via stbir
@@ -56,11 +83,13 @@ void ImageEditor::apply_gegl_texture() {
                  GEGL_BLIT_DEFAULT);
 
   SDL_GPUTexture *texture = nullptr;
-  upload_texture_data_to_gpu(pixels, width, height, device, &texture, false);
-  if (preview_texture != nullptr) {
-    SDL_ReleaseGPUTexture(device, preview_texture);
+  if (upload_texture_data_to_gpu(pixels, width, height, device, &texture,
+                                  false)) {
+    if (preview_texture != nullptr) {
+      textures_to_release.push_back(preview_texture);
+    }
+    preview_texture = texture;
   }
-  preview_texture = texture;
 }
 
 Effect &ImageEditor::get_or_create_effect(EffectType type) {
