@@ -106,6 +106,11 @@ struct FaceRect {
 
 std::vector<FaceRect> scan_faces(std::filesystem::path);
 
+struct BrightnessContrastState {
+  double contrast = 1.0;
+  double brightness = 0.0;
+};
+
 class ImageEditor {
 public:
   ImageEditor(SDL_GPUDevice *device) : device(device) {};
@@ -122,6 +127,7 @@ public:
     zoom = next_zoom;
     pan = next_pan;
   }
+  void render_controls();
 
 private:
   SDL_GPUDevice *device = nullptr;
@@ -129,6 +135,7 @@ private:
   ImVec2 canvas_size = ImVec2(0.0f, 0.0f);
   ImVec2 pan = ImVec2(0.0f, 0.0f);
   void reset_view_to_image();
+  BrightnessContrastState brightness_contrast_state;
 };
 
 class ImageManager {

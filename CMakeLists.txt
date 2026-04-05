@@ -37,7 +37,6 @@ endif()
 
 # --------------------------------------------------
 # Project optimization profile (applies only to our targets)
-#
 # --------------------------------------------------
 
 set(_gnu_clang "$<CXX_COMPILER_ID:GNU,Clang>")
@@ -181,6 +180,25 @@ else()
 endif()
 
 # --------------------------------------------------
+# GEGL (graph-based image processing)
+# --------------------------------------------------
+
+option(UNFV3_USE_SYSTEM_GEGL "Use system-installed GEGL" ON)
+
+if(UNFV3_USE_SYSTEM_GEGL)
+    find_package(PkgConfig REQUIRED)
+
+    pkg_check_modules(GEGL REQUIRED gegl-0.4)
+
+    message(STATUS "Found GEGL via pkg-config")
+
+    set(GEGL_INCLUDE_DIRS ${GEGL_INCLUDE_DIRS})
+    set(GEGL_LIBS ${GEGL_LIBRARIES})
+else()
+    message(FATAL_ERROR "Vendored GEGL not implemented (yet). Use system GEGL.")
+endif()
+
+# --------------------------------------------------
 # Tracy Profiler
 # --------------------------------------------------
 
@@ -287,6 +305,7 @@ add_executable(UNFV3
 
 target_include_directories(UNFV3 PRIVATE src/Application)
 target_include_directories(UNFV3 PRIVATE ${OPENCV_INCLUDE_DIRS})
+target_include_directories(UNFV3 PRIVATE ${GEGL_INCLUDE_DIRS})
 
 target_link_libraries(UNFV3 PRIVATE
     imgui
@@ -296,6 +315,7 @@ target_link_libraries(UNFV3 PRIVATE
     stb_image_wrapper
     unfv3_project_optimizations
     ${OPENCV_LINK_LIBS}
+    ${GEGL_LIBS}
 )
 
 if(WIN32)
@@ -323,3 +343,4 @@ message(STATUS "System OpenCV    : ${OpenCV_FOUND}")
 message(STATUS "OpenCV version   : ${OpenCV_VERSION}")
 message(STATUS "OpenCV libs      : ${OPENCV_LINK_LIBS}")
 message(STATUS "OpenCV_INCLUDE_DIRS after add_subdirectory: ${OpenCV_INCLUDE_DIRS}")
+message(STATUS "GEGL libs        : ${GEGL_LIBS}")

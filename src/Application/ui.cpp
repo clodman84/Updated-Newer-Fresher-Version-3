@@ -236,6 +236,7 @@ void ImageManager::render_editor() {
                                              editor.width, editor.height),
                       pan);
     }
+    editor.render_controls();
     ImGui::TreePop();
   } else
     with_preview = false;

@@ -7,6 +7,7 @@
 #include "imgui_impl_sdlgpu3.h"
 
 #include <SDL3/SDL.h>
+#include <gegl-0.4/gegl.h>
 
 #include <deque>
 #include <filesystem>
@@ -256,6 +257,7 @@ void render_sessions(std::deque<std::unique_ptr<Session>> &sessions) {
 
 int main(int, char **) {
   prepare_database();
+  gegl_init(0, nullptr);
   srand(time(NULL));
 
   if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD)) {
@@ -393,5 +395,6 @@ int main(int, char **) {
   SDL_DestroyGPUDevice(gpu_device);
   SDL_DestroyWindow(window);
   SDL_Quit();
+  gegl_exit();
   return 0;
 }
