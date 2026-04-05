@@ -273,6 +273,13 @@ bool upload_texture_data_to_gpu(unsigned char *image_data, int width,
 #endif
   if (image_data == nullptr || width <= 0 || height <= 0 || device == nullptr ||
       out_texture == nullptr) {
+    if (image_data != nullptr) {
+      if (free_with_stbi) {
+        stbi_image_free(image_data);
+      } else {
+        IM_FREE(image_data);
+      }
+    }
     return false;
   }
 

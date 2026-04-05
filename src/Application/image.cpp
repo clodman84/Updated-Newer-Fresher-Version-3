@@ -542,6 +542,9 @@ void ImageEditor::load_path(std::filesystem::path path) {
 
   unsigned char *dst = resize_image_rgba8(src, src_w, src_h, dst_w, dst_h);
   stbi_image_free(src);
+  if (image_src != nullptr) {
+    IM_FREE(image_src);
+  }
   image_src = dst;
   width = dst_w;
   height = dst_h;

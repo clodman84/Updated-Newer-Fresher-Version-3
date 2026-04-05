@@ -38,8 +38,10 @@ public:
     pan = next_pan;
   }
   void render_controls();
+  void cleanup_stale_resources();
 
 private:
+  std::vector<SDL_GPUTexture *> textures_to_release;
   SDL_GPUDevice *device = nullptr;
   float zoom = 0.0f;
   ImVec2 canvas_size = ImVec2(0.0f, 0.0f);
