@@ -23,6 +23,9 @@ struct ShadowsHighlightsState {
   double highlights = 0.0;
   double whitepoint = 0.0;
   double radius = 100.0;
+  double compress = 50.0;
+  double shadows_ccorrect = 100.0;
+  double highlights_ccorrect = 50.0;
 };
 
 struct LevelsState {
@@ -60,6 +63,23 @@ struct StretchContrastHSVState {
   bool enabled = false;
 };
 
+struct ColorBalanceState {
+  double cyan_red_s = 0.0;
+  double magenta_green_s = 0.0;
+  double yellow_blue_s = 0.0;
+  double cyan_red_m = 0.0;
+  double magenta_green_m = 0.0;
+  double yellow_blue_m = 0.0;
+  double cyan_red_h = 0.0;
+  double magenta_green_h = 0.0;
+  double yellow_blue_h = 0.0;
+  bool preserve_luminosity = true;
+};
+
+struct SepiaState {
+  double scale = 1.0;
+};
+
 // Sharpening
 struct UnsharpMaskState {
   double std_dev = 3.0;
@@ -72,6 +92,12 @@ struct HighPassState {
   double contrast = 1.0;
 };
 
+// Blur
+struct GaussianBlurState {
+  double std_dev_x = 1.5;
+  double std_dev_y = 1.5;
+};
+
 // Noise Reduction
 struct NoiseReductionState {
   int iterations = 4;
@@ -80,6 +106,11 @@ struct NoiseReductionState {
 struct SNNMeanState {
   int radius = 8;
   int pairs = 2;
+};
+
+struct MedianBlurState {
+  int radius = 3;
+  double percentile = 50.0;
 };
 
 struct DomainTransformState {
@@ -94,10 +125,37 @@ struct BilateralFilterState {
   bool dirty = false;
 };
 
+// Correction
+struct LensDistortionState {
+  double main = 0.0;
+  double edge = 0.0;
+  double zoom = 0.0;
+  double brighten = 0.0;
+  double x_shift = 0.0;
+  double y_shift = 0.0;
+};
+
+struct VignetteState {
+  double radius = 1.2;
+  double softness = 0.8;
+  double gamma = 2.0;
+  double proportion = 1.0;
+  double squeeze = 0.0;
+  double x = 0.5;
+  double y = 0.5;
+};
+
 // Local Contrast
 struct LocalContrastState {
   double radius = 20.0;
   double amount = 1.0;
+};
+
+struct StressState {
+  int radius = 100;
+  int samples = 4;
+  int iterations = 10;
+  bool dirty = false;
 };
 
 enum class EffectType {
@@ -113,16 +171,25 @@ enum class EffectType {
   ColorEnhance,
   StretchContrast,
   StretchContrastHSV,
+  ColorBalance,
+  Sepia,
   // Sharpening
   UnsharpMask,
   HighPass,
+  // Blur
+  GaussianBlur,
   // Noise Reduction
   NoiseReduction,
   SNNMean,
+  MedianBlur,
   DomainTransform,
   BilateralFilter,
+  // Correction
+  LensDistortion,
+  Vignette,
   // Local Contrast
-  LocalContrast
+  LocalContrast,
+  Stress
 };
 
 struct Effect {
@@ -174,19 +241,30 @@ private:
   ColorEnhanceState color_enhance_state;
   StretchContrastState stretch_contrast_state;
   StretchContrastHSVState stretch_contrast_hsv_state;
+  ColorBalanceState color_balance_state;
+  SepiaState sepia_state;
 
   // Sharpening
   UnsharpMaskState unsharp_mask_state;
   HighPassState high_pass_state;
 
+  // Blur
+  GaussianBlurState gaussian_blur_state;
+
   // Noise Reduction
   NoiseReductionState noise_reduction_state;
   SNNMeanState snn_mean_state;
+  MedianBlurState median_blur_state;
   DomainTransformState domain_transform_state;
   BilateralFilterState bilateral_filter_state;
 
+  // Correction
+  LensDistortionState lens_distortion_state;
+  VignetteState vignette_state;
+
   // Local Contrast
   LocalContrastState local_contrast_state;
+  StressState stress_state;
 
   void *image_src = nullptr;
 
