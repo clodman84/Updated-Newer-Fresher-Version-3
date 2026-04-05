@@ -5,3 +5,4 @@ test/
 Data/database.db
 Data/messlist.csv
 core.*
+imgui.ini

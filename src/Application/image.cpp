@@ -869,6 +869,9 @@ const std::filesystem::path &ImageManager::folder() const {
 }
 
 void ImageEditor::load_path(std::filesystem::path path) {
+#ifdef TRACY_ENABLE
+  ZoneScopedN("load_path");
+#endif
   image_path = std::move(path);
   int src_w = 0;
   int src_h = 0;
