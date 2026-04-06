@@ -51,10 +51,6 @@ struct SaturationState {
   double scale = 1.0;
 };
 
-struct ColorEnhanceState {
-  bool enabled = false;
-};
-
 struct StretchContrastState {
   bool enabled = false;
 };
@@ -64,15 +60,15 @@ struct StretchContrastHSVState {
 };
 
 struct ColorBalanceState {
-  double cyan_red_s = 0.0;
-  double magenta_green_s = 0.0;
-  double yellow_blue_s = 0.0;
-  double cyan_red_m = 0.0;
-  double magenta_green_m = 0.0;
-  double yellow_blue_m = 0.0;
-  double cyan_red_h = 0.0;
-  double magenta_green_h = 0.0;
-  double yellow_blue_h = 0.0;
+  double cyan_red_shadows = 0.0;
+  double magenta_green_shadows = 0.0;
+  double yellow_blue_shadows = 0.0;
+  double cyan_red_midtones = 0.0;
+  double magenta_green_midtones = 0.0;
+  double yellow_blue_midtones = 0.0;
+  double cyan_red_highlights = 0.0;
+  double magenta_green_highlights = 0.0;
+  double yellow_blue_highlights = 0.0;
   bool preserve_luminosity = true;
 };
 
@@ -103,6 +99,13 @@ struct NoiseReductionState {
   int iterations = 4;
 };
 
+struct MonoMixerState {
+  double red = 0.333;
+  double green = 0.334;
+  double blue = 0.333;
+  bool preserve_luminosity = true;
+};
+
 struct SNNMeanState {
   int radius = 8;
   int pairs = 2;
@@ -111,12 +114,6 @@ struct SNNMeanState {
 struct MedianBlurState {
   int radius = 3;
   double percentile = 50.0;
-};
-
-struct DomainTransformState {
-  double sigma_s = 30.0;
-  double sigma_r = 0.4;
-  int n_iterations = 3;
 };
 
 struct BilateralFilterState {
@@ -168,11 +165,11 @@ enum class EffectType {
   ColorTemperature,
   HueChroma,
   Saturation,
-  ColorEnhance,
   StretchContrast,
   StretchContrastHSV,
   ColorBalance,
   Sepia,
+  MonoMixer,
   // Sharpening
   UnsharpMask,
   HighPass,
@@ -182,7 +179,6 @@ enum class EffectType {
   NoiseReduction,
   SNNMean,
   MedianBlur,
-  DomainTransform,
   BilateralFilter,
   // Correction
   LensDistortion,
@@ -217,6 +213,7 @@ public:
   }
   void render_controls();
   void cleanup_stale_resources();
+  void remove_effect(EffectType type);
 
 private:
   std::vector<SDL_GPUTexture *> textures_to_release;
@@ -238,11 +235,11 @@ private:
   ColorTemperatureState color_temperature_state;
   HueChromaState hue_chroma_state;
   SaturationState saturation_state;
-  ColorEnhanceState color_enhance_state;
   StretchContrastState stretch_contrast_state;
   StretchContrastHSVState stretch_contrast_hsv_state;
   ColorBalanceState color_balance_state;
   SepiaState sepia_state;
+  MonoMixerState mono_mixer_state;
 
   // Sharpening
   UnsharpMaskState unsharp_mask_state;
@@ -255,7 +252,6 @@ private:
   NoiseReductionState noise_reduction_state;
   SNNMeanState snn_mean_state;
   MedianBlurState median_blur_state;
-  DomainTransformState domain_transform_state;
   BilateralFilterState bilateral_filter_state;
 
   // Correction

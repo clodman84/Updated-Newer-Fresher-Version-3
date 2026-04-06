@@ -34,6 +34,24 @@ void ImageEditor::cleanup_stale_resources() {
   textures_to_release.clear();
 }
 
+void ImageEditor::remove_effect(EffectType type) {
+  auto it = std::find_if(effects.begin(), effects.end(),
+                         [type](const Effect &e) { return e.type == type; });
+
+  if (it == effects.end())
+    return;
+
+  GeglNode *to_remove = it->node;
+  size_t index = std::distance(effects.begin(), it);
+
+  GeglNode *prev = (index == 0) ? source : effects[index - 1].node;
+  GeglNode *next = (index == effects.size() - 1) ? sink : effects[index + 1].node;
+
+  gegl_node_link(prev, next);
+  gegl_node_remove_child(graph, to_remove);
+  effects.erase(it);
+}
+
 void ImageEditor::prepare_gegl_graph() {
   effects.clear();
 
@@ -92,6 +110,17 @@ void ImageEditor::apply_gegl_texture() {
   }
 }
 
+static const char *find_op(const char *name) {
+  if (gegl_has_operation(name))
+    return name;
+  static std::string prefixed;
+  prefixed = "gegl:";
+  prefixed += name;
+  if (gegl_has_operation(prefixed.c_str()))
+    return prefixed.c_str();
+  return "gegl:nop";
+}
+
 Effect &ImageEditor::get_or_create_effect(EffectType type) {
   for (auto &effect : effects)
     if (effect.type == type)
@@ -100,36 +129,31 @@ Effect &ImageEditor::get_or_create_effect(EffectType type) {
   Effect e;
   e.type = type;
 
-  const char *op_name = nullptr;
+  const char *op_name = "gegl:nop";
   switch (type) {
-  case EffectType::BrightnessContrast: op_name = "gegl:brightness-contrast"; break;
-  case EffectType::Exposure: op_name = "gegl:exposure"; break;
-  case EffectType::ShadowsHighlights: op_name = "gegl:shadows-highlights"; break;
-  case EffectType::Levels: op_name = "gegl:levels"; break;
-  case EffectType::ColorTemperature: op_name = "gegl:color-temperature"; break;
-  case EffectType::HueChroma: op_name = "gegl:hue-chroma"; break;
-  case EffectType::Saturation: op_name = "gegl:saturation"; break;
-  case EffectType::ColorEnhance: op_name = "gegl:color-enhance"; break;
-  case EffectType::StretchContrast: op_name = "gegl:stretch-contrast"; break;
-  case EffectType::StretchContrastHSV: op_name = "gegl:stretch-contrast-hsv"; break;
-  case EffectType::ColorBalance: op_name = "gegl:color-balance"; break;
-  case EffectType::Sepia: op_name = "gegl:sepia"; break;
-  case EffectType::UnsharpMask: op_name = "gegl:unsharp-mask"; break;
-  case EffectType::HighPass: op_name = "gegl:high-pass"; break;
-  case EffectType::GaussianBlur: op_name = "gegl:gaussian-blur"; break;
-  case EffectType::NoiseReduction: op_name = "gegl:noise-reduction"; break;
-  case EffectType::SNNMean: op_name = "gegl:snn-mean"; break;
-  case EffectType::MedianBlur: op_name = "gegl:median-blur"; break;
-  case EffectType::DomainTransform: op_name = "gegl:domain-transform"; break;
-  case EffectType::BilateralFilter: op_name = "gegl:bilateral-filter"; break;
-  case EffectType::LensDistortion: op_name = "gegl:lens-distortion"; break;
-  case EffectType::Vignette: op_name = "gegl:vignette"; break;
-  case EffectType::LocalContrast: op_name = "gegl:local-contrast"; break;
-  case EffectType::Stress: op_name = "gegl:stress"; break;
-  }
-
-  if (op_name && !gegl_has_operation(op_name)) {
-    op_name = "gegl:nop";
+  case EffectType::BrightnessContrast: op_name = find_op("brightness-contrast"); break;
+  case EffectType::Exposure: op_name = find_op("exposure"); break;
+  case EffectType::ShadowsHighlights: op_name = find_op("shadows-highlights"); break;
+  case EffectType::Levels: op_name = find_op("levels"); break;
+  case EffectType::ColorTemperature: op_name = find_op("color-temperature"); break;
+  case EffectType::HueChroma: op_name = find_op("hue-chroma"); break;
+  case EffectType::Saturation: op_name = find_op("saturation"); break;
+  case EffectType::StretchContrast: op_name = find_op("stretch-contrast"); break;
+  case EffectType::StretchContrastHSV: op_name = find_op("stretch-contrast-hsv"); break;
+  case EffectType::ColorBalance: op_name = find_op("color-balance"); break;
+  case EffectType::Sepia: op_name = find_op("sepia"); break;
+  case EffectType::MonoMixer: op_name = find_op("mono-mixer"); break;
+  case EffectType::UnsharpMask: op_name = find_op("unsharp-mask"); break;
+  case EffectType::HighPass: op_name = find_op("high-pass"); break;
+  case EffectType::GaussianBlur: op_name = find_op("gaussian-blur"); break;
+  case EffectType::NoiseReduction: op_name = find_op("noise-reduction"); break;
+  case EffectType::SNNMean: op_name = find_op("snn-mean"); break;
+  case EffectType::MedianBlur: op_name = find_op("median-blur"); break;
+  case EffectType::BilateralFilter: op_name = find_op("bilateral-filter"); break;
+  case EffectType::LensDistortion: op_name = find_op("lens-distortion"); break;
+  case EffectType::Vignette: op_name = find_op("vignette"); break;
+  case EffectType::LocalContrast: op_name = find_op("local-contrast"); break;
+  case EffectType::Stress: op_name = find_op("stress"); break;
   }
 
   switch (type) {
@@ -181,9 +205,6 @@ Effect &ImageEditor::get_or_create_effect(EffectType type) {
     e.node = gegl_node_new_child(graph, "operation", op_name, "scale",
                                  (gdouble)saturation_state.scale, NULL);
     break;
-  case EffectType::ColorEnhance:
-    e.node = gegl_node_new_child(graph, "operation", op_name, NULL);
-    break;
   case EffectType::StretchContrast:
     e.node =
         gegl_node_new_child(graph, "operation", op_name, NULL);
@@ -193,21 +214,30 @@ Effect &ImageEditor::get_or_create_effect(EffectType type) {
     break;
   case EffectType::ColorBalance:
     e.node = gegl_node_new_child(
-        graph, "operation", op_name, "cyan-red-s",
-        (gdouble)color_balance_state.cyan_red_s, "magenta-green-s",
-        (gdouble)color_balance_state.magenta_green_s, "yellow-blue-s",
-        (gdouble)color_balance_state.yellow_blue_s, "cyan-red-m",
-        (gdouble)color_balance_state.cyan_red_m, "magenta-green-m",
-        (gdouble)color_balance_state.magenta_green_m, "yellow-blue-m",
-        (gdouble)color_balance_state.yellow_blue_m, "cyan-red-h",
-        (gdouble)color_balance_state.cyan_red_h, "magenta-green-h",
-        (gdouble)color_balance_state.magenta_green_h, "yellow-blue-h",
-        (gdouble)color_balance_state.yellow_blue_h, "preserve-luminosity",
+        graph, "operation", op_name, "cyan-red-shadows",
+        (gdouble)color_balance_state.cyan_red_shadows, "magenta-green-shadows",
+        (gdouble)color_balance_state.magenta_green_shadows, "yellow-blue-shadows",
+        (gdouble)color_balance_state.yellow_blue_shadows, "cyan-red-midtones",
+        (gdouble)color_balance_state.cyan_red_midtones, "magenta-green-midtones",
+        (gdouble)color_balance_state.magenta_green_midtones, "yellow-blue-midtones",
+        (gdouble)color_balance_state.yellow_blue_midtones, "cyan-red-highlights",
+        (gdouble)color_balance_state.cyan_red_highlights,
+        "magenta-green-highlights",
+        (gdouble)color_balance_state.magenta_green_highlights,
+        "yellow-blue-highlights",
+        (gdouble)color_balance_state.yellow_blue_highlights, "preserve-luminosity",
         (gboolean)color_balance_state.preserve_luminosity, NULL);
     break;
   case EffectType::Sepia:
     e.node = gegl_node_new_child(graph, "operation", op_name, "scale",
                                  (gdouble)sepia_state.scale, NULL);
+    break;
+  case EffectType::MonoMixer:
+    e.node = gegl_node_new_child(
+        graph, "operation", op_name, "red", (gdouble)mono_mixer_state.red,
+        "green", (gdouble)mono_mixer_state.green, "blue",
+        (gdouble)mono_mixer_state.blue, "preserve-luminosity",
+        (gboolean)mono_mixer_state.preserve_luminosity, NULL);
     break;
   case EffectType::UnsharpMask:
     e.node = gegl_node_new_child(
@@ -241,13 +271,6 @@ Effect &ImageEditor::get_or_create_effect(EffectType type) {
     e.node = gegl_node_new_child(
         graph, "operation", op_name, "radius", (gint)median_blur_state.radius,
         "percentile", (gdouble)median_blur_state.percentile, NULL);
-    break;
-  case EffectType::DomainTransform:
-    e.node = gegl_node_new_child(
-        graph, "operation", op_name, "sigma-s",
-        (gdouble)domain_transform_state.sigma_s, "sigma-r",
-        (gdouble)domain_transform_state.sigma_r, "n-iterations",
-        (gint)domain_transform_state.n_iterations, NULL);
     break;
   case EffectType::BilateralFilter:
     e.node = gegl_node_new_child(
@@ -299,7 +322,8 @@ Effect &ImageEditor::get_or_create_effect(EffectType type) {
 
 void ImageEditor::render_controls() {
   ImGui::SeparatorText("Tone & Exposure");
-  if (gegl_has_operation("gegl:brightness-contrast") && ImGui::TreeNode("Brightness / Contrast")) {
+  const char *bc_op = find_op("brightness-contrast");
+  if (strcmp(bc_op, "gegl:nop") != 0 && ImGui::TreeNode("Brightness / Contrast")) {
     bool changed = false;
     static const double brightness_min = -1.0, brightness_max = 1.0;
     static const double contrast_min = 0.0, contrast_max = 2.0;
@@ -313,14 +337,17 @@ void ImageEditor::render_controls() {
 
     if (changed) {
       Effect &e = get_or_create_effect(EffectType::BrightnessContrast);
-      gegl_node_set(e.node, "brightness", (gdouble)brightness_contrast_state.brightness,
-                    "contrast", (gdouble)brightness_contrast_state.contrast, NULL);
-      apply_gegl_texture();
+      if (strcmp(gegl_node_get_operation(e.node), bc_op) == 0) {
+        gegl_node_set(e.node, "brightness", (gdouble)brightness_contrast_state.brightness,
+                      "contrast", (gdouble)brightness_contrast_state.contrast, NULL);
+        apply_gegl_texture();
+      }
     }
     ImGui::TreePop();
   }
 
-  if (gegl_has_operation("gegl:exposure") && ImGui::TreeNode("Exposure")) {
+  const char *exp_op = find_op("exposure");
+  if (strcmp(exp_op, "gegl:nop") != 0 && ImGui::TreeNode("Exposure")) {
     ImGui::SameLine();
     ImGui::TextDisabled("(?)");
     if (ImGui::BeginItemTooltip()) {
@@ -345,14 +372,17 @@ void ImageEditor::render_controls() {
 
     if (changed) {
       Effect &e = get_or_create_effect(EffectType::Exposure);
-      gegl_node_set(e.node, "black-level", (gdouble)exposure_state.black_level,
-                    "exposure", (gdouble)exposure_state.exposure, NULL);
-      apply_gegl_texture();
+      if (strcmp(gegl_node_get_operation(e.node), exp_op) == 0) {
+        gegl_node_set(e.node, "black-level", (gdouble)exposure_state.black_level,
+                      "exposure", (gdouble)exposure_state.exposure, NULL);
+        apply_gegl_texture();
+      }
     }
     ImGui::TreePop();
   }
 
-  if (gegl_has_operation("gegl:shadows-highlights") && ImGui::TreeNode("Shadows & Highlights")) {
+  const char *sh_op = find_op("shadows-highlights");
+  if (strcmp(sh_op, "gegl:nop") != 0 && ImGui::TreeNode("Shadows & Highlights")) {
     ImGui::SameLine();
     ImGui::TextDisabled("(?)");
     if (ImGui::BeginItemTooltip()) {
@@ -394,7 +424,7 @@ void ImageEditor::render_controls() {
 
     if (changed) {
       Effect &e = get_or_create_effect(EffectType::ShadowsHighlights);
-      if (e.node) {
+      if (strcmp(gegl_node_get_operation(e.node), sh_op) == 0) {
         gegl_node_set(e.node, "shadows", (gdouble)shadows_highlights_state.shadows,
                       "highlights", (gdouble)shadows_highlights_state.highlights,
                       "whitepoint", (gdouble)shadows_highlights_state.whitepoint,
@@ -408,7 +438,8 @@ void ImageEditor::render_controls() {
     ImGui::TreePop();
   }
 
-  if (gegl_has_operation("gegl:levels") && ImGui::TreeNode("Levels")) {
+  const char *lv_op = find_op("levels");
+  if (strcmp(lv_op, "gegl:nop") != 0 && ImGui::TreeNode("Levels")) {
     ImGui::SameLine();
     ImGui::TextDisabled("(?)");
     if (ImGui::BeginItemTooltip()) {
@@ -435,17 +466,20 @@ void ImageEditor::render_controls() {
 
     if (changed) {
       Effect &e = get_or_create_effect(EffectType::Levels);
-      gegl_node_set(e.node, "in-low", (gdouble)levels_state.in_low, "in-high",
-                    (gdouble)levels_state.in_high, "out-low",
-                    (gdouble)levels_state.out_low, "out-high",
-                    (gdouble)levels_state.out_high, NULL);
-      apply_gegl_texture();
+      if (strcmp(gegl_node_get_operation(e.node), lv_op) == 0) {
+        gegl_node_set(e.node, "in-low", (gdouble)levels_state.in_low, "in-high",
+                      (gdouble)levels_state.in_high, "out-low",
+                      (gdouble)levels_state.out_low, "out-high",
+                      (gdouble)levels_state.out_high, NULL);
+        apply_gegl_texture();
+      }
     }
     ImGui::TreePop();
   }
 
   ImGui::SeparatorText("Colour");
-  if (gegl_has_operation("gegl:color-temperature") && ImGui::TreeNode("Color Temperature")) {
+  const char *ct_op = find_op("color-temperature");
+  if (strcmp(ct_op, "gegl:nop") != 0 && ImGui::TreeNode("Color Temperature")) {
     ImGui::SameLine();
     ImGui::TextDisabled("(?)");
     if (ImGui::BeginItemTooltip()) {
@@ -469,16 +503,19 @@ void ImageEditor::render_controls() {
 
     if (changed) {
       Effect &e = get_or_create_effect(EffectType::ColorTemperature);
-      gegl_node_set(e.node, "original-temperature",
-                    (gdouble)color_temperature_state.original_temperature,
-                    "intended-temperature",
-                    (gdouble)color_temperature_state.intended_temperature, NULL);
-      apply_gegl_texture();
+      if (strcmp(gegl_node_get_operation(e.node), ct_op) == 0) {
+        gegl_node_set(e.node, "original-temperature",
+                      (gdouble)color_temperature_state.original_temperature,
+                      "intended-temperature",
+                      (gdouble)color_temperature_state.intended_temperature, NULL);
+        apply_gegl_texture();
+      }
     }
     ImGui::TreePop();
   }
 
-  if (gegl_has_operation("gegl:hue-chroma") && ImGui::TreeNode("Hue-Chroma")) {
+  const char *hc_op = find_op("hue-chroma");
+  if (strcmp(hc_op, "gegl:nop") != 0 && ImGui::TreeNode("Hue-Chroma")) {
     ImGui::SameLine();
     ImGui::TextDisabled("(?)");
     if (ImGui::BeginItemTooltip()) {
@@ -507,15 +544,18 @@ void ImageEditor::render_controls() {
 
     if (changed) {
       Effect &e = get_or_create_effect(EffectType::HueChroma);
-      gegl_node_set(e.node, "hue", (gdouble)hue_chroma_state.hue, "chroma",
-                    (gdouble)hue_chroma_state.chroma, "lightness",
-                    (gdouble)hue_chroma_state.lightness, NULL);
-      apply_gegl_texture();
+      if (strcmp(gegl_node_get_operation(e.node), hc_op) == 0) {
+        gegl_node_set(e.node, "hue", (gdouble)hue_chroma_state.hue, "chroma",
+                      (gdouble)hue_chroma_state.chroma, "lightness",
+                      (gdouble)hue_chroma_state.lightness, NULL);
+        apply_gegl_texture();
+      }
     }
     ImGui::TreePop();
   }
 
-  if (gegl_has_operation("gegl:saturation") && ImGui::TreeNode("Saturation")) {
+  const char *sat_op = find_op("saturation");
+  if (strcmp(sat_op, "gegl:nop") != 0 && ImGui::TreeNode("Saturation")) {
     ImGui::SameLine();
     ImGui::TextDisabled("(?)");
     if (ImGui::BeginItemTooltip()) {
@@ -536,13 +576,16 @@ void ImageEditor::render_controls() {
 
     if (changed) {
       Effect &e = get_or_create_effect(EffectType::Saturation);
-      gegl_node_set(e.node, "scale", (gdouble)saturation_state.scale, NULL);
-      apply_gegl_texture();
+      if (strcmp(gegl_node_get_operation(e.node), sat_op) == 0) {
+        gegl_node_set(e.node, "scale", (gdouble)saturation_state.scale, NULL);
+        apply_gegl_texture();
+      }
     }
     ImGui::TreePop();
   }
 
-  if (gegl_has_operation("gegl:color-balance") && ImGui::TreeNode("Color Balance")) {
+  const char *cb_op = find_op("color-balance");
+  if (strcmp(cb_op, "gegl:nop") != 0 && ImGui::TreeNode("Color Balance")) {
     ImGui::SameLine();
     ImGui::TextDisabled("(?)");
     if (ImGui::BeginItemTooltip()) {
@@ -571,16 +614,16 @@ void ImageEditor::render_controls() {
 
     if (changed) {
       Effect &e = get_or_create_effect(EffectType::ColorBalance);
-      if (e.node) {
-        gegl_node_set(e.node, "cyan-red-s", (gdouble)color_balance_state.cyan_red_s,
-                      "magenta-green-s", (gdouble)color_balance_state.magenta_green_s,
-                      "yellow-blue-s", (gdouble)color_balance_state.yellow_blue_s,
-                      "cyan-red-m", (gdouble)color_balance_state.cyan_red_m,
-                      "magenta-green-m", (gdouble)color_balance_state.magenta_green_m,
-                      "yellow-blue-m", (gdouble)color_balance_state.yellow_blue_m,
-                      "cyan-red-h", (gdouble)color_balance_state.cyan_red_h,
-                      "magenta-green-h", (gdouble)color_balance_state.magenta_green_h,
-                      "yellow-blue-h", (gdouble)color_balance_state.yellow_blue_h,
+      if (strcmp(gegl_node_get_operation(e.node), cb_op) == 0) {
+        gegl_node_set(e.node, "cyan-red-shadows", (gdouble)color_balance_state.cyan_red_shadows,
+                      "magenta-green-shadows", (gdouble)color_balance_state.magenta_green_shadows,
+                      "yellow-blue-shadows", (gdouble)color_balance_state.yellow_blue_shadows,
+                      "cyan-red-midtones", (gdouble)color_balance_state.cyan_red_midtones,
+                      "magenta-green-midtones", (gdouble)color_balance_state.magenta_green_midtones,
+                      "yellow-blue-midtones", (gdouble)color_balance_state.yellow_blue_midtones,
+                      "cyan-red-highlights", (gdouble)color_balance_state.cyan_red_highlights,
+                      "magenta-green-highlights", (gdouble)color_balance_state.magenta_green_highlights,
+                      "yellow-blue-highlights", (gdouble)color_balance_state.yellow_blue_highlights,
                       "preserve-luminosity", (gboolean)color_balance_state.preserve_luminosity, NULL);
         apply_gegl_texture();
       }
@@ -588,7 +631,8 @@ void ImageEditor::render_controls() {
     ImGui::TreePop();
   }
 
-  if (gegl_has_operation("gegl:sepia") && ImGui::TreeNode("Sepia")) {
+  const char *sep_op = find_op("sepia");
+  if (strcmp(sep_op, "gegl:nop") != 0 && ImGui::TreeNode("Sepia")) {
     ImGui::SameLine();
     ImGui::TextDisabled("(?)");
     if (ImGui::BeginItemTooltip()) {
@@ -604,7 +648,7 @@ void ImageEditor::render_controls() {
 
     if (changed) {
       Effect &e = get_or_create_effect(EffectType::Sepia);
-      if (e.node) {
+      if (strcmp(gegl_node_get_operation(e.node), sep_op) == 0) {
         gegl_node_set(e.node, "scale", (gdouble)sepia_state.scale, NULL);
         apply_gegl_texture();
       }
@@ -612,30 +656,39 @@ void ImageEditor::render_controls() {
     ImGui::TreePop();
   }
 
-  if (gegl_has_operation("gegl:color-enhance") && ImGui::TreeNode("Color Enhance")) {
+  const char *mm_op = find_op("mono-mixer");
+  if (strcmp(mm_op, "gegl:nop") != 0 && ImGui::TreeNode("Mono Mixer")) {
     ImGui::SameLine();
     ImGui::TextDisabled("(?)");
     if (ImGui::BeginItemTooltip()) {
       ImGui::PushTextWrapPos(300.0f);
-      ImGui::TextUnformatted(
-          "Stretches the colour chroma to cover the maximum possible range, "
-          "keeping hue and lightness untouched. Useful for images that look "
-          "dull without being over or under exposed.");
+      ImGui::TextUnformatted("Monochrome channel mixer.");
       ImGui::PopTextWrapPos();
       ImGui::EndTooltip();
     }
 
-    if (ImGui::Checkbox("Enable", &color_enhance_state.enabled)) {
-      // TODO: support effect removal
-      if (color_enhance_state.enabled) {
-        get_or_create_effect(EffectType::ColorEnhance);
+    bool changed = false;
+    static const double mm_min = -2.0, mm_max = 2.0;
+    changed |= ImGui::SliderScalar("Red", ImGuiDataType_Double, &mono_mixer_state.red, &mm_min, &mm_max, "%.3f");
+    changed |= ImGui::SliderScalar("Green", ImGuiDataType_Double, &mono_mixer_state.green, &mm_min, &mm_max, "%.3f");
+    changed |= ImGui::SliderScalar("Blue", ImGuiDataType_Double, &mono_mixer_state.blue, &mm_min, &mm_max, "%.3f");
+    changed |= ImGui::Checkbox("Preserve Luminosity", &mono_mixer_state.preserve_luminosity);
+
+    if (changed) {
+      Effect &e = get_or_create_effect(EffectType::MonoMixer);
+      if (strcmp(gegl_node_get_operation(e.node), mm_op) == 0) {
+        gegl_node_set(e.node, "red", (gdouble)mono_mixer_state.red,
+                      "green", (gdouble)mono_mixer_state.green,
+                      "blue", (gdouble)mono_mixer_state.blue,
+                      "preserve-luminosity", (gboolean)mono_mixer_state.preserve_luminosity, NULL);
+        apply_gegl_texture();
       }
-      apply_gegl_texture();
     }
     ImGui::TreePop();
   }
 
-  if (gegl_has_operation("gegl:stretch-contrast") && ImGui::TreeNode("Stretch Contrast")) {
+  const char *sc_op = find_op("stretch-contrast");
+  if (strcmp(sc_op, "gegl:nop") != 0 && ImGui::TreeNode("Stretch Contrast")) {
     ImGui::SameLine();
     ImGui::TextDisabled("(?)");
     if (ImGui::BeginItemTooltip()) {
@@ -649,16 +702,18 @@ void ImageEditor::render_controls() {
     }
 
     if (ImGui::Checkbox("Enable", &stretch_contrast_state.enabled)) {
-      // TODO: support effect removal
       if (stretch_contrast_state.enabled) {
         get_or_create_effect(EffectType::StretchContrast);
+      } else {
+        remove_effect(EffectType::StretchContrast);
       }
       apply_gegl_texture();
     }
     ImGui::TreePop();
   }
 
-  if (gegl_has_operation("gegl:stretch-contrast-hsv") && ImGui::TreeNode("Stretch Contrast HSV")) {
+  const char *sch_op = find_op("stretch-contrast-hsv");
+  if (strcmp(sch_op, "gegl:nop") != 0 && ImGui::TreeNode("Stretch Contrast HSV")) {
     ImGui::SameLine();
     ImGui::TextDisabled("(?)");
     if (ImGui::BeginItemTooltip()) {
@@ -671,9 +726,10 @@ void ImageEditor::render_controls() {
     }
 
     if (ImGui::Checkbox("Enable", &stretch_contrast_hsv_state.enabled)) {
-      // TODO: support effect removal
       if (stretch_contrast_hsv_state.enabled) {
         get_or_create_effect(EffectType::StretchContrastHSV);
+      } else {
+        remove_effect(EffectType::StretchContrastHSV);
       }
       apply_gegl_texture();
     }
@@ -681,7 +737,8 @@ void ImageEditor::render_controls() {
   }
 
   ImGui::SeparatorText("Blur");
-  if (gegl_has_operation("gegl:gaussian-blur") && ImGui::TreeNode("Gaussian Blur")) {
+  const char *gb_op = find_op("gaussian-blur");
+  if (strcmp(gb_op, "gegl:nop") != 0 && ImGui::TreeNode("Gaussian Blur")) {
     ImGui::SameLine();
     ImGui::TextDisabled("(?)");
     if (ImGui::BeginItemTooltip()) {
@@ -698,7 +755,7 @@ void ImageEditor::render_controls() {
 
     if (changed) {
       Effect &e = get_or_create_effect(EffectType::GaussianBlur);
-      if (e.node) {
+      if (strcmp(gegl_node_get_operation(e.node), gb_op) == 0) {
         gegl_node_set(e.node, "std-dev-x", (gdouble)gaussian_blur_state.std_dev_x,
                       "std-dev-y", (gdouble)gaussian_blur_state.std_dev_y, NULL);
         apply_gegl_texture();
@@ -708,7 +765,8 @@ void ImageEditor::render_controls() {
   }
 
   ImGui::SeparatorText("Sharpening");
-  if (gegl_has_operation("gegl:unsharp-mask") && ImGui::TreeNode("Unsharp Mask")) {
+  const char *um_op = find_op("unsharp-mask");
+  if (strcmp(um_op, "gegl:nop") != 0 && ImGui::TreeNode("Unsharp Mask")) {
     ImGui::SameLine();
     ImGui::TextDisabled("(?)");
     if (ImGui::BeginItemTooltip()) {
@@ -738,15 +796,18 @@ void ImageEditor::render_controls() {
 
     if (changed) {
       Effect &e = get_or_create_effect(EffectType::UnsharpMask);
-      gegl_node_set(e.node, "std-dev", (gdouble)unsharp_mask_state.std_dev,
-                    "scale", (gdouble)unsharp_mask_state.scale, "threshold",
-                    (gdouble)unsharp_mask_state.threshold, NULL);
-      apply_gegl_texture();
+      if (strcmp(gegl_node_get_operation(e.node), um_op) == 0) {
+        gegl_node_set(e.node, "std-dev", (gdouble)unsharp_mask_state.std_dev,
+                      "scale", (gdouble)unsharp_mask_state.scale, "threshold",
+                      (gdouble)unsharp_mask_state.threshold, NULL);
+        apply_gegl_texture();
+      }
     }
     ImGui::TreePop();
   }
 
-  if (gegl_has_operation("gegl:high-pass") && ImGui::TreeNode("High Pass")) {
+  const char *hp_op = find_op("high-pass");
+  if (strcmp(hp_op, "gegl:nop") != 0 && ImGui::TreeNode("High Pass")) {
     ImGui::SameLine();
     ImGui::TextDisabled("(?)");
     if (ImGui::BeginItemTooltip()) {
@@ -771,15 +832,18 @@ void ImageEditor::render_controls() {
 
     if (changed) {
       Effect &e = get_or_create_effect(EffectType::HighPass);
-      gegl_node_set(e.node, "std-dev", (gdouble)high_pass_state.std_dev,
-                    "contrast", (gdouble)high_pass_state.contrast, NULL);
-      apply_gegl_texture();
+      if (strcmp(gegl_node_get_operation(e.node), hp_op) == 0) {
+        gegl_node_set(e.node, "std-dev", (gdouble)high_pass_state.std_dev,
+                      "contrast", (gdouble)high_pass_state.contrast, NULL);
+        apply_gegl_texture();
+      }
     }
     ImGui::TreePop();
   }
 
   ImGui::SeparatorText("Noise Reduction");
-  if (gegl_has_operation("gegl:noise-reduction") && ImGui::TreeNode("Noise Reduction")) {
+  const char *nr_op = find_op("noise-reduction");
+  if (strcmp(nr_op, "gegl:nop") != 0 && ImGui::TreeNode("Noise Reduction")) {
     ImGui::SameLine();
     ImGui::TextDisabled("(?)");
     if (ImGui::BeginItemTooltip()) {
@@ -799,14 +863,17 @@ void ImageEditor::render_controls() {
 
     if (changed) {
       Effect &e = get_or_create_effect(EffectType::NoiseReduction);
-      gegl_node_set(e.node, "iterations", (gint)noise_reduction_state.iterations,
-                    NULL);
-      apply_gegl_texture();
+      if (strcmp(gegl_node_get_operation(e.node), nr_op) == 0) {
+        gegl_node_set(e.node, "iterations", (gint)noise_reduction_state.iterations,
+                      NULL);
+        apply_gegl_texture();
+      }
     }
     ImGui::TreePop();
   }
 
-  if (gegl_has_operation("gegl:snn-mean") && ImGui::TreeNode("SNN Mean")) {
+  const char *snn_op = find_op("snn-mean");
+  if (strcmp(snn_op, "gegl:nop") != 0 && ImGui::TreeNode("SNN Mean")) {
     ImGui::SameLine();
     ImGui::TextDisabled("(?)");
     if (ImGui::BeginItemTooltip()) {
@@ -827,14 +894,17 @@ void ImageEditor::render_controls() {
 
     if (changed) {
       Effect &e = get_or_create_effect(EffectType::SNNMean);
-      gegl_node_set(e.node, "radius", (gint)snn_mean_state.radius, "pairs",
-                    (gint)snn_mean_state.pairs, NULL);
-      apply_gegl_texture();
+      if (strcmp(gegl_node_get_operation(e.node), snn_op) == 0) {
+        gegl_node_set(e.node, "radius", (gint)snn_mean_state.radius, "pairs",
+                      (gint)snn_mean_state.pairs, NULL);
+        apply_gegl_texture();
+      }
     }
     ImGui::TreePop();
   }
 
-  if (gegl_has_operation("gegl:median-blur") && ImGui::TreeNode("Median Blur")) {
+  const char *mb_op = find_op("median-blur");
+  if (strcmp(mb_op, "gegl:nop") != 0 && ImGui::TreeNode("Median Blur")) {
     ImGui::SameLine();
     ImGui::TextDisabled("(?)");
     if (ImGui::BeginItemTooltip()) {
@@ -852,7 +922,7 @@ void ImageEditor::render_controls() {
 
     if (changed) {
       Effect &e = get_or_create_effect(EffectType::MedianBlur);
-      if (e.node) {
+      if (strcmp(gegl_node_get_operation(e.node), mb_op) == 0) {
         gegl_node_set(e.node, "radius", (gint)median_blur_state.radius,
                       "percentile", (gdouble)median_blur_state.percentile, NULL);
         apply_gegl_texture();
@@ -861,45 +931,8 @@ void ImageEditor::render_controls() {
     ImGui::TreePop();
   }
 
-  if (gegl_has_operation("gegl:domain-transform") && ImGui::TreeNode("Domain Transform")) {
-    ImGui::SameLine();
-    ImGui::TextDisabled("(?)");
-    if (ImGui::BeginItemTooltip()) {
-      ImGui::PushTextWrapPos(300.0f);
-      ImGui::TextUnformatted(
-          "An edge-preserving smoothing filter implemented with the Domain "
-          "Transform recursive technique. Similar to a bilateral filter but "
-          "significantly faster to compute.");
-      ImGui::PopTextWrapPos();
-      ImGui::EndTooltip();
-    }
-
-    bool changed = false;
-    static const double ss_min = 0.0, ss_max = 300.0;
-    static const double sr_min = 0.0, sr_max = 1.0;
-    static const int ni_min = 1, ni_max = 10;
-    changed |= ImGui::SliderScalar("Sigma S", ImGuiDataType_Double,
-                                   &domain_transform_state.sigma_s, &ss_min,
-                                   &ss_max, "%.1f");
-    changed |= ImGui::SliderScalar("Sigma R", ImGuiDataType_Double,
-                                   &domain_transform_state.sigma_r, &sr_min,
-                                   &sr_max, "%.3f");
-    changed |= ImGui::SliderInt("Iterations",
-                                &domain_transform_state.n_iterations, ni_min,
-                                ni_max);
-
-    if (changed) {
-      Effect &e = get_or_create_effect(EffectType::DomainTransform);
-      gegl_node_set(e.node, "sigma-s", (gdouble)domain_transform_state.sigma_s,
-                    "sigma-r", (gdouble)domain_transform_state.sigma_r,
-                    "n-iterations", (gint)domain_transform_state.n_iterations,
-                    NULL);
-      apply_gegl_texture();
-    }
-    ImGui::TreePop();
-  }
-
-  if (gegl_has_operation("gegl:bilateral-filter") && ImGui::TreeNode("Bilateral Filter")) {
+  const char *bf_op = find_op("bilateral-filter");
+  if (strcmp(bf_op, "gegl:nop") != 0 && ImGui::TreeNode("Bilateral Filter")) {
     ImGui::SameLine();
     ImGui::TextDisabled("(?)");
     if (ImGui::BeginItemTooltip()) {
@@ -928,19 +961,22 @@ void ImageEditor::render_controls() {
     ImGui::BeginDisabled(!bilateral_filter_state.dirty);
     if (ImGui::Button("Apply##Bilateral")) {
       Effect &e = get_or_create_effect(EffectType::BilateralFilter);
-      gegl_node_set(e.node, "blur-radius",
-                    (gdouble)bilateral_filter_state.blur_radius,
-                    "edge-preservation",
-                    (gdouble)bilateral_filter_state.edge_preservation, NULL);
-      apply_gegl_texture();
-      bilateral_filter_state.dirty = false;
+      if (strcmp(gegl_node_get_operation(e.node), bf_op) == 0) {
+        gegl_node_set(e.node, "blur-radius",
+                      (gdouble)bilateral_filter_state.blur_radius,
+                      "edge-preservation",
+                      (gdouble)bilateral_filter_state.edge_preservation, NULL);
+        apply_gegl_texture();
+        bilateral_filter_state.dirty = false;
+      }
     }
     ImGui::EndDisabled();
     ImGui::TreePop();
   }
 
   ImGui::SeparatorText("Correction");
-  if (gegl_has_operation("gegl:lens-distortion") && ImGui::TreeNode("Lens Distortion")) {
+  const char *ld_op = find_op("lens-distortion");
+  if (strcmp(ld_op, "gegl:nop") != 0 && ImGui::TreeNode("Lens Distortion")) {
     ImGui::SameLine();
     ImGui::TextDisabled("(?)");
     if (ImGui::BeginItemTooltip()) {
@@ -961,7 +997,7 @@ void ImageEditor::render_controls() {
 
     if (changed) {
       Effect &e = get_or_create_effect(EffectType::LensDistortion);
-      if (e.node) {
+      if (strcmp(gegl_node_get_operation(e.node), ld_op) == 0) {
         gegl_node_set(e.node, "main", (gdouble)lens_distortion_state.main,
                       "edge", (gdouble)lens_distortion_state.edge,
                       "zoom", (gdouble)lens_distortion_state.zoom,
@@ -974,7 +1010,8 @@ void ImageEditor::render_controls() {
     ImGui::TreePop();
   }
 
-  if (gegl_has_operation("gegl:vignette") && ImGui::TreeNode("Vignette")) {
+  const char *vig_op = find_op("vignette");
+  if (strcmp(vig_op, "gegl:nop") != 0 && ImGui::TreeNode("Vignette")) {
     ImGui::SameLine();
     ImGui::TextDisabled("(?)");
     if (ImGui::BeginItemTooltip()) {
@@ -996,7 +1033,7 @@ void ImageEditor::render_controls() {
 
     if (changed) {
       Effect &e = get_or_create_effect(EffectType::Vignette);
-      if (e.node) {
+      if (strcmp(gegl_node_get_operation(e.node), vig_op) == 0) {
         gegl_node_set(e.node, "radius", (gdouble)vignette_state.radius,
                       "softness", (gdouble)vignette_state.softness,
                       "gamma", (gdouble)vignette_state.gamma,
@@ -1053,7 +1090,8 @@ void ImageEditor::render_controls() {
     ImGui::TreePop();
   }
 
-  if (gegl_has_operation("gegl:stress") && ImGui::TreeNode("STRESS")) {
+  const char *str_op = find_op("stress");
+  if (strcmp(str_op, "gegl:nop") != 0 && ImGui::TreeNode("STRESS")) {
     ImGui::SameLine();
     ImGui::TextDisabled("(?)");
     if (ImGui::BeginItemTooltip()) {
@@ -1079,7 +1117,7 @@ void ImageEditor::render_controls() {
     ImGui::BeginDisabled(!stress_state.dirty);
     if (ImGui::Button("Apply##STRESS")) {
       Effect &e = get_or_create_effect(EffectType::Stress);
-      if (e.node) {
+      if (strcmp(gegl_node_get_operation(e.node), str_op) == 0) {
         gegl_node_set(e.node, "radius", (gint)stress_state.radius,
                       "samples", (gint)stress_state.samples,
                       "iterations", (gint)stress_state.iterations, NULL);
