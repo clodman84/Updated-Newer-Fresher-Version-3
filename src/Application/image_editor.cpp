@@ -9,6 +9,10 @@
 #include <cmath>
 #include <gegl.h>
 
+#ifdef TRACY_ENABLE
+#include <tracy/Tracy.hpp>
+#endif
+
 ImageEditor::~ImageEditor() {
   if (preview_texture != nullptr) {
     SDL_ReleaseGPUTexture(device, preview_texture);
@@ -95,6 +99,9 @@ void ImageEditor::prepare_gegl_graph() {
 }
 
 void ImageEditor::apply_gegl_texture() {
+#ifdef TRACY_ENABLE
+  ZoneScopedN("apply_gegl_texture");
+#endif
   if (sink == nullptr)
     return;
 

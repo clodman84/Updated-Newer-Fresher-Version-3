@@ -3,6 +3,10 @@
 #include <cstring>
 #include <misc/cpp/imgui_stdlib.h>
 
+#ifdef TRACY_ENABLE
+#include <tracy/Tracy.hpp>
+#endif
+
 template <typename T> static inline T Clamp(T value, T lo, T hi) {
   return value < lo ? lo : (value > hi ? hi : value);
 }
