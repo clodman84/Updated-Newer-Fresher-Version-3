@@ -59,19 +59,6 @@ struct StretchContrastHSVState {
   bool enabled = false;
 };
 
-struct ColorBalanceState {
-  double cyan_red_shadows = 0.0;
-  double magenta_green_shadows = 0.0;
-  double yellow_blue_shadows = 0.0;
-  double cyan_red_midtones = 0.0;
-  double magenta_green_midtones = 0.0;
-  double yellow_blue_midtones = 0.0;
-  double cyan_red_highlights = 0.0;
-  double magenta_green_highlights = 0.0;
-  double yellow_blue_highlights = 0.0;
-  bool preserve_luminosity = true;
-};
-
 struct SepiaState {
   double scale = 1.0;
 };
@@ -167,7 +154,6 @@ enum class EffectType {
   Saturation,
   StretchContrast,
   StretchContrastHSV,
-  ColorBalance,
   Sepia,
   MonoMixer,
   // Sharpening
@@ -237,7 +223,6 @@ private:
   SaturationState saturation_state;
   StretchContrastState stretch_contrast_state;
   StretchContrastHSVState stretch_contrast_hsv_state;
-  ColorBalanceState color_balance_state;
   SepiaState sepia_state;
   MonoMixerState mono_mixer_state;
 
