@@ -3,8 +3,10 @@
 #include "gegl-types.h"
 #include "gpu_utils.h"
 #include "imgui.h"
+#include "imgui_internal.h"
 #include "stb_image.h"
 #include <algorithm>
+#include <cmath>
 #include <gegl.h>
 
 ImageEditor::~ImageEditor() {
@@ -144,12 +146,32 @@ Effect &ImageEditor::get_or_create_effect(EffectType type) {
         (gdouble)shadows_highlights_state.highlights_ccorrect, NULL);
     break;
   case EffectType::Levels:
-    // TODO: Replace this with gimp style levels tool
-    e.node = gegl_node_new_child(graph, "operation", "gegl:levels", "in-low",
-                                 (gdouble)levels_state.in_low, "in-high",
-                                 (gdouble)levels_state.in_high, "out-low",
-                                 (gdouble)levels_state.out_low, "out-high",
-                                 (gdouble)levels_state.out_high, NULL);
+    e.node = gegl_node_new_child(
+        graph, "operation", "unfv3:gimp-levels", "in-low",
+        (gdouble)levels_state.in_low, "in-high", (gdouble)levels_state.in_high,
+        "gamma", (gdouble)levels_state.gamma, "out-low",
+        (gdouble)levels_state.out_low, "out-high",
+        (gdouble)levels_state.out_high, "in-low-r",
+        (gdouble)levels_state.in_low_r, "in-high-r",
+        (gdouble)levels_state.in_high_r, "gamma-r",
+        (gdouble)levels_state.gamma_r, "out-low-r",
+        (gdouble)levels_state.out_low_r, "out-high-r",
+        (gdouble)levels_state.out_high_r, "in-low-g",
+        (gdouble)levels_state.in_low_g, "in-high-g",
+        (gdouble)levels_state.in_high_g, "gamma-g",
+        (gdouble)levels_state.gamma_g, "out-low-g",
+        (gdouble)levels_state.out_low_g, "out-high-g",
+        (gdouble)levels_state.out_high_g, "in-low-b",
+        (gdouble)levels_state.in_low_b, "in-high-b",
+        (gdouble)levels_state.in_high_b, "gamma-b",
+        (gdouble)levels_state.gamma_b, "out-low-b",
+        (gdouble)levels_state.out_low_b, "out-high-b",
+        (gdouble)levels_state.out_high_b, "in-low-a",
+        (gdouble)levels_state.in_low_a, "in-high-a",
+        (gdouble)levels_state.in_high_a, "gamma-a",
+        (gdouble)levels_state.gamma_a, "out-low-a",
+        (gdouble)levels_state.out_low_a, "out-high-a",
+        (gdouble)levels_state.out_high_a, NULL);
     break;
   case EffectType::ColorTemperature:
     e.node = gegl_node_new_child(
@@ -217,6 +239,161 @@ Effect &ImageEditor::get_or_create_effect(EffectType type) {
 
   effects.emplace_back(e);
   return effects.back();
+}
+
+static bool DrawLevelsBar(const char *id, double &in_low, double &gamma,
+                          double &in_high, double &out_low, double &out_high,
+                          ImVec4 color_left, ImVec4 color_right) {
+  ImGui::PushID(id);
+  ImDrawList *dl = ImGui::GetWindowDrawList();
+
+  float width = ImGui::GetContentRegionAvail().x;
+  float height = 16.0f;
+
+  bool changed = false;
+
+  ImVec2 p0 = ImGui::GetCursorScreenPos();
+  ImVec2 p1 = ImVec2(p0.x + width, p0.y + height);
+
+  const int STEPS = 64;
+  for (int i = 0; i < STEPS; i++) {
+    float t0 = (float)i / STEPS;
+    float t1 = (float)(i + 1) / STEPS;
+
+    // apply input levels
+    auto remap = [&](float t) {
+      if (t <= in_low)
+        return 0.0f;
+      if (t >= in_high)
+        return 1.0f;
+
+      float x = (t - in_low) / (in_high - in_low);
+
+      // gamma curve
+      float g = (float)(1.0 / gamma);
+      x = powf(x, g);
+
+      // output levels
+      return (float)(out_low + x * (out_high - out_low));
+    };
+
+    float r0 = remap(t0);
+    float r1 = remap(t1);
+
+    ImVec4 c0 = ImLerp(color_left, color_right, r0);
+    ImVec4 c1 = ImLerp(color_left, color_right, r1);
+
+    float x0 = p0.x + t0 * width;
+    float x1 = p0.x + t1 * width;
+
+    dl->AddRectFilledMultiColor(
+        ImVec2(x0, p0.y), ImVec2(x1, p1.y), ImGui::ColorConvertFloat4ToU32(c0),
+        ImGui::ColorConvertFloat4ToU32(c1), ImGui::ColorConvertFloat4ToU32(c1),
+        ImGui::ColorConvertFloat4ToU32(c0));
+  }
+
+  auto gamma_to_t = [&](double g) {
+    return (float)((log(g) - log(0.1)) / (log(10.0) - log(0.1)));
+  };
+
+  auto t_to_gamma = [&](float t) {
+    return exp(log(0.1) + t * (log(10.0) - log(0.1)));
+  };
+
+  float t_low = (float)in_low;
+  float t_high = (float)in_high;
+  float t_gamma = gamma_to_t(gamma);
+
+  ImGui::InvisibleButton("input_bar", ImVec2(width, height + 12));
+  bool active = ImGui::IsItemActive();
+
+  float mouse_t = (ImGui::GetIO().MousePos.x - p0.x) / width;
+  mouse_t = std::clamp(mouse_t, 0.0f, 1.0f);
+
+  float d_low = fabsf(mouse_t - t_low);
+  float d_mid = fabsf(mouse_t - t_gamma);
+  float d_high = fabsf(mouse_t - t_high);
+
+  enum Handle { LOW, MID, HIGH };
+  Handle target = LOW;
+
+  if (d_mid < d_low && d_mid < d_high)
+    target = MID;
+  else if (d_high < d_low)
+    target = HIGH;
+
+  if (active && ImGui::IsMouseDragging(0)) {
+    if (target == LOW) {
+      in_low = std::min((double)mouse_t, in_high - 0.001);
+    } else if (target == HIGH) {
+      in_high = std::max((double)mouse_t, in_low + 0.001);
+    } else {
+      gamma = std::clamp(t_to_gamma(mouse_t), 0.1, 10.0);
+    }
+    changed = true;
+  }
+
+  auto X = [&](float t) { return p0.x + t * width; };
+
+  auto draw_tri_up = [&](float t, ImU32 col) {
+    float x = X(t);
+    float y = p1.y;
+    dl->AddTriangleFilled(ImVec2(x - 6, y + 2), ImVec2(x + 6, y + 2),
+                          ImVec2(x, y - 6), col);
+  };
+
+  auto draw_diamond = [&](float t, ImU32 col) {
+    float x = X(t);
+    float y = (p0.y + p1.y) * 0.5f;
+
+    dl->AddQuadFilled(ImVec2(x, y - 6), ImVec2(x + 6, y), ImVec2(x, y + 6),
+                      ImVec2(x - 6, y), col);
+
+    // guide line
+    dl->AddLine(ImVec2(x, p0.y), ImVec2(x, p1.y), IM_COL32(255, 255, 255, 80));
+  };
+
+  draw_tri_up(t_low, IM_COL32(255, 255, 255, 255));
+  draw_tri_up(t_high, IM_COL32(255, 255, 255, 255));
+  draw_diamond(t_gamma, IM_COL32(220, 220, 220, 255));
+
+  ImGui::SetCursorScreenPos(ImVec2(p0.x, p1.y + 14));
+  ImVec2 p2 = ImGui::GetCursorScreenPos();
+  ImVec2 p3 = ImVec2(p2.x + width, p2.y + height);
+
+  dl->AddRectFilledMultiColor(
+      p2, p3, IM_COL32(0, 0, 0, 255), IM_COL32(255, 255, 255, 255),
+      IM_COL32(255, 255, 255, 255), IM_COL32(0, 0, 0, 255));
+
+  ImGui::InvisibleButton("output_bar", ImVec2(width, height + 12));
+  active = ImGui::IsItemActive();
+
+  mouse_t = (ImGui::GetIO().MousePos.x - p2.x) / width;
+  mouse_t = std::clamp(mouse_t, 0.0f, 1.0f);
+
+  float d_ol = fabsf(mouse_t - (float)out_low);
+  float d_oh = fabsf(mouse_t - (float)out_high);
+
+  if (active && ImGui::IsMouseDragging(0)) {
+    if (d_ol < d_oh)
+      out_low = std::min((double)mouse_t, out_high - 0.001);
+    else
+      out_high = std::max((double)mouse_t, out_low + 0.001);
+    changed = true;
+  }
+
+  auto draw_tri_down = [&](float t, ImU32 col) {
+    float x = p2.x + t * width;
+    float y = p2.y;
+    dl->AddTriangleFilled(ImVec2(x - 6, y - 2), ImVec2(x + 6, y - 2),
+                          ImVec2(x, y + 6), col);
+  };
+
+  draw_tri_down((float)out_low, IM_COL32(255, 255, 255, 255));
+  draw_tri_down((float)out_high, IM_COL32(255, 255, 255, 255));
+  ImGui::PopID();
+
+  return changed;
 }
 
 void ImageEditor::render_controls() {
@@ -358,9 +535,10 @@ void ImageEditor::render_controls() {
     ImGui::TreePop();
   }
 
-  if (gegl_has_operation("gegl:levels") && ImGui::TreeNode("Levels")) {
+  if (ImGui::TreeNode("Levels")) {
     const EffectType type = EffectType::Levels;
     bool active = is_effect_active(type);
+
     if (ImGui::Checkbox("Enabled##Lv", &active)) {
       if (active)
         get_or_create_effect(type);
@@ -374,9 +552,30 @@ void ImageEditor::render_controls() {
       if (active) {
         Effect &e = get_or_create_effect(type);
         gegl_node_set(e.node, "in-low", (gdouble)levels_state.in_low, "in-high",
-                      (gdouble)levels_state.in_high, "out-low",
+                      (gdouble)levels_state.in_high, "gamma",
+                      (gdouble)levels_state.gamma, "out-low",
                       (gdouble)levels_state.out_low, "out-high",
-                      (gdouble)levels_state.out_high, NULL);
+                      (gdouble)levels_state.out_high, "in-low-r",
+                      (gdouble)levels_state.in_low_r, "in-high-r",
+                      (gdouble)levels_state.in_high_r, "gamma-r",
+                      (gdouble)levels_state.gamma_r, "out-low-r",
+                      (gdouble)levels_state.out_low_r, "out-high-r",
+                      (gdouble)levels_state.out_high_r, "in-low-g",
+                      (gdouble)levels_state.in_low_g, "in-high-g",
+                      (gdouble)levels_state.in_high_g, "gamma-g",
+                      (gdouble)levels_state.gamma_g, "out-low-g",
+                      (gdouble)levels_state.out_low_g, "out-high-g",
+                      (gdouble)levels_state.out_high_g, "in-low-b",
+                      (gdouble)levels_state.in_low_b, "in-high-b",
+                      (gdouble)levels_state.in_high_b, "gamma-b",
+                      (gdouble)levels_state.gamma_b, "out-low-b",
+                      (gdouble)levels_state.out_low_b, "out-high-b",
+                      (gdouble)levels_state.out_high_b, "in-low-a",
+                      (gdouble)levels_state.in_low_a, "in-high-a",
+                      (gdouble)levels_state.in_high_a, "gamma-a",
+                      (gdouble)levels_state.gamma_a, "out-low-a",
+                      (gdouble)levels_state.out_low_a, "out-high-a",
+                      (gdouble)levels_state.out_high_a, NULL);
         apply_gegl_texture();
       }
     }
@@ -386,34 +585,64 @@ void ImageEditor::render_controls() {
     if (ImGui::BeginItemTooltip()) {
       ImGui::PushTextWrapPos(300.0f);
       ImGui::TextUnformatted(
-          "Set input and output black and white points to remap the tonal "
-          "range. Drag the input points inward to increase contrast; drag "
-          "output points inward to limit the range.");
+          "Per-channel input/output levels with gamma midtone adjustment.");
       ImGui::PopTextWrapPos();
       ImGui::EndTooltip();
     }
 
     bool changed = false;
-    static const double l_min = 0.0, l_max = 1.0;
-    changed |=
-        ImGui::SliderScalar("Input Low", ImGuiDataType_Double,
-                            &levels_state.in_low, &l_min, &l_max, "%.3f");
-    changed |=
-        ImGui::SliderScalar("Input High", ImGuiDataType_Double,
-                            &levels_state.in_high, &l_min, &l_max, "%.3f");
-    changed |=
-        ImGui::SliderScalar("Output Low", ImGuiDataType_Double,
-                            &levels_state.out_low, &l_min, &l_max, "%.3f");
-    changed |=
-        ImGui::SliderScalar("Output High", ImGuiDataType_Double,
-                            &levels_state.out_high, &l_min, &l_max, "%.3f");
+
+    ImGui::SeparatorText("Composite");
+    changed |= DrawLevelsBar("C", levels_state.in_low, levels_state.gamma,
+                             levels_state.in_high, levels_state.out_low,
+                             levels_state.out_high, ImVec4(0, 0, 0, 1),
+                             ImVec4(1, 1, 1, 1));
+
+    ImGui::SeparatorText("Red Channel");
+    changed |= DrawLevelsBar("R", levels_state.in_low_r, levels_state.gamma_r,
+                             levels_state.in_high_r, levels_state.out_low_r,
+                             levels_state.out_high_r, ImVec4(0, 0, 0, 1),
+                             ImVec4(1, 0, 0, 1));
+
+    ImGui::SeparatorText("Green Channel");
+    changed |= DrawLevelsBar("G", levels_state.in_low_g, levels_state.gamma_g,
+                             levels_state.in_high_g, levels_state.out_low_g,
+                             levels_state.out_high_g, ImVec4(0, 0, 0, 1),
+                             ImVec4(0, 1, 0, 1));
+
+    ImGui::SeparatorText("Blue Channel");
+    changed |= DrawLevelsBar("B", levels_state.in_low_b, levels_state.gamma_b,
+                             levels_state.in_high_b, levels_state.out_low_b,
+                             levels_state.out_high_b, ImVec4(0, 0, 0, 1),
+                             ImVec4(0, 0, 1, 1));
 
     if (changed && active) {
       Effect &e = get_or_create_effect(type);
       gegl_node_set(e.node, "in-low", (gdouble)levels_state.in_low, "in-high",
-                    (gdouble)levels_state.in_high, "out-low",
+                    (gdouble)levels_state.in_high, "gamma",
+                    (gdouble)levels_state.gamma, "out-low",
                     (gdouble)levels_state.out_low, "out-high",
-                    (gdouble)levels_state.out_high, NULL);
+                    (gdouble)levels_state.out_high, "in-low-r",
+                    (gdouble)levels_state.in_low_r, "in-high-r",
+                    (gdouble)levels_state.in_high_r, "gamma-r",
+                    (gdouble)levels_state.gamma_r, "out-low-r",
+                    (gdouble)levels_state.out_low_r, "out-high-r",
+                    (gdouble)levels_state.out_high_r, "in-low-g",
+                    (gdouble)levels_state.in_low_g, "in-high-g",
+                    (gdouble)levels_state.in_high_g, "gamma-g",
+                    (gdouble)levels_state.gamma_g, "out-low-g",
+                    (gdouble)levels_state.out_low_g, "out-high-g",
+                    (gdouble)levels_state.out_high_g, "in-low-b",
+                    (gdouble)levels_state.in_low_b, "in-high-b",
+                    (gdouble)levels_state.in_high_b, "gamma-b",
+                    (gdouble)levels_state.gamma_b, "out-low-b",
+                    (gdouble)levels_state.out_low_b, "out-high-b",
+                    (gdouble)levels_state.out_high_b, "in-low-a",
+                    (gdouble)levels_state.in_low_a, "in-high-a",
+                    (gdouble)levels_state.in_high_a, "gamma-a",
+                    (gdouble)levels_state.gamma_a, "out-low-a",
+                    (gdouble)levels_state.out_low_a, "out-high-a",
+                    (gdouble)levels_state.out_high_a, NULL);
       apply_gegl_texture();
     }
     ImGui::TreePop();

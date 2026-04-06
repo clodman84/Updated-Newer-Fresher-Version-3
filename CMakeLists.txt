@@ -284,6 +284,7 @@ add_executable(UNFV3
     src/Application/image_editor.cpp
     src/Application/image.cpp
     src/Application/gpu_utils.cpp
+    src/Application/custom_ops.cpp
 )
 
 target_include_directories(UNFV3 PRIVATE src/Application)

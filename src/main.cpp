@@ -1,4 +1,6 @@
 #include "Application/application.h"
+#include "Application/custom_ops.h"
+
 #include "SDL3/SDL_dialog.h"
 #include "SDL3/SDL_log.h"
 #include "SDL3/SDL_video.h"
@@ -257,7 +259,10 @@ void render_sessions(std::deque<std::unique_ptr<Session>> &sessions) {
 
 int main(int, char **) {
   prepare_database();
+
   gegl_init(0, nullptr);
+  gimp_levels_op_register();
+
   srand(time(NULL));
 
   if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD)) {

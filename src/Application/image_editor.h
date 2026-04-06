@@ -25,8 +25,18 @@ struct ShadowsHighlightsState {
 struct LevelsState {
   double in_low = 0.0;
   double in_high = 1.0;
+  double gamma = 1.0;
   double out_low = 0.0;
   double out_high = 1.0;
+
+  double in_low_r = 0.0, in_high_r = 1.0, gamma_r = 1.0, out_low_r = 0.0,
+         out_high_r = 1.0;
+  double in_low_g = 0.0, in_high_g = 1.0, gamma_g = 1.0, out_low_g = 0.0,
+         out_high_g = 1.0;
+  double in_low_b = 0.0, in_high_b = 1.0, gamma_b = 1.0, out_low_b = 0.0,
+         out_high_b = 1.0;
+  double in_low_a = 0.0, in_high_a = 1.0, gamma_a = 1.0, out_low_a = 0.0,
+         out_high_a = 1.0;
 };
 
 struct ColorTemperatureState {
