@@ -7,7 +7,6 @@
 #include <imgui.h>
 #include <vector>
 
-// Tone & Exposure
 struct BrightnessContrastState {
   double contrast = 1.0;
   double brightness = 0.0;
@@ -35,7 +34,6 @@ struct LevelsState {
   double out_high = 1.0;
 };
 
-// Colour
 struct ColorTemperatureState {
   double original_temperature = 6500.0;
   double intended_temperature = 6500.0;
@@ -67,7 +65,6 @@ struct SepiaState {
   double scale = 1.0;
 };
 
-// Sharpening
 struct UnsharpMaskState {
   double std_dev = 3.0;
   double scale = 0.5;
@@ -79,21 +76,13 @@ struct HighPassState {
   double contrast = 1.0;
 };
 
-// Blur
 struct GaussianBlurState {
   double std_dev_x = 1.5;
   double std_dev_y = 1.5;
 };
 
-// Noise Reduction
 struct NoiseReductionState {
   int iterations = 4;
-};
-
-struct DomainTransformState {
-  double sigma_s = 30.0;
-  double sigma_r = 0.4;
-  int n_iterations = 3;
 };
 
 struct MonoMixerState {
@@ -113,39 +102,11 @@ struct MedianBlurState {
   double percentile = 50.0;
 };
 
-struct BilateralFilterState {
-  double blur_radius = 3.0;
-  double edge_preservation = 0.2;
-  bool dirty = false;
-};
-
-// Correction
-struct LensDistortionState {
-  double main = 0.0;
-  double edge = 0.0;
-  double zoom = 0.0;
-  double brighten = 0.0;
-  double x_shift = 0.0;
-  double y_shift = 0.0;
-};
-
-struct VignetteState {
-  double radius = 1.2;
-  double softness = 0.8;
-  double gamma = 2.0;
-  double proportion = 1.0;
-  double squeeze = 0.0;
-  double x = 0.5;
-  double y = 0.5;
-};
-
 enum class EffectType {
   BrightnessContrast,
-  // Tone & Exposure
   Exposure,
   ShadowsHighlights,
   Levels,
-  // Colour
   ColorTemperature,
   HueChroma,
   Saturation,
@@ -154,20 +115,12 @@ enum class EffectType {
   StretchContrastHSV,
   Sepia,
   MonoMixer,
-  // Sharpening
   UnsharpMask,
   HighPass,
-  // Blur
   GaussianBlur,
-  // Noise Reduction
   NoiseReduction,
-  DomainTransform,
   SNNMean,
   MedianBlur,
-  BilateralFilter,
-  // Correction
-  LensDistortion,
-  Vignette,
 };
 
 struct Effect {
@@ -208,13 +161,10 @@ private:
   void prepare_gegl_graph();
   void apply_gegl_texture();
 
-  // Tone & Exposure
   BrightnessContrastState brightness_contrast_state;
   ExposureState exposure_state;
   ShadowsHighlightsState shadows_highlights_state;
   LevelsState levels_state;
-
-  // Colour
   ColorTemperatureState color_temperature_state;
   HueChromaState hue_chroma_state;
   SaturationState saturation_state;
@@ -223,24 +173,12 @@ private:
   StretchContrastHSVState stretch_contrast_hsv_state;
   SepiaState sepia_state;
   MonoMixerState mono_mixer_state;
-
-  // Sharpening
   UnsharpMaskState unsharp_mask_state;
   HighPassState high_pass_state;
-
-  // Blur
   GaussianBlurState gaussian_blur_state;
-
-  // Noise Reduction
   NoiseReductionState noise_reduction_state;
-  DomainTransformState domain_transform_state;
   SNNMeanState snn_mean_state;
   MedianBlurState median_blur_state;
-  BilateralFilterState bilateral_filter_state;
-
-  // Correction
-  LensDistortionState lens_distortion_state;
-  VignetteState vignette_state;
 
   void *image_src = nullptr;
 
