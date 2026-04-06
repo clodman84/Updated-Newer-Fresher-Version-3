@@ -124,12 +124,6 @@ Effect &ImageEditor::get_or_create_effect(EffectType type) {
   e.type = type;
 
   switch (type) {
-  case EffectType::BrightnessContrast:
-    e.node = gegl_node_new_child(
-        graph, "operation", "gegl:brightness-contrast", "brightness",
-        (gdouble)brightness_contrast_state.brightness, "contrast",
-        (gdouble)brightness_contrast_state.contrast, NULL);
-    break;
   case EffectType::Exposure:
     e.node =
         gegl_node_new_child(graph, "operation", "gegl:exposure", "black-level",
@@ -243,50 +237,6 @@ Effect &ImageEditor::get_or_create_effect(EffectType type) {
 
 void ImageEditor::render_controls() {
   ImGui::SeparatorText("Tone & Exposure");
-  if (gegl_has_operation("gegl:brightness-contrast") &&
-      ImGui::TreeNode("Brightness / Contrast")) {
-    const EffectType type = EffectType::BrightnessContrast;
-    bool active = is_effect_active(type);
-    if (ImGui::Checkbox("Enabled##BC", &active)) {
-      if (active)
-        get_or_create_effect(type);
-      else
-        remove_effect(type);
-      apply_gegl_texture();
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("Reset##BC")) {
-      brightness_contrast_state = BrightnessContrastState();
-      if (active) {
-        Effect &e = get_or_create_effect(type);
-        gegl_node_set(e.node, "brightness",
-                      (gdouble)brightness_contrast_state.brightness, "contrast",
-                      (gdouble)brightness_contrast_state.contrast, NULL);
-        apply_gegl_texture();
-      }
-    }
-
-    bool changed = false;
-    static const double brightness_min = -1.0, brightness_max = 1.0;
-    static const double contrast_min = 0.0, contrast_max = 2.0;
-
-    changed |= ImGui::SliderScalar("Brightness", ImGuiDataType_Double,
-                                   &brightness_contrast_state.brightness,
-                                   &brightness_min, &brightness_max, "%.2f");
-    changed |= ImGui::SliderScalar("Contrast", ImGuiDataType_Double,
-                                   &brightness_contrast_state.contrast,
-                                   &contrast_min, &contrast_max, "%.2f");
-
-    if (changed && active) {
-      Effect &e = get_or_create_effect(type);
-      gegl_node_set(e.node, "brightness",
-                    (gdouble)brightness_contrast_state.brightness, "contrast",
-                    (gdouble)brightness_contrast_state.contrast, NULL);
-      apply_gegl_texture();
-    }
-    ImGui::TreePop();
-  }
-
   if (gegl_has_operation("gegl:exposure") && ImGui::TreeNode("Exposure")) {
     const EffectType type = EffectType::Exposure;
     bool active = is_effect_active(type);

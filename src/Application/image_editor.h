@@ -7,11 +7,6 @@
 #include <imgui.h>
 #include <vector>
 
-struct BrightnessContrastState {
-  double contrast = 1.0;
-  double brightness = 0.0;
-};
-
 struct ExposureState {
   double black_level = 0.0;
   double exposure = 0.0;
@@ -103,7 +98,6 @@ struct MedianBlurState {
 };
 
 enum class EffectType {
-  BrightnessContrast,
   Exposure,
   ShadowsHighlights,
   Levels,
@@ -161,7 +155,6 @@ private:
   void prepare_gegl_graph();
   void apply_gegl_texture();
 
-  BrightnessContrastState brightness_contrast_state;
   ExposureState exposure_state;
   ShadowsHighlightsState shadows_highlights_state;
   LevelsState levels_state;
