@@ -139,19 +139,6 @@ struct VignetteState {
   double y = 0.5;
 };
 
-// Local Contrast
-struct LocalContrastState {
-  double radius = 20.0;
-  double amount = 1.0;
-};
-
-struct StressState {
-  int radius = 100;
-  int samples = 4;
-  int iterations = 10;
-  bool dirty = false;
-};
-
 enum class EffectType {
   BrightnessContrast,
   // Tone & Exposure
@@ -181,9 +168,6 @@ enum class EffectType {
   // Correction
   LensDistortion,
   Vignette,
-  // Local Contrast
-  LocalContrast,
-  Stress
 };
 
 struct Effect {
@@ -257,10 +241,6 @@ private:
   // Correction
   LensDistortionState lens_distortion_state;
   VignetteState vignette_state;
-
-  // Local Contrast
-  LocalContrastState local_contrast_state;
-  StressState stress_state;
 
   void *image_src = nullptr;
 
