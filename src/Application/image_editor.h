@@ -51,6 +51,10 @@ struct SaturationState {
   double scale = 1.0;
 };
 
+struct ColorEnhanceState {
+  bool enabled = false;
+};
+
 struct StretchContrastState {
   bool enabled = false;
 };
@@ -84,6 +88,12 @@ struct GaussianBlurState {
 // Noise Reduction
 struct NoiseReductionState {
   int iterations = 4;
+};
+
+struct DomainTransformState {
+  double sigma_s = 30.0;
+  double sigma_r = 0.4;
+  int n_iterations = 3;
 };
 
 struct MonoMixerState {
@@ -152,6 +162,7 @@ enum class EffectType {
   ColorTemperature,
   HueChroma,
   Saturation,
+  ColorEnhance,
   StretchContrast,
   StretchContrastHSV,
   Sepia,
@@ -163,6 +174,7 @@ enum class EffectType {
   GaussianBlur,
   // Noise Reduction
   NoiseReduction,
+  DomainTransform,
   SNNMean,
   MedianBlur,
   BilateralFilter,
@@ -200,6 +212,7 @@ public:
   void render_controls();
   void cleanup_stale_resources();
   void remove_effect(EffectType type);
+  bool is_effect_active(EffectType type) const;
 
 private:
   std::vector<SDL_GPUTexture *> textures_to_release;
@@ -221,6 +234,7 @@ private:
   ColorTemperatureState color_temperature_state;
   HueChromaState hue_chroma_state;
   SaturationState saturation_state;
+  ColorEnhanceState color_enhance_state;
   StretchContrastState stretch_contrast_state;
   StretchContrastHSVState stretch_contrast_hsv_state;
   SepiaState sepia_state;
@@ -235,6 +249,7 @@ private:
 
   // Noise Reduction
   NoiseReductionState noise_reduction_state;
+  DomainTransformState domain_transform_state;
   SNNMeanState snn_mean_state;
   MedianBlurState median_blur_state;
   BilateralFilterState bilateral_filter_state;
