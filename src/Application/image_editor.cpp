@@ -124,6 +124,7 @@ Effect &ImageEditor::get_or_create_effect(EffectType type) {
   e.type = type;
 
   switch (type) {
+    // TODO: Add gimp's colour balance tool
   case EffectType::Exposure:
     e.node =
         gegl_node_new_child(graph, "operation", "gegl:exposure", "black-level",
@@ -143,6 +144,7 @@ Effect &ImageEditor::get_or_create_effect(EffectType type) {
         (gdouble)shadows_highlights_state.highlights_ccorrect, NULL);
     break;
   case EffectType::Levels:
+    // TODO: Replace this with gimp style levels tool
     e.node = gegl_node_new_child(graph, "operation", "gegl:levels", "in-low",
                                  (gdouble)levels_state.in_low, "in-high",
                                  (gdouble)levels_state.in_high, "out-low",
@@ -196,18 +198,6 @@ Effect &ImageEditor::get_or_create_effect(EffectType type) {
                             (gdouble)unsharp_mask_state.scale, "threshold",
                             (gdouble)unsharp_mask_state.threshold, NULL);
     break;
-  case EffectType::HighPass:
-    e.node =
-        gegl_node_new_child(graph, "operation", "gegl:high-pass", "std-dev",
-                            (gdouble)high_pass_state.std_dev, "contrast",
-                            (gdouble)high_pass_state.contrast, NULL);
-    break;
-  case EffectType::GaussianBlur:
-    e.node = gegl_node_new_child(
-        graph, "operation", "gegl:gaussian-blur", "std-dev-x",
-        (gdouble)gaussian_blur_state.std_dev_x, "std-dev-y",
-        (gdouble)gaussian_blur_state.std_dev_y, NULL);
-    break;
   case EffectType::NoiseReduction:
     e.node = gegl_node_new_child(graph, "operation", "gegl:noise-reduction",
                                  "iterations",
@@ -217,12 +207,6 @@ Effect &ImageEditor::get_or_create_effect(EffectType type) {
     e.node = gegl_node_new_child(graph, "operation", "gegl:snn-mean", "radius",
                                  (gint)snn_mean_state.radius, "pairs",
                                  (gint)snn_mean_state.pairs, NULL);
-    break;
-  case EffectType::MedianBlur:
-    e.node =
-        gegl_node_new_child(graph, "operation", "gegl:median-blur", "radius",
-                            (gint)median_blur_state.radius, "percentile",
-                            (gdouble)median_blur_state.percentile, NULL);
     break;
   }
 
@@ -785,58 +769,6 @@ void ImageEditor::render_controls() {
     ImGui::TreePop();
   }
 
-  ImGui::SeparatorText("Blur");
-  if (gegl_has_operation("gegl:gaussian-blur") &&
-      ImGui::TreeNode("Gaussian Blur")) {
-    const EffectType type = EffectType::GaussianBlur;
-    bool active = is_effect_active(type);
-    if (ImGui::Checkbox("Enabled##GB", &active)) {
-      if (active)
-        get_or_create_effect(type);
-      else
-        remove_effect(type);
-      apply_gegl_texture();
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("Reset##GB")) {
-      gaussian_blur_state = GaussianBlurState();
-      if (active) {
-        Effect &e = get_or_create_effect(type);
-        gegl_node_set(e.node, "std-dev-x",
-                      (gdouble)gaussian_blur_state.std_dev_x, "std-dev-y",
-                      (gdouble)gaussian_blur_state.std_dev_y, NULL);
-        apply_gegl_texture();
-      }
-    }
-
-    ImGui::SameLine();
-    ImGui::TextDisabled("(?)");
-    if (ImGui::BeginItemTooltip()) {
-      ImGui::PushTextWrapPos(300.0f);
-      ImGui::TextUnformatted("Performs an averaging of neighboring pixels with "
-                             "the normal distribution as weighting.");
-      ImGui::PopTextWrapPos();
-      ImGui::EndTooltip();
-    }
-
-    bool changed = false;
-    static const double r_min = 0.0, r_max = 100.0;
-    changed |= ImGui::SliderScalar("Size X", ImGuiDataType_Double,
-                                   &gaussian_blur_state.std_dev_x, &r_min,
-                                   &r_max, "%.2f");
-    changed |= ImGui::SliderScalar("Size Y", ImGuiDataType_Double,
-                                   &gaussian_blur_state.std_dev_y, &r_min,
-                                   &r_max, "%.2f");
-
-    if (changed && active) {
-      Effect &e = get_or_create_effect(type);
-      gegl_node_set(e.node, "std-dev-x", (gdouble)gaussian_blur_state.std_dev_x,
-                    "std-dev-y", (gdouble)gaussian_blur_state.std_dev_y, NULL);
-      apply_gegl_texture();
-    }
-    ImGui::TreePop();
-  }
-
   ImGui::SeparatorText("Sharpening");
   if (gegl_has_operation("gegl:unsharp-mask") &&
       ImGui::TreeNode("Unsharp Mask")) {
@@ -898,60 +830,7 @@ void ImageEditor::render_controls() {
     ImGui::TreePop();
   }
 
-  if (gegl_has_operation("gegl:high-pass") && ImGui::TreeNode("High Pass")) {
-    const EffectType type = EffectType::HighPass;
-    bool active = is_effect_active(type);
-    if (ImGui::Checkbox("Enabled##HP", &active)) {
-      if (active)
-        get_or_create_effect(type);
-      else
-        remove_effect(type);
-      apply_gegl_texture();
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("Reset##HP")) {
-      high_pass_state = HighPassState();
-      if (active) {
-        Effect &e = get_or_create_effect(type);
-        gegl_node_set(e.node, "std-dev", (gdouble)high_pass_state.std_dev,
-                      "contrast", (gdouble)high_pass_state.contrast, NULL);
-        apply_gegl_texture();
-      }
-    }
-
-    ImGui::SameLine();
-    ImGui::TextDisabled("(?)");
-    if (ImGui::BeginItemTooltip()) {
-      ImGui::PushTextWrapPos(300.0f);
-      ImGui::TextUnformatted(
-          "Enhances fine details by isolating high-frequency content. The "
-          "result is a grey midtone image where only edges and texture "
-          "survive. Best used for clarity-style midtone contrast enhancement.");
-      ImGui::PopTextWrapPos();
-      ImGui::EndTooltip();
-    }
-
-    bool changed = false;
-    static const double r_min = 0.0, r_max = 1000.0;
-    static const double c_min = 0.0, c_max = 5.0;
-    changed |=
-        ImGui::SliderScalar("Radius", ImGuiDataType_Double,
-                            &high_pass_state.std_dev, &r_min, &r_max, "%.1f");
-    changed |=
-        ImGui::SliderScalar("Contrast", ImGuiDataType_Double,
-                            &high_pass_state.contrast, &c_min, &c_max, "%.2f");
-
-    if (changed && active) {
-      Effect &e = get_or_create_effect(type);
-      gegl_node_set(e.node, "std-dev", (gdouble)high_pass_state.std_dev,
-                    "contrast", (gdouble)high_pass_state.contrast, NULL);
-      apply_gegl_texture();
-    }
-    ImGui::TreePop();
-  }
-
   ImGui::SeparatorText("Noise Reduction");
-
   if (gegl_has_operation("gegl:noise-reduction") &&
       ImGui::TreeNode("Noise Reduction")) {
     const EffectType type = EffectType::NoiseReduction;
@@ -979,7 +858,7 @@ void ImageEditor::render_controls() {
     if (ImGui::BeginItemTooltip()) {
       ImGui::PushTextWrapPos(300.0f);
       ImGui::TextUnformatted(
-          "Anisotropic smoothing operation — reduces noise while attempting to "
+          "Anisotropic smoothing operation reduces noise while attempting to "
           "preserve edges. Iterations controls the strength; more passes give "
           "a smoother result.");
       ImGui::PopTextWrapPos();
@@ -1043,58 +922,6 @@ void ImageEditor::render_controls() {
       Effect &e = get_or_create_effect(type);
       gegl_node_set(e.node, "radius", (gint)snn_mean_state.radius, "pairs",
                     (gint)snn_mean_state.pairs, NULL);
-      apply_gegl_texture();
-    }
-    ImGui::TreePop();
-  }
-
-  if (gegl_has_operation("gegl:median-blur") &&
-      ImGui::TreeNode("Median Blur")) {
-    const EffectType type = EffectType::MedianBlur;
-    bool active = is_effect_active(type);
-    if (ImGui::Checkbox("Enabled##MB", &active)) {
-      if (active)
-        get_or_create_effect(type);
-      else
-        remove_effect(type);
-      apply_gegl_texture();
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("Reset##MB")) {
-      median_blur_state = MedianBlurState();
-      if (active) {
-        Effect &e = get_or_create_effect(type);
-        gegl_node_set(e.node, "radius", (gint)median_blur_state.radius,
-                      "percentile", (gdouble)median_blur_state.percentile,
-                      NULL);
-        apply_gegl_texture();
-      }
-    }
-
-    ImGui::SameLine();
-    ImGui::TextDisabled("(?)");
-    if (ImGui::BeginItemTooltip()) {
-      ImGui::PushTextWrapPos(300.0f);
-      ImGui::TextUnformatted("Blur resulting from computing the median color "
-                             "in the neighborhood of each pixel. Used to "
-                             "reduce noise, especially salt and pepper noise.");
-      ImGui::PopTextWrapPos();
-      ImGui::EndTooltip();
-    }
-
-    bool changed = false;
-    static const int r_min = 0, r_max = 100;
-    static const double p_min = 0.0, p_max = 100.0;
-    changed |=
-        ImGui::SliderInt("Radius", &median_blur_state.radius, r_min, r_max);
-    changed |= ImGui::SliderScalar("Percentile", ImGuiDataType_Double,
-                                   &median_blur_state.percentile, &p_min,
-                                   &p_max, "%.1f");
-
-    if (changed && active) {
-      Effect &e = get_or_create_effect(type);
-      gegl_node_set(e.node, "radius", (gint)median_blur_state.radius,
-                    "percentile", (gdouble)median_blur_state.percentile, NULL);
       apply_gegl_texture();
     }
     ImGui::TreePop();

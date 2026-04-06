@@ -66,16 +66,6 @@ struct UnsharpMaskState {
   double threshold = 0.0;
 };
 
-struct HighPassState {
-  double std_dev = 4.0;
-  double contrast = 1.0;
-};
-
-struct GaussianBlurState {
-  double std_dev_x = 1.5;
-  double std_dev_y = 1.5;
-};
-
 struct NoiseReductionState {
   int iterations = 4;
 };
@@ -92,11 +82,6 @@ struct SNNMeanState {
   int pairs = 2;
 };
 
-struct MedianBlurState {
-  int radius = 3;
-  double percentile = 50.0;
-};
-
 enum class EffectType {
   Exposure,
   ShadowsHighlights,
@@ -110,11 +95,8 @@ enum class EffectType {
   Sepia,
   MonoMixer,
   UnsharpMask,
-  HighPass,
-  GaussianBlur,
   NoiseReduction,
   SNNMean,
-  MedianBlur,
 };
 
 struct Effect {
@@ -167,11 +149,8 @@ private:
   SepiaState sepia_state;
   MonoMixerState mono_mixer_state;
   UnsharpMaskState unsharp_mask_state;
-  HighPassState high_pass_state;
-  GaussianBlurState gaussian_blur_state;
   NoiseReductionState noise_reduction_state;
   SNNMeanState snn_mean_state;
-  MedianBlurState median_blur_state;
 
   void *image_src = nullptr;
 
