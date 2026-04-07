@@ -1,7 +1,12 @@
-#include "custom_ops.h"
+#include "gimp_levels.h"
 #include <cmath>
 #include <gegl-plugin.h>
 #include <gegl.h>
+
+#define GIMP_LEVELS_TYPE (gimp_levels_get_type())
+
+typedef struct _GimpLevels GimpLevels;
+typedef struct _GimpLevelsClass GimpLevelsClass;
 
 // Helper applied per sample per channel
 static inline gdouble levels_map(gdouble value, gdouble low_input,
@@ -27,11 +32,6 @@ static inline gdouble levels_map(gdouble value, gdouble low_input,
 
   return CLAMP(value, 0.0, 1.0);
 }
-
-#define GIMP_LEVELS_TYPE (gimp_levels_get_type())
-
-typedef struct _GimpLevels GimpLevels;
-typedef struct _GimpLevelsClass GimpLevelsClass;
 
 struct _GimpLevels {
   GeglOperationPointFilter parent_instance;

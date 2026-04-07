@@ -3,6 +3,7 @@
 #include "SDL3/SDL_gpu.h"
 #include "gpu_utils.h"
 #include "imgui.h"
+#include <complex>
 
 #define _CRT_SECURE_NO_WARNINGS
 #define STB_TRUETYPE_IMPLEMENTATION
@@ -69,12 +70,13 @@ Image::Image(SDL_GPUDevice *device, const std::filesystem::path &filename)
     return;
   }
 
-  if (!upload_texture_data_to_gpu(image_data, width, height, device, &texture,
-                                  true)) {
+  if (!upload_texture_data_to_gpu(image_data, width, height, device,
+                                  &texture)) {
     texture = nullptr;
     width = 0;
     height = 0;
   }
+  stbi_image_free(image_data);
 }
 
 Image::~Image() {
@@ -297,12 +299,13 @@ void ImageManager::load_thumbnails() {
 
     SDL_GPUTexture *texture = nullptr;
     if (upload_texture_data_to_gpu(thumbnail.pixel_data, thumbnail.width,
-                                   thumbnail.height, device, &texture, false) &&
+                                   thumbnail.height, device, &texture) &&
         texture != nullptr) {
       thumbnails[thumbnail.file_name] =
           Thumbnail{texture, thumbnail.width, thumbnail.height};
       thumbnail_order.push_back(thumbnail.file_name);
     }
+    stbi_image_free(thumbnail.pixel_data);
   }
 }
 
@@ -423,15 +426,15 @@ void ImageManager::reset_view_to_image() {
 
 void ImageEditor::reset_view_to_image() {
   if (preview_texture == nullptr) {
-    zoom = 0.0f;
+    zoom = 1.0f;
     pan = ImVec2(0.0f, 0.0f);
     return;
   }
 
   if (canvas_size.x > 0.0f && canvas_size.y > 0.0f) {
-    zoom = std::min(canvas_size.x / width, canvas_size.y / height);
+    zoom = std::min(canvas_size.x / image_width, canvas_size.y / image_height);
   } else {
-    zoom = 0.0f;
+    zoom = 1.0f;
   }
   pan = ImVec2(0.0f, 0.0f);
 }
@@ -536,18 +539,23 @@ void ImageEditor::load_path(std::filesystem::path path) {
   int src_h = 0;
   unsigned char *src = load_texture_data_from_file(image_path, &src_w, &src_h);
 
-  constexpr int dst_h = 1024;
-  const float factor = static_cast<float>(dst_h) / src_h;
-  const int dst_w = std::max(1, static_cast<int>(src_w * factor));
+  // constexpr int dst_h = 1024;
+  // const float factor = static_cast<float>(dst_h) / src_h;
+  // const int dst_w = std::max(1, static_cast<int>(src_w * factor));
 
-  unsigned char *dst = resize_image_rgba8(src, src_w, src_h, dst_w, dst_h);
-  stbi_image_free(src);
+  // unsigned char *dst = resize_image_rgba8(src, src_w, src_h, dst_w, dst_h);
+  // stbi_image_free(src);
   if (image_src != nullptr) {
     IM_FREE(image_src);
   }
-  image_src = dst;
-  width = dst_w;
-  height = dst_h;
+  // image_src = dst;
+  // current_mip_level_width = dst_w;
+  // current_mip_level_height = dst_h;
+  image_src = src;
+  image_width = src_w;
+  image_height = src_h;
+
+  roi = {0, 0, image_width, image_height};
   prepare_gegl_graph();
   // SDL_GPUTexture *texture = nullptr;
   // upload_texture_data_to_gpu(dst, dst_w, dst_h, device, &texture, false);

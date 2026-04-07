@@ -83,7 +83,7 @@ void ImageEditor::render_preview() {
   if (hovered && io.MouseWheel != 0.0f) {
     const float old_zoom = zoom;
     zoom *= powf(1.1f, io.MouseWheel);
-    zoom = Clamp(zoom, 0.1f, 20.0f);
+    zoom = (zoom, 0.1f, 20.0f);
 
     ImVec2 mouse_local;
     mouse_local.x = io.MousePos.x - canvas_pos.x - pan.x;
@@ -97,7 +97,7 @@ void ImageEditor::render_preview() {
     pan.y += io.MouseDelta.y;
   }
 
-  ImVec2 image_size = {width * zoom, height * zoom};
+  ImVec2 image_size = {image_width * zoom, image_height * zoom};
   if (image_size.x <= canvas_size.x) {
     pan.x = (canvas_size.x - image_size.x) * 0.5f;
   } else {
@@ -113,12 +113,29 @@ void ImageEditor::render_preview() {
   draw_list->PushClipRect(
       canvas_pos,
       ImVec2(canvas_pos.x + canvas_size.x, canvas_pos.y + canvas_size.y), true);
-  const ImVec2 image_pos = {canvas_pos.x + pan.x, canvas_pos.y + pan.y};
+  const ImVec2 image_pos = {canvas_pos.x + pan.x + current_texture_offset_x,
+                            canvas_pos.y + pan.y + current_texture_offset_y};
+
+  roi.x = (std::max(canvas_pos.x, image_pos.x) - image_pos.x) / zoom;
+  roi.y = (std::max(canvas_pos.y, image_pos.y) - image_pos.y) / zoom;
+
+  float roi_x2 =
+      (std::min(canvas_pos.x + canvas_size.x, image_pos.x + image_size.x) -
+       image_pos.x) /
+      zoom;
+  float roi_y2 =
+      (std::min(canvas_pos.y + canvas_size.y, image_pos.y + image_size.y) -
+       image_pos.y) /
+      zoom;
+
+  roi.width = roi_x2 - roi.x;
+  roi.height = roi_y2 - roi.y;
+
   if (preview_texture != nullptr) {
-    draw_list->AddImage(
-        texture_id, image_pos,
-        ImVec2(image_pos.x + image_size.x, image_pos.y + image_size.y),
-        ImVec2(0, 0), ImVec2(1, 1));
+    draw_list->AddImage(texture_id, image_pos,
+                        ImVec2(image_pos.x + current_texture_width * zoom,
+                               image_pos.y + current_texture_height * zoom),
+                        ImVec2(0, 0), ImVec2(1, 1));
   }
 
   draw_list->PopClipRect();
@@ -236,10 +253,19 @@ void ImageManager::render_editor() {
   }
   if (ImGui::TreeNode("Edit")) {
     with_preview = true;
+    ImGui::Text("Preview Image Dimensions: %d x %d", editor.image_width,
+                editor.image_height);
+    ImGui::Text("ROI: %d, %d, %d, %d", editor.roi.x, editor.roi.y,
+                editor.roi.width, editor.roi.height);
+    ImGui::Text("Zoom: %f", zoom);
+    ImGui::Text("Current Texture: %d, %d, %d, %d", editor.current_texture_width,
+                editor.current_texture_height, editor.current_texture_offset_x,
+                editor.current_texture_offset_y);
     if (ImGui::Checkbox("Link Viewers", &link_preview_viewer) &&
         link_preview_viewer) {
       editor.set_view(linked_zoom_for_target(zoom, image->width, image->height,
-                                             editor.width, editor.height),
+                                             editor.image_width,
+                                             editor.image_height),
                       pan);
     }
     editor.render_controls();
@@ -332,16 +358,16 @@ void ImageManager::render_manager() {
     render_viewer();
     if (with_preview) {
       if (link_preview_viewer) {
-        editor.set_view(linked_zoom_for_target(zoom, current_image_->width,
-                                               current_image_->height,
-                                               editor.width, editor.height),
+        editor.set_view(linked_zoom_for_target(
+                            zoom, current_image_->width, current_image_->height,
+                            editor.image_width, editor.image_height),
                         pan);
       }
       editor.render_preview();
       if (link_preview_viewer) {
-        zoom = linked_zoom_for_target(editor.get_zoom(), editor.width,
-                                      editor.height, current_image_->width,
-                                      current_image_->height);
+        zoom = linked_zoom_for_target(
+            editor.get_zoom(), editor.image_width, editor.image_height,
+            current_image_->width, current_image_->height);
         pan = editor.get_pan();
       }
     }

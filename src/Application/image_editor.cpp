@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cmath>
 #include <gegl.h>
+#include <iostream>
 
 #ifdef TRACY_ENABLE
 #include <tracy/Tracy.hpp>
@@ -81,7 +82,7 @@ void ImageEditor::prepare_gegl_graph() {
   }
 
   // Wrap the raw RGBA pixels into a GeglBuffer
-  GeglRectangle extent = {0, 0, width, height};
+  GeglRectangle extent = {0, 0, image_width, image_height};
   image_buffer = gegl_buffer_new(&extent, babl_format("R'G'B'A u8"));
 
   gegl_buffer_set(image_buffer, &extent,
@@ -104,24 +105,31 @@ void ImageEditor::apply_gegl_texture() {
 #endif
   if (sink == nullptr)
     return;
+  double scale = std::min(zoom, 1.0f);
 
-  GeglRectangle roi = {0, 0, width, height};
-  const size_t buf_size = static_cast<size_t>(width) * height * 4;
-  unsigned char *pixels = static_cast<unsigned char *>(IM_ALLOC(buf_size));
-  if (pixels == nullptr)
-    return;
+  int out_w = (int)ceil(roi.width);
+  int out_h = (int)ceil(roi.height);
 
-  gegl_node_blit(sink, 1.0, &roi, babl_format("R'G'B'A u8"), pixels,
+  size_t buf_size = (size_t)out_w * out_h * 4;
+  unsigned char *pixels = (unsigned char *)IM_ALLOC(buf_size);
+
+  gegl_node_blit(sink, 1.0f, &roi, babl_format("R'G'B'A u8"), pixels,
                  GEGL_AUTO_ROWSTRIDE, GEGL_BLIT_DEFAULT);
 
   SDL_GPUTexture *texture = nullptr;
-  if (upload_texture_data_to_gpu(pixels, width, height, device, &texture,
-                                 false)) {
+  if (upload_texture_data_to_gpu(pixels, out_w, out_h, device, &texture)) {
     if (preview_texture != nullptr) {
       textures_to_release.push_back(preview_texture);
     }
     preview_texture = texture;
   }
+
+  IM_FREE(pixels);
+
+  current_texture_offset_x = roi.x;
+  current_texture_offset_y = roi.y;
+  current_texture_width = roi.width;
+  current_texture_height = roi.height;
 }
 
 Effect &ImageEditor::get_or_create_effect(EffectType type) {
@@ -248,9 +256,9 @@ Effect &ImageEditor::get_or_create_effect(EffectType type) {
   return effects.back();
 }
 
-static bool DrawLevelsBar(const char *id, double &in_low, double &gamma,
-                          double &in_high, double &out_low, double &out_high,
-                          ImVec4 color_left, ImVec4 color_right) {
+static bool draw_levels_bar(const char *id, double &in_low, double &gamma,
+                            double &in_high, double &out_low, double &out_high,
+                            ImVec4 color_left, ImVec4 color_right) {
   ImGui::PushID(id);
   ImDrawList *dl = ImGui::GetWindowDrawList();
 
@@ -600,28 +608,28 @@ void ImageEditor::render_controls() {
     bool changed = false;
 
     ImGui::SeparatorText("Composite");
-    changed |= DrawLevelsBar("C", levels_state.in_low, levels_state.gamma,
-                             levels_state.in_high, levels_state.out_low,
-                             levels_state.out_high, ImVec4(0, 0, 0, 1),
-                             ImVec4(1, 1, 1, 1));
+    changed |= draw_levels_bar("C", levels_state.in_low, levels_state.gamma,
+                               levels_state.in_high, levels_state.out_low,
+                               levels_state.out_high, ImVec4(0, 0, 0, 1),
+                               ImVec4(1, 1, 1, 1));
 
     ImGui::SeparatorText("Red Channel");
-    changed |= DrawLevelsBar("R", levels_state.in_low_r, levels_state.gamma_r,
-                             levels_state.in_high_r, levels_state.out_low_r,
-                             levels_state.out_high_r, ImVec4(0, 0, 0, 1),
-                             ImVec4(1, 0, 0, 1));
+    changed |= draw_levels_bar("R", levels_state.in_low_r, levels_state.gamma_r,
+                               levels_state.in_high_r, levels_state.out_low_r,
+                               levels_state.out_high_r, ImVec4(0, 0, 0, 1),
+                               ImVec4(1, 0, 0, 1));
 
     ImGui::SeparatorText("Green Channel");
-    changed |= DrawLevelsBar("G", levels_state.in_low_g, levels_state.gamma_g,
-                             levels_state.in_high_g, levels_state.out_low_g,
-                             levels_state.out_high_g, ImVec4(0, 0, 0, 1),
-                             ImVec4(0, 1, 0, 1));
+    changed |= draw_levels_bar("G", levels_state.in_low_g, levels_state.gamma_g,
+                               levels_state.in_high_g, levels_state.out_low_g,
+                               levels_state.out_high_g, ImVec4(0, 0, 0, 1),
+                               ImVec4(0, 1, 0, 1));
 
     ImGui::SeparatorText("Blue Channel");
-    changed |= DrawLevelsBar("B", levels_state.in_low_b, levels_state.gamma_b,
-                             levels_state.in_high_b, levels_state.out_low_b,
-                             levels_state.out_high_b, ImVec4(0, 0, 0, 1),
-                             ImVec4(0, 0, 1, 1));
+    changed |= draw_levels_bar("B", levels_state.in_low_b, levels_state.gamma_b,
+                               levels_state.in_high_b, levels_state.out_low_b,
+                               levels_state.out_high_b, ImVec4(0, 0, 0, 1),
+                               ImVec4(0, 0, 1, 1));
 
     if (changed && active) {
       Effect &e = get_or_create_effect(type);

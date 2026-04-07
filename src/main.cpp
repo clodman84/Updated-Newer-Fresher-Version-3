@@ -1,5 +1,5 @@
 #include "Application/application.h"
-#include "Application/custom_ops.h"
+#include "Application/operations/gimp_levels.h"
 
 #include "SDL3/SDL_dialog.h"
 #include "SDL3/SDL_log.h"

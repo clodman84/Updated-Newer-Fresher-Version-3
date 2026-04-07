@@ -266,25 +266,13 @@ load_texture_data_from_file(const std::filesystem::path &file_name, int *width,
 
 bool upload_texture_data_to_gpu(unsigned char *image_data, int width,
                                 int height, SDL_GPUDevice *device,
-                                SDL_GPUTexture **out_texture,
-                                bool free_with_stbi) {
+                                SDL_GPUTexture **out_texture) {
 #ifdef TRACY_ENABLE
   ZoneScopedN("upload_texture_data_to_gpu");
 #endif
-  auto cleanup = [&]() {
-    if (image_data != nullptr) {
-      if (free_with_stbi) {
-        stbi_image_free(image_data);
-      } else {
-        IM_FREE(image_data);
-      }
-      image_data = nullptr;
-    }
-  };
 
   if (image_data == nullptr || width <= 0 || height <= 0 || device == nullptr ||
       out_texture == nullptr) {
-    cleanup();
     return false;
   }
 
@@ -302,7 +290,6 @@ bool upload_texture_data_to_gpu(unsigned char *image_data, int width,
   if (texture == nullptr) {
     std::cerr << "Failed to create GPU texture: " << SDL_GetError()
               << std::endl;
-    cleanup();
     return false;
   }
 
@@ -315,7 +302,6 @@ bool upload_texture_data_to_gpu(unsigned char *image_data, int width,
     std::cerr << "Failed to create GPU transfer buffer: " << SDL_GetError()
               << std::endl;
     SDL_ReleaseGPUTexture(device, texture);
-    cleanup();
     return false;
   }
 
@@ -346,20 +332,18 @@ bool upload_texture_data_to_gpu(unsigned char *image_data, int width,
   SDL_SubmitGPUCommandBuffer(cmd);
   SDL_ReleaseGPUTransferBuffer(device, transfer_buffer);
 
-  cleanup();
-
   *out_texture = texture;
   return true;
 }
 
 unsigned char *resize_image_rgba8(const unsigned char *src_data, int src_w,
                                   int src_h, int dst_w, int dst_h) {
-  unsigned char *dst_data =
-      static_cast<unsigned char *>(IM_ALLOC(static_cast<size_t>(dst_w) * dst_h * 4));
+  unsigned char *dst_data = static_cast<unsigned char *>(
+      IM_ALLOC(static_cast<size_t>(dst_w) * dst_h * 4));
   if (dst_data == nullptr) {
     return nullptr;
   }
-  stbir_resize_uint8_linear(src_data, src_w, src_h, 0, dst_data, dst_w, dst_h, 0,
-                            STBIR_RGBA);
+  stbir_resize_uint8_linear(src_data, src_w, src_h, 0, dst_data, dst_w, dst_h,
+                            0, STBIR_RGBA);
   return dst_data;
 }

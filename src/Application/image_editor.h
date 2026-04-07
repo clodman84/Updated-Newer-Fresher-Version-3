@@ -1,6 +1,7 @@
 #ifndef IMAGE_EDITOR
 #define IMAGE_EDITOR
 
+#include "gegl-buffer.h"
 #include <SDL3/SDL.h>
 #include <filesystem>
 #include <gegl.h>
@@ -122,8 +123,14 @@ public:
   ~ImageEditor();
   SDL_GPUTexture *preview_texture = nullptr;
   std::filesystem::path image_path;
-  int width = 0;
-  int height = 0;
+  int image_width = 0;
+  int image_height = 0;
+
+  int current_texture_offset_x = 0;
+  int current_texture_offset_y = 0;
+  int current_texture_width = 0;
+  int current_texture_height = 0;
+
   void load_path(std::filesystem::path);
   void render_preview();
   float get_zoom() const { return zoom; }
@@ -137,10 +144,12 @@ public:
   void remove_effect(EffectType type);
   bool is_effect_active(EffectType type) const;
 
+  GeglRectangle roi;
+
 private:
   std::vector<SDL_GPUTexture *> textures_to_release;
   SDL_GPUDevice *device = nullptr;
-  float zoom = 0.0f;
+  float zoom = 1.0f;
   ImVec2 canvas_size = ImVec2(0.0f, 0.0f);
   ImVec2 pan = ImVec2(0.0f, 0.0f);
   void reset_view_to_image();
@@ -171,6 +180,7 @@ private:
   GeglNode *graph = nullptr;
   GeglNode *sink = nullptr;
   GeglNode *source = nullptr;
+  GeglNode *crop = nullptr;
   GeglNode *last_node = nullptr;
 };
 
