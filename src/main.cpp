@@ -1,5 +1,6 @@
 #include "Application/application.h"
 #include "Application/operations/gimp_levels.h"
+#include "Application/operations/my_colour_enhance.h"
 
 #include "SDL3/SDL_dialog.h"
 #include "SDL3/SDL_log.h"
@@ -261,6 +262,7 @@ int main(int, char **) {
   prepare_database();
   gegl_init(NULL, NULL);
   gimp_levels_op_register();
+  colour_enhance_op_register();
   GeglConfig *config = gegl_config();
   g_object_set(config, "mipmap-rendering", TRUE, NULL);
 
@@ -318,7 +320,7 @@ int main(int, char **) {
   }
 
   ImGuiIO &io = ImGui::GetIO();
-  const ImVec4 clear_color = ImVec4(0.0f, 0.0f, 0.0f, 1.0f);
+  const ImVec4 clear_color = ImVec4(0.f, 0.f, 0.f, 1.0f);
   bool done = false;
 
   Database db;

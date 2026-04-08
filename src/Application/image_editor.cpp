@@ -211,7 +211,7 @@ Effect &ImageEditor::get_or_create_effect(EffectType type) {
     break;
   case EffectType::ColorEnhance:
     e.node =
-        gegl_node_new_child(graph, "operation", "gegl:color-enhance", NULL);
+        gegl_node_new_child(graph, "operation", "unfv3:color-enhance", NULL);
     break;
   case EffectType::StretchContrast:
     e.node =

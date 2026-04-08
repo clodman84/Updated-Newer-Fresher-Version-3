@@ -285,6 +285,7 @@ add_executable(UNFV3
     src/Application/image.cpp
     src/Application/gpu_utils.cpp
     src/Application/operations/gimp_levels.cpp
+    src/Application/operations/my_colour_enhance.cpp
 )
 
 target_include_directories(UNFV3 PRIVATE src/Application)
