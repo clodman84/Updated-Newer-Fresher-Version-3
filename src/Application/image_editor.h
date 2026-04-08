@@ -140,9 +140,8 @@ public:
     pan = next_pan;
   }
   void render_controls();
+  void reset_view_to_image();
   void cleanup_stale_resources();
-  void remove_effect(EffectType type);
-  bool is_effect_active(EffectType type) const;
 
   GeglRectangle roi;
 
@@ -152,9 +151,12 @@ private:
   float zoom = 1.0f;
   ImVec2 canvas_size = ImVec2(0.0f, 0.0f);
   ImVec2 pan = ImVec2(0.0f, 0.0f);
-  void reset_view_to_image();
+
   void prepare_gegl_graph();
   void apply_gegl_texture();
+
+  void remove_effect(EffectType type);
+  bool is_effect_active(EffectType type) const;
 
   ExposureState exposure_state;
   ShadowsHighlightsState shadows_highlights_state;

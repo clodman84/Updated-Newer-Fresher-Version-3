@@ -1,5 +1,6 @@
 #include "application.h"
 #include "imgui.h"
+#include <algorithm>
 #include <cstring>
 #include <misc/cpp/imgui_stdlib.h>
 
@@ -55,23 +56,19 @@ static float linked_zoom_for_target(float source_zoom, int source_width,
 }
 
 void ImageEditor::render_preview() {
-  ImGui::PushID("Preview");
+
   ImGui::TableNextColumn();
-  ImGui::BeginChild("ViewerChild", ImVec2(0, 0));
+  ImGui::BeginChild("PreviewChild", ImVec2(0, 0));
+
+  ImTextureRef texture_id = preview_texture;
+  const ImVec2 canvas_pos = ImGui::GetCursorScreenPos();
+  canvas_size = ImGui::GetContentRegionAvail();
 
   if (preview_texture == nullptr) {
     ImGui::TextUnformatted("Bruh Moment");
     ImGui::EndChild();
     ImGui::PopID();
     return;
-  }
-
-  ImTextureRef texture_id = preview_texture;
-  const ImVec2 canvas_pos = ImGui::GetCursorScreenPos();
-  canvas_size = ImGui::GetContentRegionAvail();
-
-  if (zoom <= 0.0f) {
-    reset_view_to_image();
   }
 
   ImGui::InvisibleButton("canvas", canvas_size,
@@ -83,7 +80,7 @@ void ImageEditor::render_preview() {
   if (hovered && io.MouseWheel != 0.0f) {
     const float old_zoom = zoom;
     zoom *= powf(1.1f, io.MouseWheel);
-    zoom = (zoom, 0.1f, 20.0f);
+    zoom = Clamp(zoom, 0.1f, 20.0f);
 
     ImVec2 mouse_local;
     mouse_local.x = io.MousePos.x - canvas_pos.x - pan.x;
@@ -92,6 +89,7 @@ void ImageEditor::render_preview() {
     pan.x -= mouse_local.x * scale;
     pan.y -= mouse_local.y * scale;
   }
+
   if (active && ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
     pan.x += io.MouseDelta.x;
     pan.y += io.MouseDelta.y;
@@ -113,34 +111,38 @@ void ImageEditor::render_preview() {
   draw_list->PushClipRect(
       canvas_pos,
       ImVec2(canvas_pos.x + canvas_size.x, canvas_pos.y + canvas_size.y), true);
-  const ImVec2 image_pos = {canvas_pos.x + pan.x + current_texture_offset_x,
-                            canvas_pos.y + pan.y + current_texture_offset_y};
+  const ImVec2 image_pos = {canvas_pos.x + pan.x, canvas_pos.y + pan.y};
 
-  roi.x = (std::max(canvas_pos.x, image_pos.x) - image_pos.x) / zoom;
-  roi.y = (std::max(canvas_pos.y, image_pos.y) - image_pos.y) / zoom;
+  // Compute roi in image-space (unscaled) pixels: the visible portion of the
+  // full image, clamped to [0, image_width] x [0, image_height].
+  roi.x = (int)std::max(0.0f, (canvas_pos.x - image_pos.x) / zoom);
+  roi.y = (int)std::max(0.0f, (canvas_pos.y - image_pos.y) / zoom);
 
-  float roi_x2 =
-      (std::min(canvas_pos.x + canvas_size.x, image_pos.x + image_size.x) -
-       image_pos.x) /
-      zoom;
-  float roi_y2 =
-      (std::min(canvas_pos.y + canvas_size.y, image_pos.y + image_size.y) -
-       image_pos.y) /
-      zoom;
+  int roi_x2 = (int)std::min(
+      (float)image_width, (canvas_pos.x + canvas_size.x - image_pos.x) / zoom);
+  int roi_y2 = (int)std::min(
+      (float)image_height, (canvas_pos.y + canvas_size.y - image_pos.y) / zoom);
 
   roi.width = roi_x2 - roi.x;
   roi.height = roi_y2 - roi.y;
 
-  if (preview_texture != nullptr) {
-    draw_list->AddImage(texture_id, image_pos,
-                        ImVec2(image_pos.x + current_texture_width * zoom,
-                               image_pos.y + current_texture_height * zoom),
-                        ImVec2(0, 0), ImVec2(1, 1));
-  }
+  // TODO: This is a rather naive and stupid way to do things, makes the UI
+  // unresponsive, instead maintain some sort of queueing system
+  if (roi.width != current_texture_width ||
+      roi.height != current_texture_height ||
+      roi.x != current_texture_offset_x || roi.y != current_texture_offset_y)
+    apply_gegl_texture();
+
+  ImVec2 roi_pos = {image_pos.x + current_texture_offset_x * zoom,
+                    image_pos.y + current_texture_offset_y * zoom};
+
+  draw_list->AddImage(texture_id, roi_pos,
+                      ImVec2(roi_pos.x + current_texture_width * zoom,
+                             roi_pos.y + current_texture_height * zoom),
+                      ImVec2(0, 0), ImVec2(1, 1));
 
   draw_list->PopClipRect();
   ImGui::EndChild();
-  ImGui::PopID();
 }
 
 void ImageManager::render_viewer() {
@@ -328,11 +330,13 @@ void ImageManager::render_manager() {
   ZoneScopedN("ImageManager::draw_manager");
 #endif
   editor.cleanup_stale_resources();
+  bool new_preview = false;
   apply_pending_selection();
   if (with_preview && current_image_ != nullptr && current_image_->is_valid() &&
       (editor.preview_texture == nullptr ||
        editor.image_path != current_image_->filename)) {
     editor.load_path(current_image_->filename);
+    new_preview = true;
   }
   auto io = ImGui::GetIO();
 
@@ -364,6 +368,8 @@ void ImageManager::render_manager() {
                         pan);
       }
       editor.render_preview();
+      if (new_preview)
+        editor.reset_view_to_image();
       if (link_preview_viewer) {
         zoom = linked_zoom_for_target(
             editor.get_zoom(), editor.image_width, editor.image_height,

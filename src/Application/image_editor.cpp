@@ -7,6 +7,7 @@
 #include "stb_image.h"
 #include <algorithm>
 #include <cmath>
+#include <gegl-0.4/gegl-buffer.h>
 #include <gegl.h>
 #include <iostream>
 
@@ -107,13 +108,16 @@ void ImageEditor::apply_gegl_texture() {
     return;
   double scale = std::min(zoom, 1.0f);
 
-  int out_w = (int)ceil(roi.width);
-  int out_h = (int)ceil(roi.height);
+  int out_w = roi.width * scale;
+  int out_h = roi.height * scale;
 
   size_t buf_size = (size_t)out_w * out_h * 4;
   unsigned char *pixels = (unsigned char *)IM_ALLOC(buf_size);
 
-  gegl_node_blit(sink, 1.0f, &roi, babl_format("R'G'B'A u8"), pixels,
+  GeglRectangle broi = {(int)(roi.x * scale), (int)(roi.y * scale), out_w,
+                        out_h};
+
+  gegl_node_blit(sink, scale, &broi, babl_format("R'G'B'A u8"), pixels,
                  GEGL_AUTO_ROWSTRIDE, GEGL_BLIT_DEFAULT);
 
   SDL_GPUTexture *texture = nullptr;

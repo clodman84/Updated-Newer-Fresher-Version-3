@@ -259,9 +259,10 @@ void render_sessions(std::deque<std::unique_ptr<Session>> &sessions) {
 
 int main(int, char **) {
   prepare_database();
-
-  gegl_init(0, nullptr);
+  gegl_init(NULL, NULL);
   gimp_levels_op_register();
+  GeglConfig *config = gegl_config();
+  g_object_set(config, "mipmap-rendering", TRUE, NULL);
 
   srand(time(NULL));
 

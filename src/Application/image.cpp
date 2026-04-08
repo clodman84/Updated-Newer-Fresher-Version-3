@@ -565,5 +565,4 @@ void ImageEditor::load_path(std::filesystem::path path) {
   //
   // preview_texture = texture;
   apply_gegl_texture();
-  reset_view_to_image();
 }
