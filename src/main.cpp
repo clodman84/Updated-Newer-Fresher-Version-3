@@ -21,6 +21,10 @@
 #include <string>
 #include <vector>
 
+#ifdef WIN32
+#include <windows.h>
+#endif
+
 #ifdef TRACY_ENABLE
 #include <tracy/Tracy.hpp>
 #endif
@@ -260,9 +264,36 @@ void render_sessions(std::deque<std::unique_ptr<Session>> &sessions) {
   ImGui::End();
 }
 
+void setup_portable_paths() {
+#ifdef WIN32
+  char buffer[MAX_PATH];
+  GetModuleFileNameA(NULL, buffer, MAX_PATH);
+  std::filesystem::path exe_path(buffer);
+  std::filesystem::path root_dir = exe_path.parent_path();
+
+  auto set_env_if_missing = [&](const char* name, const std::filesystem::path& relative_path) {
+    if (GetEnvironmentVariableA(name, NULL, 0) == 0) {
+      std::filesystem::path absolute_path = root_dir / relative_path;
+      if (std::filesystem::exists(absolute_path)) {
+        _putenv_s(name, absolute_path.string().c_str());
+        std::cout << "Portable setup: Set " << name << " to " << absolute_path.string() << std::endl;
+      }
+    }
+  };
+
+  // Assume a standard distribution layout:
+  // bin/UNFV3.exe
+  // lib/gegl-0.4/
+  // lib/babl-0.1/
+  set_env_if_missing("GEGL_PATH", "lib/gegl-0.4");
+  set_env_if_missing("BABL_PATH", "lib/babl-0.1");
+#endif
+}
+
 } // namespace
 
 int main(int, char **) {
+  setup_portable_paths();
   prepare_database();
   gegl_init(NULL, NULL);
   gimp_levels_op_register();

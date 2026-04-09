@@ -1,0 +1,2 @@
+option('tracy', type : 'boolean', value : false, description : 'Enable Tracy profiler instrumentation')
+option('ignore_missing_deps', type : 'boolean', value : false, description : 'Internal: Ignore missing GEGL/Babl for validation purposes in environments where they are not installed')
