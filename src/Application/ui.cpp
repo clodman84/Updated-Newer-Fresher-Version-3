@@ -288,40 +288,19 @@ void ImageManager::render_carousel(float carousel_height) {
   }
 
   for (const auto &name : thumbnail_order) {
-    const auto it = thumbnails.find(name);
-    if (it == thumbnails.end() || it->second.texture == nullptr) {
-      continue;
-    }
-
-    const bool is_current = !image_names.empty() && index >= 0 &&
-                            index < static_cast<int>(image_names.size()) &&
-                            name == image_names[index];
-    if (is_current) {
-      ImGui::PushStyleColor(ImGuiCol_Button,
-                            ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
-    }
-
-    ImGui::BeginGroup();
-    const int frame_number = get_image_index(name) + 1;
-    if (frame_number > 0) {
-      ImGui::Text("Frame: %d", frame_number);
-    }
-    if (ImGui::ImageButton(
-            name.c_str(), it->second.texture,
-            ImVec2((float)it->second.width, (float)it->second.height))) {
-      queue_image_by_index(get_image_index(name));
-    }
-    ImGui::EndGroup();
-
-    if (is_current) {
-      ImGui::PopStyleColor();
-      if (index != last_drawn_index) {
-        ImGui::SetScrollHereX(0.5f);
-      }
+    render_thumbnail_item(
+        name, (float)thumbnails[name].width,
+        [this](const std::string &n) {
+          queue_image_by_index(get_image_index(n));
+        },
+        true, // show frame
+        true  // highlight current
+    );
+    if (name == image_names[index] && index != last_drawn_index) {
+      ImGui::SetScrollHereX(0.5f);
     }
     ImGui::SameLine();
   }
-
   ImGui::EndChild();
 }
 
@@ -468,65 +447,21 @@ void Session::render_same_as_popup() {
   if (ImGui::BeginPopup("Same As Bill")) {
     ImGui::TextUnformatted("Copy billed entries from another image");
     ImGui::Separator();
-
-    constexpr int columns = 5;
-    constexpr float cell_width = 150.0f;
-    const float spacing = ImGui::GetStyle().ItemSpacing.x;
-    const float popup_width = columns * cell_width + spacing * (columns - 1);
-    ImGui::SetNextWindowSize(
-        ImVec2(popup_width + ImGui::GetStyle().WindowPadding.x * 2, 480.0f),
-        ImGuiCond_Appearing);
-
-    bool found_source = false;
-    int column = 0;
-    for (const auto &image_name : manager.get_thumbnail_order()) {
-      if (image_path != nullptr && image_name == image_path->string()) {
-        continue;
-      }
-
-      const Thumbnail *thumb = manager.get_thumbnail(image_name);
-      if (thumb == nullptr || thumb->texture == nullptr || thumb->width <= 0) {
-        continue;
-      }
-
-      found_source = true;
-      if (column % columns != 0) {
-        ImGui::SameLine(0.0f, spacing);
-      }
-
-      ImGui::PushID(image_name.c_str());
-      ImGui::BeginGroup();
-
-      const int frame_number = manager.get_image_index(image_name) + 1;
-      if (frame_number > 0) {
-        ImGui::Text("Frame %d", frame_number);
-      }
-
-      const float aspect = (float)thumb->height / (float)thumb->width;
-      if (ImGui::ImageButton("##thumb", thumb->texture,
-                             ImVec2(cell_width, cell_width * aspect))) {
-        append_bill_from_image(image_name);
-        draw_same_as_popup = false;
-        ImGui::CloseCurrentPopup();
-      }
-
-      ImGui::TextUnformatted(
-          std::filesystem::path(image_name).filename().string().c_str());
-      ImGui::EndGroup();
-      ImGui::PopID();
-      ++column;
-    }
-
-    if (!found_source) {
-      ImGui::TextDisabled("No other images are available.");
-    }
-
-    ImGui::Separator();
     if (ImGui::Button("Close")) {
       draw_same_as_popup = false;
       ImGui::CloseCurrentPopup();
     }
-
+    for (const auto &image_name : manager.get_thumbnail_order()) {
+      manager.render_thumbnail_item(
+          image_name, manager.thumbnails[image_name].width,
+          [this](const std::string &n) {
+            append_bill_from_image(n);
+            draw_same_as_popup = false;
+            ImGui::CloseCurrentPopup();
+          },
+          true, false);
+    }
+    ImGui::Separator();
     ImGui::EndPopup();
   } else if (draw_same_as_popup && !ImGui::IsPopupOpen("Same As Bill")) {
     draw_same_as_popup = false;

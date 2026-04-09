@@ -139,6 +139,48 @@ public:
   int size = 0;
   bool with_detection = false;
 
+  std::map<std::string, Thumbnail> thumbnails;
+  template <typename OnClick>
+  void render_thumbnail_item(const std::string &name, float width,
+                             OnClick on_click, bool show_frame,
+                             bool highlight_current) {
+    const auto it = thumbnails.find(name);
+    if (it == thumbnails.end() || it->second.texture == nullptr)
+      return;
+
+    const bool is_current = highlight_current && !image_names.empty() &&
+                            index >= 0 && index < (int)image_names.size() &&
+                            name == image_names[index];
+
+    if (is_current) {
+      ImGui::PushStyleColor(ImGuiCol_Button,
+                            ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
+    }
+
+    ImGui::PushID(name.c_str());
+    ImGui::BeginGroup();
+
+    if (show_frame) {
+      const int frame_number = get_image_index(name) + 1;
+      if (frame_number > 0)
+        ImGui::Text("Frame: %d", frame_number);
+    }
+
+    const float aspect = (float)it->second.height / (float)it->second.width;
+
+    if (ImGui::ImageButton("##thumb", it->second.texture,
+                           ImVec2(width, width * aspect))) {
+      on_click(name);
+    }
+
+    ImGui::EndGroup();
+    ImGui::PopID();
+
+    if (is_current) {
+      ImGui::PopStyleColor();
+    }
+  }
+
 private:
   void load_folder(const std::filesystem::path &folder);
   void clear_current_image();
@@ -154,7 +196,6 @@ private:
   std::unique_ptr<Image> current_image_;
   std::vector<std::string> image_names;
   std::vector<std::string> thumbnail_order;
-  std::map<std::string, Thumbnail> thumbnails;
   SDL_GPUDevice *device = nullptr;
   float zoom = 0.0f;
   ImVec2 canvas_size = ImVec2(0.0f, 0.0f);
