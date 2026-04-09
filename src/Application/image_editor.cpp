@@ -192,18 +192,6 @@ Effect &ImageEditor::get_or_create_effect(EffectType type) {
                             (gdouble)exposure_state.black_level, "exposure",
                             (gdouble)exposure_state.exposure, NULL);
     break;
-  case EffectType::ShadowsHighlights:
-    e.node = gegl_node_new_child(
-        graph, "operation", "gegl:shadows-highlights", "shadows",
-        (gdouble)shadows_highlights_state.shadows, "highlights",
-        (gdouble)shadows_highlights_state.highlights, "whitepoint",
-        (gdouble)shadows_highlights_state.whitepoint, "radius",
-        (gdouble)shadows_highlights_state.radius, "compress",
-        (gdouble)shadows_highlights_state.compress, "shadows-ccorrect",
-        (gdouble)shadows_highlights_state.shadows_ccorrect,
-        "highlights-ccorrect",
-        (gdouble)shadows_highlights_state.highlights_ccorrect, NULL);
-    break;
   case EffectType::Levels:
     e.node = gegl_node_new_child(
         graph, "operation", "unfv3:gimp-levels", "in-low",
@@ -253,14 +241,6 @@ Effect &ImageEditor::get_or_create_effect(EffectType type) {
     e.node =
         gegl_node_new_child(graph, "operation", "unfv3:color-enhance", NULL);
     break;
-  case EffectType::StretchContrast:
-    e.node =
-        gegl_node_new_child(graph, "operation", "gegl:stretch-contrast", NULL);
-    break;
-  case EffectType::StretchContrastHSV:
-    e.node = gegl_node_new_child(graph, "operation",
-                                 "gegl:stretch-contrast-hsv", NULL);
-    break;
   case EffectType::Sepia:
     e.node = gegl_node_new_child(graph, "operation", "gegl:sepia", "scale",
                                  (gdouble)sepia_state.scale, NULL);
@@ -283,11 +263,6 @@ Effect &ImageEditor::get_or_create_effect(EffectType type) {
     e.node = gegl_node_new_child(graph, "operation", "gegl:noise-reduction",
                                  "iterations",
                                  (gint)noise_reduction_state.iterations, NULL);
-    break;
-  case EffectType::SNNMean:
-    e.node = gegl_node_new_child(graph, "operation", "gegl:snn-mean", "radius",
-                                 (gint)snn_mean_state.radius, "pairs",
-                                 (gint)snn_mean_state.pairs, NULL);
     break;
   }
 
@@ -505,90 +480,6 @@ void ImageEditor::render_controls() {
       Effect &e = get_or_create_effect(type);
       gegl_node_set(e.node, "black-level", (gdouble)exposure_state.black_level,
                     "exposure", (gdouble)exposure_state.exposure, NULL);
-      put_render_request();
-    }
-    ImGui::TreePop();
-  }
-
-  if (gegl_has_operation("gegl:shadows-highlights") &&
-      ImGui::TreeNode("Shadows & Highlights")) {
-    const EffectType type = EffectType::ShadowsHighlights;
-    bool active = is_effect_active(type);
-    if (ImGui::Checkbox("Enabled##SH", &active)) {
-      if (active)
-        get_or_create_effect(type);
-      else
-        remove_effect(type);
-      put_render_request();
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("Reset##SH")) {
-      shadows_highlights_state = ShadowsHighlightsState();
-      if (active) {
-        Effect &e = get_or_create_effect(type);
-        gegl_node_set(
-            e.node, "shadows", (gdouble)shadows_highlights_state.shadows,
-            "highlights", (gdouble)shadows_highlights_state.highlights,
-            "whitepoint", (gdouble)shadows_highlights_state.whitepoint,
-            "radius", (gdouble)shadows_highlights_state.radius, "compress",
-            (gdouble)shadows_highlights_state.compress, "shadows-ccorrect",
-            (gdouble)shadows_highlights_state.shadows_ccorrect,
-            "highlights-ccorrect",
-            (gdouble)shadows_highlights_state.highlights_ccorrect, NULL);
-        put_render_request();
-      }
-    }
-
-    ImGui::SameLine();
-    ImGui::TextDisabled("(?)");
-    if (ImGui::BeginItemTooltip()) {
-      ImGui::PushTextWrapPos(300.0f);
-      ImGui::TextUnformatted(
-          "Independently brightens shadow regions and darkens highlight "
-          "regions of the image, compressing the overall tonal range. A "
-          "spatial radius controls how locally the effect is computed.");
-      ImGui::PopTextWrapPos();
-      ImGui::EndTooltip();
-    }
-
-    bool changed = false;
-    static const double sh_min = -100.0, sh_max = 100.0;
-    static const double wp_min = -10.0, wp_max = 10.0;
-    static const double r_min = 0.1, r_max = 1500.0;
-    static const double c_min = 0.0, c_max = 100.0;
-    changed |= ImGui::SliderScalar("Shadows", ImGuiDataType_Double,
-                                   &shadows_highlights_state.shadows, &sh_min,
-                                   &sh_max, "%.1f");
-    changed |= ImGui::SliderScalar("Highlights", ImGuiDataType_Double,
-                                   &shadows_highlights_state.highlights,
-                                   &sh_min, &sh_max, "%.1f");
-    changed |= ImGui::SliderScalar("White Point", ImGuiDataType_Double,
-                                   &shadows_highlights_state.whitepoint,
-                                   &wp_min, &wp_max, "%.2f");
-    changed |= ImGui::SliderScalar("Radius", ImGuiDataType_Double,
-                                   &shadows_highlights_state.radius, &r_min,
-                                   &r_max, "%.1f");
-    changed |= ImGui::SliderScalar("Compress", ImGuiDataType_Double,
-                                   &shadows_highlights_state.compress, &c_min,
-                                   &c_max, "%.1f");
-    changed |= ImGui::SliderScalar(
-        "Shadows Color Adjustment", ImGuiDataType_Double,
-        &shadows_highlights_state.shadows_ccorrect, &c_min, &c_max, "%.1f");
-    changed |= ImGui::SliderScalar(
-        "Highlights Color Adjustment", ImGuiDataType_Double,
-        &shadows_highlights_state.highlights_ccorrect, &c_min, &c_max, "%.1f");
-
-    if (changed && active) {
-      Effect &e = get_or_create_effect(type);
-      gegl_node_set(
-          e.node, "shadows", (gdouble)shadows_highlights_state.shadows,
-          "highlights", (gdouble)shadows_highlights_state.highlights,
-          "whitepoint", (gdouble)shadows_highlights_state.whitepoint, "radius",
-          (gdouble)shadows_highlights_state.radius, "compress",
-          (gdouble)shadows_highlights_state.compress, "shadows-ccorrect",
-          (gdouble)shadows_highlights_state.shadows_ccorrect,
-          "highlights-ccorrect",
-          (gdouble)shadows_highlights_state.highlights_ccorrect, NULL);
       put_render_request();
     }
     ImGui::TreePop();
@@ -1000,63 +891,6 @@ void ImageEditor::render_controls() {
     ImGui::TreePop();
   }
 
-  if (gegl_has_operation("gegl:stretch-contrast") &&
-      ImGui::TreeNode("Stretch Contrast")) {
-    const EffectType type = EffectType::StretchContrast;
-    bool active = is_effect_active(type);
-    if (ImGui::Checkbox("Enabled##SC", &active)) {
-      if (active) {
-        get_or_create_effect(type);
-        stretch_contrast_state.enabled = true;
-      } else {
-        remove_effect(type);
-        stretch_contrast_state.enabled = false;
-      }
-      put_render_request();
-    }
-
-    ImGui::SameLine();
-    ImGui::TextDisabled("(?)");
-    if (ImGui::BeginItemTooltip()) {
-      ImGui::PushTextWrapPos(300.0f);
-      ImGui::TextUnformatted(
-          "Scales the components of the buffer to be in the 0.0–1.0 range. "
-          "Improves images that make poor use of the available contrast — "
-          "little contrast, very dark, or very bright images.");
-      ImGui::PopTextWrapPos();
-      ImGui::EndTooltip();
-    }
-    ImGui::TreePop();
-  }
-
-  if (gegl_has_operation("gegl:stretch-contrast-hsv") &&
-      ImGui::TreeNode("Stretch Contrast HSV")) {
-    const EffectType type = EffectType::StretchContrastHSV;
-    bool active = is_effect_active(type);
-    if (ImGui::Checkbox("Enabled##SCH", &active)) {
-      if (active) {
-        get_or_create_effect(type);
-        stretch_contrast_hsv_state.enabled = true;
-      } else {
-        remove_effect(type);
-        stretch_contrast_hsv_state.enabled = false;
-      }
-      put_render_request();
-    }
-
-    ImGui::SameLine();
-    ImGui::TextDisabled("(?)");
-    if (ImGui::BeginItemTooltip()) {
-      ImGui::PushTextWrapPos(300.0f);
-      ImGui::TextUnformatted(
-          "Like Stretch Contrast but works in HSV colour space, preserving "
-          "hue. Generally looks more natural on colour photographs.");
-      ImGui::PopTextWrapPos();
-      ImGui::EndTooltip();
-    }
-    ImGui::TreePop();
-  }
-
   ImGui::SeparatorText("Sharpening");
   if (gegl_has_operation("gegl:unsharp-mask") &&
       ImGui::TreeNode("Unsharp Mask")) {
@@ -1162,54 +996,6 @@ void ImageEditor::render_controls() {
       Effect &e = get_or_create_effect(type);
       gegl_node_set(e.node, "iterations",
                     (gint)noise_reduction_state.iterations, NULL);
-      put_render_request();
-    }
-    ImGui::TreePop();
-  }
-
-  if (gegl_has_operation("gegl:snn-mean") && ImGui::TreeNode("SNN Mean")) {
-    const EffectType type = EffectType::SNNMean;
-    bool active = is_effect_active(type);
-    if (ImGui::Checkbox("Enabled##SNN", &active)) {
-      if (active)
-        get_or_create_effect(type);
-      else
-        remove_effect(type);
-      put_render_request();
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("Reset##SNN")) {
-      snn_mean_state = SNNMeanState();
-      if (active) {
-        Effect &e = get_or_create_effect(type);
-        gegl_node_set(e.node, "radius", (gint)snn_mean_state.radius, "pairs",
-                      (gint)snn_mean_state.pairs, NULL);
-        put_render_request();
-      }
-    }
-
-    ImGui::SameLine();
-    ImGui::TextDisabled("(?)");
-    if (ImGui::BeginItemTooltip()) {
-      ImGui::PushTextWrapPos(300.0f);
-      ImGui::TextUnformatted(
-          "Noise-reducing edge-preserving blur based on Symmetric Nearest "
-          "Neighbours. For each pixel, picks the most similar neighbours from "
-          "symmetric pairs to average, avoiding smearing across edges.");
-      ImGui::PopTextWrapPos();
-      ImGui::EndTooltip();
-    }
-
-    bool changed = false;
-    static const int r_min = 1, r_max = 60;
-    static const int p_min = 1, p_max = 2;
-    changed |= ImGui::SliderInt("Radius", &snn_mean_state.radius, r_min, r_max);
-    changed |= ImGui::SliderInt("Pairs", &snn_mean_state.pairs, p_min, p_max);
-
-    if (changed && active) {
-      Effect &e = get_or_create_effect(type);
-      gegl_node_set(e.node, "radius", (gint)snn_mean_state.radius, "pairs",
-                    (gint)snn_mean_state.pairs, NULL);
       put_render_request();
     }
     ImGui::TreePop();

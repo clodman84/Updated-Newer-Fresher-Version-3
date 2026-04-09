@@ -254,15 +254,16 @@ void ImageManager::render_editor() {
   }
   if (ImGui::TreeNode("Edit")) {
     with_preview = true;
-    ImGui::Text("Preview Image Dimensions: %d x %d", editor->image_width,
-                editor->image_height);
-    ImGui::Text("ROI: %d, %d, %d, %d", editor->roi.x, editor->roi.y,
-                editor->roi.width, editor->roi.height);
-    ImGui::Text("Zoom: %f", zoom);
-    ImGui::Text("Current Texture: %d, %d, %d, %d",
-                editor->current_texture_width, editor->current_texture_height,
-                editor->current_texture_offset_x,
-                editor->current_texture_offset_y);
+    // ImGui::Text("Preview Image Dimensions: %d x %d", editor->image_width,
+    //             editor->image_height);
+    // ImGui::Text("ROI: %d, %d, %d, %d", editor->roi.x, editor->roi.y,
+    //             editor->roi.width, editor->roi.height);
+    // ImGui::Text("Zoom: %f", zoom);
+    // ImGui::Text("Current Texture: %d, %d, %d, %d",
+    //             editor->current_texture_width,
+    //             editor->current_texture_height,
+    //             editor->current_texture_offset_x,
+    //             editor->current_texture_offset_y);
     if (ImGui::Checkbox("Link Viewers", &link_preview_viewer) &&
         link_preview_viewer) {
       editor->set_view(linked_zoom_for_target(zoom, image->width, image->height,

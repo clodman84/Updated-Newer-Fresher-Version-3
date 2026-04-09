@@ -16,16 +16,6 @@ struct ExposureState {
   double exposure = 0.0;
 };
 
-struct ShadowsHighlightsState {
-  double shadows = 0.0;
-  double highlights = 0.0;
-  double whitepoint = 0.0;
-  double radius = 100.0;
-  double compress = 50.0;
-  double shadows_ccorrect = 100.0;
-  double highlights_ccorrect = 50.0;
-};
-
 struct LevelsState {
   double in_low = 0.0;
   double in_high = 1.0;
@@ -62,14 +52,6 @@ struct ColorEnhanceState {
   bool enabled = false;
 };
 
-struct StretchContrastState {
-  bool enabled = false;
-};
-
-struct StretchContrastHSVState {
-  bool enabled = false;
-};
-
 struct SepiaState {
   double scale = 1.0;
 };
@@ -91,26 +73,17 @@ struct MonoMixerState {
   bool preserve_luminosity = true;
 };
 
-struct SNNMeanState {
-  int radius = 8;
-  int pairs = 2;
-};
-
 enum class EffectType {
   Exposure,
-  ShadowsHighlights,
   Levels,
   ColorTemperature,
   HueChroma,
   Saturation,
   ColorEnhance,
-  StretchContrast,
-  StretchContrastHSV,
   Sepia,
   MonoMixer,
   UnsharpMask,
   NoiseReduction,
-  SNNMean,
 };
 
 struct Effect {
@@ -180,19 +153,15 @@ private:
   bool is_effect_active(EffectType type) const;
 
   ExposureState exposure_state;
-  ShadowsHighlightsState shadows_highlights_state;
   LevelsState levels_state;
   ColorTemperatureState color_temperature_state;
   HueChromaState hue_chroma_state;
   SaturationState saturation_state;
   ColorEnhanceState color_enhance_state;
-  StretchContrastState stretch_contrast_state;
-  StretchContrastHSVState stretch_contrast_hsv_state;
   SepiaState sepia_state;
   MonoMixerState mono_mixer_state;
   UnsharpMaskState unsharp_mask_state;
   NoiseReductionState noise_reduction_state;
-  SNNMeanState snn_mean_state;
 
   void *image_src = nullptr;
 
