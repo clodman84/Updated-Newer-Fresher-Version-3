@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <fstream>
 #include <iostream>
+#include <memory>
 #include <misc/cpp/imgui_stdlib.h>
 #include <sstream>
 #include <stdexcept>
@@ -26,8 +27,8 @@ void log_session_error(const std::filesystem::path &session_path,
 } // namespace
 
 Session::Session(Database *database, std::filesystem::path path,
-                 SDL_GPUDevice *device)
-    : manager(device, path), path(std::move(path)), database(database) {
+                 SDL_GPUDevice *device, std::shared_ptr<ImageEditor> editor)
+    : manager(device, path, editor), path(std::move(path)), database(database) {
 #ifdef TRACY_ENABLE
   ZoneScopedN("Session::Session");
 #endif

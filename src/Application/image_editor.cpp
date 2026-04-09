@@ -9,7 +9,6 @@
 #include <cmath>
 #include <gegl-0.4/gegl-buffer.h>
 #include <gegl.h>
-#include <iostream>
 
 #ifdef TRACY_ENABLE
 #include <tracy/Tracy.hpp>
@@ -21,6 +20,7 @@ ImageEditor::~ImageEditor() {
     preview_texture = nullptr;
   }
   cleanup_stale_resources();
+  stop_render_thread();
 
   if (graph != nullptr) {
     g_object_unref(graph);
@@ -100,13 +100,54 @@ void ImageEditor::prepare_gegl_graph() {
   gegl_node_link_many(source, sink, NULL);
 }
 
-void ImageEditor::apply_gegl_texture() {
+void ImageEditor::put_render_request() {
+  std::lock_guard<std::mutex> lock(request_mutex);
+
+  latest_request.roi = roi;
+  latest_request.zoom = zoom;
+
+  has_request.store(true, std::memory_order_release);
+}
+
+void ImageEditor::start_render_thread() {
+  running = true;
+
+  render_thread = std::thread([this]() {
+    while (running) {
+      if (!has_request.load(std::memory_order_acquire)) {
+        // TODO: Look into condition_variables and see how to do things better
+        // maybe
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        continue;
+      }
+
+      RenderRequest req;
+      {
+        std::lock_guard<std::mutex> lock(request_mutex);
+        req = latest_request;
+        has_request.store(false, std::memory_order_release);
+      }
+      apply_gegl_texture(req);
+    }
+  });
+}
+
+void ImageEditor::stop_render_thread() {
+  running = false;
+  if (render_thread.joinable())
+    render_thread.join();
+}
+
+void ImageEditor::apply_gegl_texture(RenderRequest req) {
 #ifdef TRACY_ENABLE
   ZoneScopedN("apply_gegl_texture");
 #endif
   if (sink == nullptr)
     return;
   double scale = std::min(zoom, 1.0f);
+
+  GeglRectangle roi = req.roi;
+  float zoom = req.zoom;
 
   int out_w = roi.width * scale;
   int out_h = roi.height * scale;
@@ -129,7 +170,6 @@ void ImageEditor::apply_gegl_texture() {
   }
 
   IM_FREE(pixels);
-
   current_texture_offset_x = roi.x;
   current_texture_offset_y = roi.y;
   current_texture_width = roi.width;
@@ -425,7 +465,7 @@ void ImageEditor::render_controls() {
         get_or_create_effect(type);
       else
         remove_effect(type);
-      apply_gegl_texture();
+      put_render_request();
     }
     ImGui::SameLine();
     if (ImGui::Button("Reset##Exp")) {
@@ -435,7 +475,7 @@ void ImageEditor::render_controls() {
         gegl_node_set(e.node, "black-level",
                       (gdouble)exposure_state.black_level, "exposure",
                       (gdouble)exposure_state.exposure, NULL);
-        apply_gegl_texture();
+        put_render_request();
       }
     }
 
@@ -465,7 +505,7 @@ void ImageEditor::render_controls() {
       Effect &e = get_or_create_effect(type);
       gegl_node_set(e.node, "black-level", (gdouble)exposure_state.black_level,
                     "exposure", (gdouble)exposure_state.exposure, NULL);
-      apply_gegl_texture();
+      put_render_request();
     }
     ImGui::TreePop();
   }
@@ -479,7 +519,7 @@ void ImageEditor::render_controls() {
         get_or_create_effect(type);
       else
         remove_effect(type);
-      apply_gegl_texture();
+      put_render_request();
     }
     ImGui::SameLine();
     if (ImGui::Button("Reset##SH")) {
@@ -495,7 +535,7 @@ void ImageEditor::render_controls() {
             (gdouble)shadows_highlights_state.shadows_ccorrect,
             "highlights-ccorrect",
             (gdouble)shadows_highlights_state.highlights_ccorrect, NULL);
-        apply_gegl_texture();
+        put_render_request();
       }
     }
 
@@ -549,7 +589,7 @@ void ImageEditor::render_controls() {
           (gdouble)shadows_highlights_state.shadows_ccorrect,
           "highlights-ccorrect",
           (gdouble)shadows_highlights_state.highlights_ccorrect, NULL);
-      apply_gegl_texture();
+      put_render_request();
     }
     ImGui::TreePop();
   }
@@ -563,7 +603,7 @@ void ImageEditor::render_controls() {
         get_or_create_effect(type);
       else
         remove_effect(type);
-      apply_gegl_texture();
+      put_render_request();
     }
     ImGui::SameLine();
     if (ImGui::Button("Reset##Lv")) {
@@ -595,7 +635,7 @@ void ImageEditor::render_controls() {
                       (gdouble)levels_state.gamma_a, "out-low-a",
                       (gdouble)levels_state.out_low_a, "out-high-a",
                       (gdouble)levels_state.out_high_a, NULL);
-        apply_gegl_texture();
+        put_render_request();
       }
     }
 
@@ -662,7 +702,7 @@ void ImageEditor::render_controls() {
                     (gdouble)levels_state.gamma_a, "out-low-a",
                     (gdouble)levels_state.out_low_a, "out-high-a",
                     (gdouble)levels_state.out_high_a, NULL);
-      apply_gegl_texture();
+      put_render_request();
     }
     ImGui::TreePop();
   }
@@ -677,7 +717,7 @@ void ImageEditor::render_controls() {
         get_or_create_effect(type);
       else
         remove_effect(type);
-      apply_gegl_texture();
+      put_render_request();
     }
     ImGui::SameLine();
     if (ImGui::Button("Reset##CT")) {
@@ -689,7 +729,7 @@ void ImageEditor::render_controls() {
                       "intended-temperature",
                       (gdouble)color_temperature_state.intended_temperature,
                       NULL);
-        apply_gegl_texture();
+        put_render_request();
       }
     }
 
@@ -723,7 +763,7 @@ void ImageEditor::render_controls() {
                     "intended-temperature",
                     (gdouble)color_temperature_state.intended_temperature,
                     NULL);
-      apply_gegl_texture();
+      put_render_request();
     }
     ImGui::TreePop();
   }
@@ -736,7 +776,7 @@ void ImageEditor::render_controls() {
         get_or_create_effect(type);
       else
         remove_effect(type);
-      apply_gegl_texture();
+      put_render_request();
     }
     ImGui::SameLine();
     if (ImGui::Button("Reset##HC")) {
@@ -746,7 +786,7 @@ void ImageEditor::render_controls() {
         gegl_node_set(e.node, "hue", (gdouble)hue_chroma_state.hue, "chroma",
                       (gdouble)hue_chroma_state.chroma, "lightness",
                       (gdouble)hue_chroma_state.lightness, NULL);
-        apply_gegl_texture();
+        put_render_request();
       }
     }
 
@@ -781,7 +821,7 @@ void ImageEditor::render_controls() {
       gegl_node_set(e.node, "hue", (gdouble)hue_chroma_state.hue, "chroma",
                     (gdouble)hue_chroma_state.chroma, "lightness",
                     (gdouble)hue_chroma_state.lightness, NULL);
-      apply_gegl_texture();
+      put_render_request();
     }
     ImGui::TreePop();
   }
@@ -798,7 +838,7 @@ void ImageEditor::render_controls() {
         remove_effect(type);
         color_enhance_state.enabled = false;
       }
-      apply_gegl_texture();
+      put_render_request();
     }
 
     ImGui::SameLine();
@@ -823,7 +863,7 @@ void ImageEditor::render_controls() {
         get_or_create_effect(type);
       else
         remove_effect(type);
-      apply_gegl_texture();
+      put_render_request();
     }
     ImGui::SameLine();
     if (ImGui::Button("Reset##Sat")) {
@@ -831,7 +871,7 @@ void ImageEditor::render_controls() {
       if (active) {
         Effect &e = get_or_create_effect(type);
         gegl_node_set(e.node, "scale", (gdouble)saturation_state.scale, NULL);
-        apply_gegl_texture();
+        put_render_request();
       }
     }
 
@@ -856,7 +896,7 @@ void ImageEditor::render_controls() {
     if (changed && active) {
       Effect &e = get_or_create_effect(type);
       gegl_node_set(e.node, "scale", (gdouble)saturation_state.scale, NULL);
-      apply_gegl_texture();
+      put_render_request();
     }
     ImGui::TreePop();
   }
@@ -869,7 +909,7 @@ void ImageEditor::render_controls() {
         get_or_create_effect(type);
       else
         remove_effect(type);
-      apply_gegl_texture();
+      put_render_request();
     }
     ImGui::SameLine();
     if (ImGui::Button("Reset##Sepia")) {
@@ -877,7 +917,7 @@ void ImageEditor::render_controls() {
       if (active) {
         Effect &e = get_or_create_effect(type);
         gegl_node_set(e.node, "scale", (gdouble)sepia_state.scale, NULL);
-        apply_gegl_texture();
+        put_render_request();
       }
     }
 
@@ -898,7 +938,7 @@ void ImageEditor::render_controls() {
     if (changed && active) {
       Effect &e = get_or_create_effect(type);
       gegl_node_set(e.node, "scale", (gdouble)sepia_state.scale, NULL);
-      apply_gegl_texture();
+      put_render_request();
     }
     ImGui::TreePop();
   }
@@ -911,7 +951,7 @@ void ImageEditor::render_controls() {
         get_or_create_effect(type);
       else
         remove_effect(type);
-      apply_gegl_texture();
+      put_render_request();
     }
     ImGui::SameLine();
     if (ImGui::Button("Reset##MM")) {
@@ -922,7 +962,7 @@ void ImageEditor::render_controls() {
                       (gdouble)mono_mixer_state.green, "blue",
                       (gdouble)mono_mixer_state.blue, "preserve-luminosity",
                       (gboolean)mono_mixer_state.preserve_luminosity, NULL);
-        apply_gegl_texture();
+        put_render_request();
       }
     }
 
@@ -955,7 +995,7 @@ void ImageEditor::render_controls() {
                     (gdouble)mono_mixer_state.green, "blue",
                     (gdouble)mono_mixer_state.blue, "preserve-luminosity",
                     (gboolean)mono_mixer_state.preserve_luminosity, NULL);
-      apply_gegl_texture();
+      put_render_request();
     }
     ImGui::TreePop();
   }
@@ -972,7 +1012,7 @@ void ImageEditor::render_controls() {
         remove_effect(type);
         stretch_contrast_state.enabled = false;
       }
-      apply_gegl_texture();
+      put_render_request();
     }
 
     ImGui::SameLine();
@@ -1001,7 +1041,7 @@ void ImageEditor::render_controls() {
         remove_effect(type);
         stretch_contrast_hsv_state.enabled = false;
       }
-      apply_gegl_texture();
+      put_render_request();
     }
 
     ImGui::SameLine();
@@ -1027,7 +1067,7 @@ void ImageEditor::render_controls() {
         get_or_create_effect(type);
       else
         remove_effect(type);
-      apply_gegl_texture();
+      put_render_request();
     }
     ImGui::SameLine();
     if (ImGui::Button("Reset##UM")) {
@@ -1037,7 +1077,7 @@ void ImageEditor::render_controls() {
         gegl_node_set(e.node, "std-dev", (gdouble)unsharp_mask_state.std_dev,
                       "scale", (gdouble)unsharp_mask_state.scale, "threshold",
                       (gdouble)unsharp_mask_state.threshold, NULL);
-        apply_gegl_texture();
+        put_render_request();
       }
     }
 
@@ -1073,7 +1113,7 @@ void ImageEditor::render_controls() {
       gegl_node_set(e.node, "std-dev", (gdouble)unsharp_mask_state.std_dev,
                     "scale", (gdouble)unsharp_mask_state.scale, "threshold",
                     (gdouble)unsharp_mask_state.threshold, NULL);
-      apply_gegl_texture();
+      put_render_request();
     }
     ImGui::TreePop();
   }
@@ -1088,7 +1128,7 @@ void ImageEditor::render_controls() {
         get_or_create_effect(type);
       else
         remove_effect(type);
-      apply_gegl_texture();
+      put_render_request();
     }
     ImGui::SameLine();
     if (ImGui::Button("Reset##NR")) {
@@ -1097,7 +1137,7 @@ void ImageEditor::render_controls() {
         Effect &e = get_or_create_effect(type);
         gegl_node_set(e.node, "iterations",
                       (gint)noise_reduction_state.iterations, NULL);
-        apply_gegl_texture();
+        put_render_request();
       }
     }
 
@@ -1122,7 +1162,7 @@ void ImageEditor::render_controls() {
       Effect &e = get_or_create_effect(type);
       gegl_node_set(e.node, "iterations",
                     (gint)noise_reduction_state.iterations, NULL);
-      apply_gegl_texture();
+      put_render_request();
     }
     ImGui::TreePop();
   }
@@ -1135,7 +1175,7 @@ void ImageEditor::render_controls() {
         get_or_create_effect(type);
       else
         remove_effect(type);
-      apply_gegl_texture();
+      put_render_request();
     }
     ImGui::SameLine();
     if (ImGui::Button("Reset##SNN")) {
@@ -1144,7 +1184,7 @@ void ImageEditor::render_controls() {
         Effect &e = get_or_create_effect(type);
         gegl_node_set(e.node, "radius", (gint)snn_mean_state.radius, "pairs",
                       (gint)snn_mean_state.pairs, NULL);
-        apply_gegl_texture();
+        put_render_request();
       }
     }
 
@@ -1170,7 +1210,7 @@ void ImageEditor::render_controls() {
       Effect &e = get_or_create_effect(type);
       gegl_node_set(e.node, "radius", (gint)snn_mean_state.radius, "pairs",
                     (gint)snn_mean_state.pairs, NULL);
-      apply_gegl_texture();
+      put_render_request();
     }
     ImGui::TreePop();
   }

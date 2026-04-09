@@ -67,7 +67,6 @@ void ImageEditor::render_preview() {
   if (preview_texture == nullptr) {
     ImGui::TextUnformatted("Bruh Moment");
     ImGui::EndChild();
-    ImGui::PopID();
     return;
   }
 
@@ -131,7 +130,7 @@ void ImageEditor::render_preview() {
   if (roi.width != current_texture_width ||
       roi.height != current_texture_height ||
       roi.x != current_texture_offset_x || roi.y != current_texture_offset_y)
-    apply_gegl_texture();
+    put_render_request();
 
   ImVec2 roi_pos = {image_pos.x + current_texture_offset_x * zoom,
                     image_pos.y + current_texture_offset_y * zoom};
@@ -255,22 +254,23 @@ void ImageManager::render_editor() {
   }
   if (ImGui::TreeNode("Edit")) {
     with_preview = true;
-    ImGui::Text("Preview Image Dimensions: %d x %d", editor.image_width,
-                editor.image_height);
-    ImGui::Text("ROI: %d, %d, %d, %d", editor.roi.x, editor.roi.y,
-                editor.roi.width, editor.roi.height);
+    ImGui::Text("Preview Image Dimensions: %d x %d", editor->image_width,
+                editor->image_height);
+    ImGui::Text("ROI: %d, %d, %d, %d", editor->roi.x, editor->roi.y,
+                editor->roi.width, editor->roi.height);
     ImGui::Text("Zoom: %f", zoom);
-    ImGui::Text("Current Texture: %d, %d, %d, %d", editor.current_texture_width,
-                editor.current_texture_height, editor.current_texture_offset_x,
-                editor.current_texture_offset_y);
+    ImGui::Text("Current Texture: %d, %d, %d, %d",
+                editor->current_texture_width, editor->current_texture_height,
+                editor->current_texture_offset_x,
+                editor->current_texture_offset_y);
     if (ImGui::Checkbox("Link Viewers", &link_preview_viewer) &&
         link_preview_viewer) {
-      editor.set_view(linked_zoom_for_target(zoom, image->width, image->height,
-                                             editor.image_width,
-                                             editor.image_height),
-                      pan);
+      editor->set_view(linked_zoom_for_target(zoom, image->width, image->height,
+                                              editor->image_width,
+                                              editor->image_height),
+                       pan);
     }
-    editor.render_controls();
+    editor->render_controls();
     ImGui::TreePop();
   } else
     with_preview = false;
@@ -329,13 +329,13 @@ void ImageManager::render_manager() {
 #ifdef TRACY_ENABLE
   ZoneScopedN("ImageManager::draw_manager");
 #endif
-  editor.cleanup_stale_resources();
+  editor->cleanup_stale_resources();
   bool new_preview = false;
   apply_pending_selection();
   if (with_preview && current_image_ != nullptr && current_image_->is_valid() &&
-      (editor.preview_texture == nullptr ||
-       editor.image_path != current_image_->filename)) {
-    editor.load_path(current_image_->filename);
+      (editor->preview_texture == nullptr ||
+       editor->image_path != current_image_->filename)) {
+    editor->load_path(current_image_->filename);
     new_preview = true;
   }
   auto io = ImGui::GetIO();
@@ -362,19 +362,20 @@ void ImageManager::render_manager() {
     render_viewer();
     if (with_preview) {
       if (link_preview_viewer) {
-        editor.set_view(linked_zoom_for_target(
-                            zoom, current_image_->width, current_image_->height,
-                            editor.image_width, editor.image_height),
-                        pan);
+        editor->set_view(linked_zoom_for_target(zoom, current_image_->width,
+                                                current_image_->height,
+                                                editor->image_width,
+                                                editor->image_height),
+                         pan);
       }
-      editor.render_preview();
+      editor->render_preview();
       if (new_preview)
-        editor.reset_view_to_image();
+        editor->reset_view_to_image();
       if (link_preview_viewer) {
         zoom = linked_zoom_for_target(
-            editor.get_zoom(), editor.image_width, editor.image_height,
+            editor->get_zoom(), editor->image_width, editor->image_height,
             current_image_->width, current_image_->height);
-        pan = editor.get_pan();
+        pan = editor->get_pan();
       }
     }
     render_editor();

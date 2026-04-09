@@ -5,6 +5,7 @@
 #include "SDL3/SDL_dialog.h"
 #include "SDL3/SDL_log.h"
 #include "SDL3/SDL_video.h"
+#include "image_editor.h"
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
 #include "imgui_impl_sdlgpu3.h"
@@ -15,6 +16,7 @@
 #include <deque>
 #include <filesystem>
 #include <iostream>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -34,6 +36,7 @@ struct AppState {
   SDL_GPUDevice *device = nullptr;
   std::mutex pending_mutex;
   std::vector<std::filesystem::path> pending_session_paths;
+  std::shared_ptr<ImageEditor> editor;
 };
 
 static const SDL_DialogFileFilter csv_filters[] = {{"CSV files", "csv"}};
@@ -159,8 +162,9 @@ void process_pending_sessions(AppState &app_state,
 
   for (const auto &session_path : pending_paths) {
     try {
-      sessions.push_back(std::make_unique<Session>(
-          app_state.database, session_path, app_state.device));
+      sessions.push_back(
+          std::make_unique<Session>(app_state.database, session_path,
+                                    app_state.device, app_state.editor));
     } catch (const std::exception &error) {
       std::cerr << "Failed to create session for '" << session_path.string()
                 << "': " << error.what() << std::endl;
@@ -324,7 +328,8 @@ int main(int, char **) {
   bool done = false;
 
   Database db;
-  AppState app_state{.database = &db, .device = gpu_device};
+  auto editor = std::make_shared<ImageEditor>(gpu_device);
+  AppState app_state{.database = &db, .device = gpu_device, .editor = editor};
   std::deque<std::unique_ptr<Session>> sessions;
 
   while (!done) {
@@ -395,6 +400,7 @@ int main(int, char **) {
   }
 
   sessions.clear();
+  editor.reset();
   SDL_WaitForGPUIdle(gpu_device);
   ImGui_ImplSDL3_Shutdown();
   ImGui_ImplSDLGPU3_Shutdown();

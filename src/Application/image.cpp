@@ -3,7 +3,7 @@
 #include "SDL3/SDL_gpu.h"
 #include "gpu_utils.h"
 #include "imgui.h"
-#include <complex>
+#include <memory>
 
 #define _CRT_SECURE_NO_WARNINGS
 #define STB_TRUETYPE_IMPLEMENTATION
@@ -310,8 +310,9 @@ void ImageManager::load_thumbnails() {
 }
 
 ImageManager::ImageManager(SDL_GPUDevice *device,
-                           const std::filesystem::path &image_folder)
-    : image_folder_(image_folder), device(device), editor(device) {
+                           const std::filesystem::path &image_folder,
+                           std::shared_ptr<ImageEditor> editor)
+    : image_folder_(image_folder), device(device), editor(editor) {
 #ifdef TRACY_ENABLE
   ZoneScopedN("ImageManager::ImageManager");
 #endif
@@ -564,5 +565,5 @@ void ImageEditor::load_path(std::filesystem::path path) {
   // }
   //
   // preview_texture = texture;
-  apply_gegl_texture();
+  put_render_request();
 }

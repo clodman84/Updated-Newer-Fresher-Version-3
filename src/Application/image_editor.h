@@ -3,9 +3,12 @@
 
 #include "gegl-buffer.h"
 #include <SDL3/SDL.h>
+#include <atomic>
 #include <filesystem>
+#include <gegl-0.4/gegl-buffer.h>
 #include <gegl.h>
 #include <imgui.h>
+#include <thread>
 #include <vector>
 
 struct ExposureState {
@@ -115,11 +118,18 @@ struct Effect {
   EffectType type;
 };
 
+struct RenderRequest {
+  GeglRectangle roi;
+  float zoom;
+};
+
 Effect &get_or_create_effect(EffectType type);
 
 class ImageEditor {
 public:
-  ImageEditor(SDL_GPUDevice *device) : device(device) {};
+  ImageEditor(SDL_GPUDevice *device) : device(device) {
+    start_render_thread();
+  };
   ~ImageEditor();
   SDL_GPUTexture *preview_texture = nullptr;
   std::filesystem::path image_path;
@@ -153,7 +163,18 @@ private:
   ImVec2 pan = ImVec2(0.0f, 0.0f);
 
   void prepare_gegl_graph();
-  void apply_gegl_texture();
+
+  void start_render_thread();
+  void stop_render_thread();
+
+  void apply_gegl_texture(RenderRequest req);
+  void put_render_request();
+
+  std::thread render_thread;
+  std::atomic<bool> running{false};
+  std::mutex request_mutex;
+  RenderRequest latest_request;
+  std::atomic<bool> has_request{false};
 
   void remove_effect(EffectType type);
   bool is_effect_active(EffectType type) const;

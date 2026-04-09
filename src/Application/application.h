@@ -109,8 +109,8 @@ std::vector<FaceRect> scan_faces(std::filesystem::path);
 
 class ImageManager {
 public:
-  ImageManager(SDL_GPUDevice *device,
-               const std::filesystem::path &image_folder);
+  ImageManager(SDL_GPUDevice *device, const std::filesystem::path &image_folder,
+               std::shared_ptr<ImageEditor> editor);
   ~ImageManager();
 
   ImageManager(ImageManager &&other) noexcept;
@@ -118,7 +118,7 @@ public:
   ImageManager(const ImageManager &) = delete;
   ImageManager &operator=(const ImageManager &) = delete;
 
-  ImageEditor editor;
+  std::shared_ptr<ImageEditor> editor;
 
   Image *load_image();
   Image *load_next();
@@ -217,8 +217,8 @@ struct PendingImage {
 
 class Session {
 public:
-  Session(Database *database, std::filesystem::path path,
-          SDL_GPUDevice *device);
+  Session(Database *database, std::filesystem::path path, SDL_GPUDevice *device,
+          std::shared_ptr<ImageEditor> editor);
   ~Session();
 
   Session(const Session &) = delete;
