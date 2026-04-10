@@ -79,105 +79,16 @@ set(SDL_STATIC ON  CACHE BOOL "" FORCE)
 add_subdirectory(vendored/SDL)
 
 # --------------------------------------------------
-# OpenCV  --  static-first configuration
-#
-# Default is vendored static OpenCV so the app does not depend on OpenCV
-# shared libraries at runtime.
+# ncnn (portable, no Vulkan)
 # --------------------------------------------------
 
-set(UNFV3_OPENCV_COMPONENTS core imgproc imgcodecs dnn objdetect)
-if(UNFV3_USE_SYSTEM_OPENCV)
-    find_package(OpenCV QUIET COMPONENTS ${UNFV3_OPENCV_COMPONENTS})
-endif()
+set(NCNN_VULKAN OFF CACHE BOOL "" FORCE)
+set(NCNN_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(NCNN_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
+set(NCNN_BUILD_BENCHMARK OFF CACHE BOOL "" FORCE)
+set(NCNN_OPENMP OFF CACHE BOOL "" FORCE)
 
-if(OpenCV_FOUND AND UNFV3_USE_SYSTEM_OPENCV)
-    message(STATUS "Found system OpenCV ${OpenCV_VERSION} -- using system package")
-    set(OPENCV_LINK_LIBS ${OpenCV_LIBS})
-else()
-    message(STATUS "Using vendored static OpenCV")
-
-    # Only the five modules we actually use.
-    # Must be set before add_subdirectory so OpenCV's CMake sees it.
-    set(BUILD_LIST "core,imgproc,imgcodecs,dnn,objdetect" CACHE STRING "" FORCE)
-
-    # No tests, docs, examples, language bindings.
-    set(BUILD_TESTS             OFF CACHE BOOL "" FORCE)
-    set(BUILD_PERF_TESTS        OFF CACHE BOOL "" FORCE)
-    set(BUILD_EXAMPLES          OFF CACHE BOOL "" FORCE)
-    set(BUILD_DOCS              OFF CACHE BOOL "" FORCE)
-    set(BUILD_opencv_apps       OFF CACHE BOOL "" FORCE)
-    set(BUILD_opencv_python2    OFF CACHE BOOL "" FORCE)
-    set(BUILD_opencv_python3    OFF CACHE BOOL "" FORCE)
-    set(BUILD_opencv_java       OFF CACHE BOOL "" FORCE)
-    set(BUILD_opencv_gapi       OFF CACHE BOOL "" FORCE)
-    set(OPENCV_ENABLE_NONFREE   OFF CACHE BOOL "" FORCE)
-    set(INSTALL_PYTHON_EXAMPLES OFF CACHE BOOL "" FORCE)
-    set(INSTALL_C_EXAMPLES      OFF CACHE BOOL "" FORCE)
-
-    # No optional I/O or compute backends.
-    set(WITH_IPP        OFF CACHE BOOL "" FORCE)
-    set(WITH_IPP_IW     OFF CACHE BOOL "" FORCE)
-    set(BUILD_IPP_IW    OFF CACHE BOOL "" FORCE)
-    set(WITH_OPENCL     OFF CACHE BOOL "" FORCE)
-    set(WITH_OPENGL     OFF CACHE BOOL "" FORCE)
-    set(WITH_VTK        OFF CACHE BOOL "" FORCE)
-    set(WITH_EIGEN      OFF CACHE BOOL "" FORCE)
-    set(WITH_GSTREAMER  OFF CACHE BOOL "" FORCE)
-    set(WITH_FFMPEG     OFF CACHE BOOL "" FORCE)
-    set(WITH_1394       OFF CACHE BOOL "" FORCE)
-    set(WITH_V4L        OFF CACHE BOOL "" FORCE)
-    set(WITH_DC1394     OFF CACHE BOOL "" FORCE)
-    set(WITH_ARAVIS     OFF CACHE BOOL "" FORCE)
-    set(WITH_CUDA       OFF CACHE BOOL "" FORCE)
-    set(WITH_CUDNN      OFF CACHE BOOL "" FORCE)
-    set(WITH_GTK        OFF CACHE BOOL "" FORCE)
-    set(WITH_QT         OFF CACHE BOOL "" FORCE)
-    set(WITH_WEBP       OFF CACHE BOOL "" FORCE)
-    set(WITH_OPENJPEG   OFF CACHE BOOL "" FORCE)
-    set(WITH_JASPER     OFF CACHE BOOL "" FORCE)
-    set(WITH_OPENEXR    OFF CACHE BOOL "" FORCE)
-    set(WITH_TIFF       OFF CACHE BOOL "" FORCE)
-
-    # Keep JPEG and PNG for loading model blobs / test images.
-    set(WITH_JPEG ON CACHE BOOL "" FORCE)
-    set(WITH_PNG  ON CACHE BOOL "" FORCE)
-
-    # Vendored protobuf for dnn; no external dep.
-    set(BUILD_PROTOBUF       ON  CACHE BOOL "" FORCE)
-    set(PROTOBUF_UPDATE_FILES OFF CACHE BOOL "" FORCE)
-
-    # FIX (macOS arm64): OpenCV's Kleidi NEON microkernel (libkleidicv)
-    # produces unresolved symbols at link time on Apple Silicon.  Disabling
-    # it makes OpenCV fall back to its plain C++ NEON path, which is correct.
-    set(WITH_KLEIDICV OFF CACHE BOOL "" FORCE)
-
-    # x86-64 SIMD only — don't set these on ARM (macOS M-series, aarch64).
-    if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64|amd64")
-        set(CPU_BASELINE "SSE4_2"   CACHE STRING "" FORCE)
-        set(CPU_DISPATCH "AVX;AVX2" CACHE STRING "" FORCE)
-    endif()
-
-    add_subdirectory(vendored/opencv)
-
-    set(OPENCV_LINK_LIBS
-        opencv_core
-        opencv_imgproc
-        opencv_imgcodecs
-        opencv_dnn
-        opencv_objdetect
-    )
-
-    file(GLOB _opencv_module_includes 
-    LIST_DIRECTORIES true 
-    "${CMAKE_CURRENT_SOURCE_DIR}/vendored/opencv/modules/*/include"
-	)
-
-    set(OPENCV_INCLUDE_DIRS
-    "${CMAKE_CURRENT_SOURCE_DIR}/vendored/opencv/include"
-    "${CMAKE_CURRENT_BINARY_DIR}"
-    ${_opencv_module_includes}
-)
-endif()
+add_subdirectory(vendored/ncnn)
 
 # --------------------------------------------------
 # GEGL (graph-based image processing)
@@ -289,7 +200,6 @@ add_executable(UNFV3
 )
 
 target_include_directories(UNFV3 PRIVATE src/Application)
-target_include_directories(UNFV3 PRIVATE ${OPENCV_INCLUDE_DIRS})
 target_include_directories(UNFV3 PRIVATE ${GEGL_INCLUDE_DIRS})
 
 target_link_libraries(UNFV3 PRIVATE
@@ -298,7 +208,7 @@ target_link_libraries(UNFV3 PRIVATE
     sqlite
     nlohmann_json
     unfv3_project_optimizations
-    ${OPENCV_LINK_LIBS}
+    ncnn
     ${GEGL_LIBS}
 )
 
@@ -321,8 +231,4 @@ endif()
 
 message(STATUS "Build type       : ${CMAKE_BUILD_TYPE}")
 message(STATUS "LTO enabled      : ${UNFV3_ENABLE_LTO}")
-message(STATUS "System OpenCV    : ${OpenCV_FOUND}")
-message(STATUS "OpenCV version   : ${OpenCV_VERSION}")
-message(STATUS "OpenCV libs      : ${OPENCV_LINK_LIBS}")
-message(STATUS "OpenCV_INCLUDE_DIRS after add_subdirectory: ${OpenCV_INCLUDE_DIRS}")
 message(STATUS "GEGL libs        : ${GEGL_LIBS}")

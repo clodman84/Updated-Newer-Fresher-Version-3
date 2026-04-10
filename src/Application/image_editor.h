@@ -1,11 +1,9 @@
 #ifndef IMAGE_EDITOR
 #define IMAGE_EDITOR
 
-#include "gegl-buffer.h"
 #include <SDL3/SDL.h>
 #include <atomic>
 #include <filesystem>
-#include <gegl-0.4/gegl-buffer.h>
 #include <gegl.h>
 #include <imgui.h>
 #include <thread>

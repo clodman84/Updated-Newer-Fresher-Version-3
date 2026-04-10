@@ -4,6 +4,7 @@
 #include <cstddef>
 #define _CRT_SECURE_NO_WARNINGS
 
+#include "detection.h"
 #include "image_editor.h"
 #include <SDL3/SDL.h>
 #include <imgui.h>
@@ -99,14 +100,6 @@ struct BillEntry {
   NLOHMANN_DEFINE_TYPE_INTRUSIVE(BillEntry, name, count);
 };
 
-struct FaceRect {
-  ImVec2 bounds_min;
-  ImVec2 bounds_max;
-  int count;
-};
-
-std::vector<FaceRect> scan_faces(std::filesystem::path);
-
 class ImageManager {
 public:
   ImageManager(SDL_GPUDevice *device, const std::filesystem::path &image_folder,
@@ -119,6 +112,7 @@ public:
   ImageManager &operator=(const ImageManager &) = delete;
 
   std::shared_ptr<ImageEditor> editor;
+  FaceDetector detector;
 
   Image *load_image();
   Image *load_next();

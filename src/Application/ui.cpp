@@ -210,7 +210,7 @@ void ImageManager::render_viewer() {
       ImVec2(0, 0), ImVec2(1, 1));
 
   if (with_detection) {
-    for (auto face : scan_faces(current_image_->filename)) {
+    for (auto face : detector.scan_faces(current_image_->filename)) {
       draw_list->AddRect(face.bounds_min * zoom + image_pos,
                          face.bounds_max * zoom + image_pos,
                          ImGui::GetColorU32({0, 255, 0, 255}));
@@ -247,7 +247,7 @@ void ImageManager::render_editor() {
   if (with_detection && image != nullptr) {
     ImGui::SameLine();
     ImGui::TextColored(ImVec4(0.93f, 0.73f, 0.24f, 1.0f), "Face Count: %ld",
-                       scan_faces(image->filename).size());
+                       detector.scan_faces(image->filename).size());
   }
   if (ImGui::Button("Reset Viewer")) {
     reset_view_to_image();
