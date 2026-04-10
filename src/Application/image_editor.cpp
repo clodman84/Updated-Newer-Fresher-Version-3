@@ -1,13 +1,10 @@
 #include "image_editor.h"
-#include "gegl-node.h"
-#include "gegl-types.h"
 #include "gpu_utils.h"
 #include "imgui.h"
 #include "imgui_internal.h"
 #include "stb_image.h"
 #include <algorithm>
 #include <cmath>
-#include <gegl-0.4/gegl-buffer.h>
 #include <gegl.h>
 
 #ifdef TRACY_ENABLE
@@ -82,7 +79,6 @@ void ImageEditor::prepare_gegl_graph() {
     image_buffer = nullptr;
   }
 
-  // Wrap the raw RGBA pixels into a GeglBuffer
   GeglRectangle extent = {0, 0, image_width, image_height};
   image_buffer = gegl_buffer_new(&extent, babl_format("R'G'B'A u8"));
 
@@ -90,7 +86,6 @@ void ImageEditor::prepare_gegl_graph() {
                   0, // mip level 0
                   babl_format("R'G'B'A u8"), image_src, GEGL_AUTO_ROWSTRIDE);
 
-  // Build graph: buffer-source → brightness-contrast → nop(sink)
   graph = gegl_node_new();
   source = gegl_node_new_child(graph, "operation", "gegl:buffer-source",
                                "buffer", image_buffer, NULL);
@@ -100,32 +95,25 @@ void ImageEditor::prepare_gegl_graph() {
   gegl_node_link_many(source, sink, NULL);
 }
 
-void ImageEditor::put_render_request() {
-  std::lock_guard<std::mutex> lock(request_mutex);
-
-  latest_request.roi = roi;
-  latest_request.zoom = zoom;
-
-  has_request.store(true, std::memory_order_release);
-}
-
 void ImageEditor::start_render_thread() {
+  // Prevent starting multiple times
+  if (running)
+    return;
+
   running = true;
+  has_request = false;
 
   render_thread = std::thread([this]() {
     while (running) {
-      if (!has_request.load(std::memory_order_acquire)) {
-        // TODO: Look into condition_variables and see how to do things better
-        // maybe
-        std::this_thread::sleep_for(std::chrono::milliseconds(2));
-        continue;
-      }
-
       RenderRequest req;
       {
-        std::lock_guard<std::mutex> lock(request_mutex);
+        std::unique_lock<std::mutex> lock(request_mutex);
+        request_cv.wait(lock, [this]() { return has_request || !running; });
+        if (!running) {
+          break;
+        }
         req = latest_request;
-        has_request.store(false, std::memory_order_release);
+        has_request = false;
       }
       apply_gegl_texture(req);
     }
@@ -133,9 +121,34 @@ void ImageEditor::start_render_thread() {
 }
 
 void ImageEditor::stop_render_thread() {
-  running = false;
-  if (render_thread.joinable())
-    render_thread.join();
+  if (running) {
+    // 1. Signal the thread to stop
+    running = false;
+
+    // 2. Wake the thread up immediately if it is sleeping on the
+    // condition_variable
+    request_cv.notify_one();
+
+    // 3. Wait for the thread to completely finish its current render and exit
+    if (render_thread.joinable()) {
+      render_thread.join();
+    }
+  }
+}
+
+void ImageEditor::put_render_request() {
+  // (Assuming you construct your RenderRequest inside this function)
+  RenderRequest req;
+  // ... build the request based on current UI state ...
+
+  {
+    std::lock_guard<std::mutex> lock(request_mutex);
+    latest_request = req;
+    has_request = true;
+  }
+
+  // Wake up the background thread to process the new request
+  request_cv.notify_one();
 }
 
 void ImageEditor::apply_gegl_texture(RenderRequest req) {

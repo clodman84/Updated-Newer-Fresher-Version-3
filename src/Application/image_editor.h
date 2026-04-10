@@ -3,6 +3,7 @@
 
 #include <SDL3/SDL.h>
 #include <atomic>
+#include <condition_variable>
 #include <filesystem>
 #include <gegl.h>
 #include <imgui.h>
@@ -144,8 +145,9 @@ private:
   std::thread render_thread;
   std::atomic<bool> running{false};
   std::mutex request_mutex;
+  std::condition_variable request_cv;
   RenderRequest latest_request;
-  std::atomic<bool> has_request{false};
+  bool has_request{false};
 
   void remove_effect(EffectType type);
   bool is_effect_active(EffectType type) const;
