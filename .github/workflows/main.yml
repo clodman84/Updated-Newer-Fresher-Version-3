@@ -105,8 +105,7 @@ jobs:
         run: >-
           cmake -S . -B build -G Ninja
           -DCMAKE_BUILD_TYPE=Release
-          -DUNFV3_ENABLE_LTO=OFF
-          -DUNFV3_USE_SYSTEM_OPENCV=OFF
+          -DUNFV3_ENABLE_LTO=ON
           -DCMAKE_C_COMPILER_LAUNCHER=${{ env.CMAKE_C_COMPILER_LAUNCHER }}
           -DCMAKE_CXX_COMPILER_LAUNCHER=${{ env.CMAKE_CXX_COMPILER_LAUNCHER }}
 
@@ -116,8 +115,7 @@ jobs:
         run: >-
           cmake -S . -B build -G Ninja
           -DCMAKE_BUILD_TYPE=Release
-          -DUNFV3_ENABLE_LTO=OFF
-          -DUNFV3_USE_SYSTEM_OPENCV=OFF
+          -DUNFV3_ENABLE_LTO=ON
 
       - name: Build (Linux / macOS)
         if: runner.os != 'Windows'
