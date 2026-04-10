@@ -12,7 +12,7 @@
 #include "imgui_impl_sdlgpu3.h"
 
 #include <SDL3/SDL.h>
-#include <gegl-0.4/gegl.h>
+#include <gegl.h>
 
 #include <deque>
 #include <filesystem>
