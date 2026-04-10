@@ -8,12 +8,14 @@ function(bundle_runtime_dependencies TARGET_NAME BUNDLE_DIR)
         set(_post "POST_EXCLUDE_REGEXES" "\"^/usr/lib/.*\"" "\"^/System/.*\"")
     else()
         set(_pre "")
-        # Using stdc.* instead of stdc++ to avoid backslash escaping issues
+        # Added GLib family, D-Bus, udev, and Audio drivers to the exclusion list
         set(_post 
             "POST_EXCLUDE_REGEXES"
             "\".*/lib(gcc_s|stdc.*|pthread|dl|rt|m|c|resolv)\\\\.so.*\""
             "\".*/ld-linux.*\\\\.so.*\""
             "\".*/lib(X11|Xext|xcb|GL|EGL|GLX|fontconfig|freetype|drm|wayland-.*)\\\\.so.*\""
+            "\".*/lib(glib|gio|gobject|gmodule|gthread)-.*\\\\.so.*\""
+            "\".*/lib(dbus-.*|asound|pulse.*|udev)\\\\.so.*\""
         )
     endif()
 
