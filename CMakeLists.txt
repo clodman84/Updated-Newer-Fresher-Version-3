@@ -7,6 +7,17 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(BUILD_SHARED_LIBS OFF)
 
+set(CMAKE_C_VISIBILITY_PRESET hidden)
+set(CMAKE_CXX_VISIBILITY_PRESET hidden)
+set(CMAKE_VISIBILITY_INLINES_HIDDEN YES)
+
+# Ensure RPATH is set for the bundle
+if(APPLE)
+    set(CMAKE_INSTALL_RPATH "@executable_path/lib")
+elseif(UNIX)
+    set(CMAKE_INSTALL_RPATH "$ORIGIN/lib")
+endif()
+
 # --------------------------------------------------
 # Global build type default
 # --------------------------------------------------
@@ -16,11 +27,22 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
 
-option(UNFV3_ENABLE_LTO "Enable link-time optimization for Release builds" OFF)
+option(UNFV3_ENABLE_LTO "Enable link-time optimization for Release builds" ON)
+option(UNFV3_AGGRESSIVE_STRIP "Remove RTTI and Exceptions" OFF)
 option(UNFV3_USE_SYSTEM_OPENCV "Use system OpenCV (may pull shared libs at runtime)" OFF)
 
-if(UNFV3_ENABLE_LTO)
+include(CheckIPOSupported)
+check_ipo_supported(RESULT ipo_supported OUTPUT ipo_error)
+
+if(ipo_supported AND UNFV3_ENABLE_LTO)
     set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
+    message(STATUS "LTO enabled")
+endif()
+
+# ThinLTO for Clang
+if(UNFV3_ENABLE_LTO AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    add_compile_options($<$<CONFIG:Release>:-flto=thin>)
+    add_link_options($<$<CONFIG:Release>:-flto=thin>)
 endif()
 
 # --------------------------------------------------
@@ -50,7 +72,9 @@ target_compile_options(unfv3_project_optimizations INTERFACE
     $<$<AND:${_c_or_cxx},${_gnu_clang}>:-fomit-frame-pointer>
 
     # GCC / Clang — optimisation level per config
-    $<$<AND:${_c_or_cxx},${_gnu_clang},$<CONFIG:Release>>:-O2>
+    $<$<AND:${_c_or_cxx},${_gnu_clang},$<CONFIG:Release>>:-O3>
+    $<$<AND:${_c_or_cxx},${_gnu_clang},$<CONFIG:Release>>:-ffunction-sections>
+    $<$<AND:${_c_or_cxx},${_gnu_clang},$<CONFIG:Release>>:-fdata-sections>
     $<$<AND:${_c_or_cxx},${_gnu_clang},$<CONFIG:RelWithDebInfo>>:-O2>
     $<$<AND:${_c_or_cxx},${_gnu_clang},$<CONFIG:MinSizeRel>>:-Os>
 
@@ -61,6 +85,12 @@ target_compile_options(unfv3_project_optimizations INTERFACE
 
     # MSVC whole-program opt — only when LTO is explicitly requested
     $<$<AND:${_c_or_cxx},${_msvc},$<CONFIG:Release>,$<BOOL:${UNFV3_ENABLE_LTO}>>:/GL>
+
+    # Aggressive stripping: No RTTI, No Exceptions
+    $<$<AND:${_c_or_cxx},${_gnu_clang},$<BOOL:${UNFV3_AGGRESSIVE_STRIP}>>:-fno-rtti>
+    $<$<AND:${_c_or_cxx},${_gnu_clang},$<BOOL:${UNFV3_AGGRESSIVE_STRIP}>>:-fno-exceptions>
+    $<$<AND:${_c_or_cxx},${_msvc},$<BOOL:${UNFV3_AGGRESSIVE_STRIP}>>:/GR->
+    $<$<AND:${_c_or_cxx},${_msvc},$<BOOL:${UNFV3_AGGRESSIVE_STRIP}>>:/EHs-c->
 )
 
 target_link_options(unfv3_project_optimizations INTERFACE
@@ -68,6 +98,12 @@ target_link_options(unfv3_project_optimizations INTERFACE
     $<$<AND:${_msvc},$<CONFIG:Release>,$<BOOL:${UNFV3_ENABLE_LTO}>>:/LTCG>
     $<$<AND:${_msvc},$<CONFIG:Release>>:/OPT:REF>
     $<$<AND:${_msvc},$<CONFIG:Release>>:/OPT:ICF>
+
+    # Linker Garbage Collection (Linux)
+    $<$<AND:${_c_or_cxx},$<PLATFORM_ID:Linux>,${_gnu_clang},$<CONFIG:Release>>:-Wl,--gc-sections>
+
+    # Linker Garbage Collection (macOS)
+    $<$<AND:${_c_or_cxx},$<PLATFORM_ID:Darwin>,${_gnu_clang},$<CONFIG:Release>>:-Wl,-dead_strip>
 )
 
 # --------------------------------------------------
@@ -76,6 +112,7 @@ target_link_options(unfv3_project_optimizations INTERFACE
 
 set(SDL_SHARED OFF CACHE BOOL "" FORCE)
 set(SDL_STATIC ON  CACHE BOOL "" FORCE)
+set(SDL_INSTALL OFF CACHE BOOL "" FORCE)
 add_subdirectory(vendored/SDL)
 
 # --------------------------------------------------
@@ -87,6 +124,7 @@ set(NCNN_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(NCNN_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
 set(NCNN_BUILD_BENCHMARK OFF CACHE BOOL "" FORCE)
 set(NCNN_OPENMP OFF CACHE BOOL "" FORCE)
+set(NCNN_INSTALL_SDK OFF CACHE BOOL "" FORCE)
 
 add_subdirectory(vendored/ncnn)
 
@@ -217,6 +255,27 @@ if(WIN32)
 endif()
 
 # --------------------------------------------------
+# Post-build stripping
+# --------------------------------------------------
+
+if(NOT APPLE AND NOT WIN32)
+    add_custom_command(TARGET UNFV3 POST_BUILD
+        COMMAND strip --strip-unneeded $<TARGET_FILE:UNFV3>
+        COMMENT "Stripping UNFV3 (Linux)"
+    )
+elseif(APPLE)
+    add_custom_command(TARGET UNFV3 POST_BUILD
+        COMMAND strip -x $<TARGET_FILE:UNFV3>
+        COMMENT "Stripping UNFV3 (macOS)"
+    )
+elseif(WIN32)
+    add_custom_command(TARGET UNFV3 POST_BUILD
+        COMMAND ${CMAKE_STRIP} $<TARGET_FILE:UNFV3>
+        COMMENT "Stripping UNFV3 (Windows)"
+    )
+endif()
+
+# --------------------------------------------------
 # Tracy
 # --------------------------------------------------
 
@@ -232,3 +291,23 @@ endif()
 message(STATUS "Build type       : ${CMAKE_BUILD_TYPE}")
 message(STATUS "LTO enabled      : ${UNFV3_ENABLE_LTO}")
 message(STATUS "GEGL libs        : ${GEGL_LIBS}")
+
+# --------------------------------------------------
+# Bundle & Distribution (V3 System Implementation)
+# --------------------------------------------------
+
+include(bundle_tools.cmake)
+
+if(NOT WIN32)
+    set(BUNDLE_DEST "UNFV3_bundle")
+else()
+    set(BUNDLE_DEST "UNFV3")
+endif()
+
+bundle_runtime_dependencies(UNFV3 "${BUNDLE_DEST}")
+
+# Install main executable to bundle root
+install(TARGETS UNFV3 DESTINATION "${BUNDLE_DEST}")
+
+# Install Data directory
+install(DIRECTORY Data DESTINATION "${BUNDLE_DEST}")
