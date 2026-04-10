@@ -1,6 +1,4 @@
 function(bundle_runtime_dependencies TARGET_NAME BUNDLE_DIR)
-    # 1. Discover shared library dependencies
-    
     # Define platform-specific exclusions
     set(_pre_exclude "")
     set(_post_exclude "")
@@ -8,17 +6,17 @@ function(bundle_runtime_dependencies TARGET_NAME BUNDLE_DIR)
     if(WIN32)
         # Windows: Exclude low-level API sets and core OS directories
         set(_pre_exclude "api-ms-win-.*" "ext-ms-win-.*")
-        set(_post_exclude "(?i)^[A-Z]:/Windows/.*")
+        set(_post_exclude "(?i)^([a-z]:)?/windows/.*") 
     elseif(APPLE)
-        # macOS: Exclude Apple's core system libraries and frameworks.
-        # (Homebrew/MacPorts libs live in /opt/homebrew, /usr/local, or /opt/local, so they get bundled)
+        # macOS: Exclude Apple's core system libraries
         set(_post_exclude "^/usr/lib/.*" "^/System/.*")
     else()
-        # Linux: We CANNOT exclude /usr/lib broadly because system GEGL lives there.
-        # Instead, exclude specific foundational OS and desktop libraries.
+        # Linux: Universally exclude glibc, C++ standard libs, and core windowing/graphics drivers
+        # Using .* ignores the absolute path (catches /lib, /usr/lib, /lib64, etc.)
         set(_post_exclude 
             ".*/lib(gcc_s|stdc\\+\\+|pthread|dl|rt|m|c|resolv)\\.so.*"
-            ".*/lib(X11|Xext|xcb|GL|EGL|GLX|fontconfig|freetype|drm)\\.so.*"
+            ".*/ld-linux.*\\.so.*"
+            ".*/lib(X11|Xext|xcb|GL|EGL|GLX|fontconfig|freetype|drm|wayland-.*)\\.so.*"
         )
     endif()
 
@@ -47,17 +45,19 @@ function(bundle_runtime_dependencies TARGET_NAME BUNDLE_DIR)
     # Use python script to detect actually needed GEGL ops
     execute_process(
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/detect_gegl_ops.py ${CMAKE_SOURCE_DIR}/src ${GEGL_PLUGINS_DIR}
-        OUTPUT_VARIABLE GEGL_MATCHED_MODULES
+        OUTPUT_VARIABLE REQUIRED_GEGL_OPS
         OUTPUT_STRIP_TRAILING_WHITESPACE
     )
 
-    string(REPLACE "\n" ";" GEGL_MODULE_LIST "${GEGL_MATCHED_MODULES}")
+    install(CODE "
+        set(_gegl_dest \"\${CMAKE_INSTALL_PREFIX}/${BUNDLE_DIR}/lib/gegl-0.4\")
+        set(_ops \"${REQUIRED_GEGL_OPS}\")
+        string(REPLACE \"\\n\" \";\" _ops_list \"\${_ops}\")
+        foreach(_op \${_ops_list})
+            file(INSTALL \${_op} DESTINATION \${_gegl_dest} FOLLOW_SYMLINK_CHAIN)
+        endforeach()
 
-    foreach(_mod ${GEGL_MODULE_LIST})
-        install(FILES ${_mod} DESTINATION ${BUNDLE_DIR}/lib/gegl-0.4 COMPONENT Runtime)
-    endforeach()
-
-    # Install BABL modules
-    install(DIRECTORY ${BABL_PLUGINS_DIR}/ DESTINATION ${BUNDLE_DIR}/lib/babl-0.1 COMPONENT Runtime)
-
+        # Copy BABL extensions
+        file(INSTALL \"${BABL_PLUGINS_DIR}/\" DESTINATION \"\${CMAKE_INSTALL_PREFIX}/${BUNDLE_DIR}/lib/babl-0.1\" FOLLOW_SYMLINK_CHAIN)
+    " COMPONENT Runtime)
 endfunction()
