@@ -4,10 +4,12 @@
 #include <cstddef>
 #define _CRT_SECURE_NO_WARNINGS
 
-#include "imgui.h"
-#include "json.hpp"
-#include "sqlite3.h"
+#include "detection.h"
+#include "image_editor.h"
 #include <SDL3/SDL.h>
+#include <imgui.h>
+#include <json.hpp>
+#include <sqlite3.h>
 
 #include <array>
 #include <atomic>
@@ -98,43 +100,10 @@ struct BillEntry {
   NLOHMANN_DEFINE_TYPE_INTRUSIVE(BillEntry, name, count);
 };
 
-struct FaceRect {
-  ImVec2 bounds_min;
-  ImVec2 bounds_max;
-  int count;
-};
-
-std::vector<FaceRect> scan_faces(std::filesystem::path);
-
-class ImageEditor {
-public:
-  ImageEditor(SDL_GPUDevice *device) : device(device) {};
-  ~ImageEditor();
-  SDL_GPUTexture *preview_texture = nullptr;
-  std::filesystem::path image_path;
-  int width = 0;
-  int height = 0;
-  void load_path(std::filesystem::path);
-  void render_preview();
-  float get_zoom() const { return zoom; }
-  ImVec2 get_pan() const { return pan; }
-  void set_view(float next_zoom, ImVec2 next_pan) {
-    zoom = next_zoom;
-    pan = next_pan;
-  }
-
-private:
-  SDL_GPUDevice *device = nullptr;
-  float zoom = 0.0f;
-  ImVec2 canvas_size = ImVec2(0.0f, 0.0f);
-  ImVec2 pan = ImVec2(0.0f, 0.0f);
-  void reset_view_to_image();
-};
-
 class ImageManager {
 public:
-  ImageManager(SDL_GPUDevice *device,
-               const std::filesystem::path &image_folder);
+  ImageManager(SDL_GPUDevice *device, const std::filesystem::path &image_folder,
+               std::shared_ptr<ImageEditor> editor);
   ~ImageManager();
 
   ImageManager(ImageManager &&other) noexcept;
@@ -142,7 +111,8 @@ public:
   ImageManager(const ImageManager &) = delete;
   ImageManager &operator=(const ImageManager &) = delete;
 
-  ImageEditor editor;
+  std::shared_ptr<ImageEditor> editor;
+  FaceDetector detector;
 
   Image *load_image();
   Image *load_next();
@@ -163,6 +133,48 @@ public:
   int size = 0;
   bool with_detection = false;
 
+  std::map<std::string, Thumbnail> thumbnails;
+  template <typename OnClick>
+  void render_thumbnail_item(const std::string &name, float width,
+                             OnClick on_click, bool show_frame,
+                             bool highlight_current) {
+    const auto it = thumbnails.find(name);
+    if (it == thumbnails.end() || it->second.texture == nullptr)
+      return;
+
+    const bool is_current = highlight_current && !image_names.empty() &&
+                            index >= 0 && index < (int)image_names.size() &&
+                            name == image_names[index];
+
+    if (is_current) {
+      ImGui::PushStyleColor(ImGuiCol_Button,
+                            ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
+    }
+
+    ImGui::PushID(name.c_str());
+    ImGui::BeginGroup();
+
+    if (show_frame) {
+      const int frame_number = get_image_index(name) + 1;
+      if (frame_number > 0)
+        ImGui::Text("Frame: %d", frame_number);
+    }
+
+    const float aspect = (float)it->second.height / (float)it->second.width;
+
+    if (ImGui::ImageButton("##thumb", it->second.texture,
+                           ImVec2(width, width * aspect))) {
+      on_click(name);
+    }
+
+    ImGui::EndGroup();
+    ImGui::PopID();
+
+    if (is_current) {
+      ImGui::PopStyleColor();
+    }
+  }
+
 private:
   void load_folder(const std::filesystem::path &folder);
   void clear_current_image();
@@ -178,7 +190,6 @@ private:
   std::unique_ptr<Image> current_image_;
   std::vector<std::string> image_names;
   std::vector<std::string> thumbnail_order;
-  std::map<std::string, Thumbnail> thumbnails;
   SDL_GPUDevice *device = nullptr;
   float zoom = 0.0f;
   ImVec2 canvas_size = ImVec2(0.0f, 0.0f);
@@ -241,8 +252,8 @@ struct PendingImage {
 
 class Session {
 public:
-  Session(Database *database, std::filesystem::path path,
-          SDL_GPUDevice *device);
+  Session(Database *database, std::filesystem::path path, SDL_GPUDevice *device,
+          std::shared_ptr<ImageEditor> editor);
   ~Session();
 
   Session(const Session &) = delete;

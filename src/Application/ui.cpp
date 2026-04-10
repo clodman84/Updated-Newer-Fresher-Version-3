@@ -1,7 +1,12 @@
 #include "application.h"
 #include "imgui.h"
+#include <algorithm>
 #include <cstring>
 #include <misc/cpp/imgui_stdlib.h>
+
+#ifdef TRACY_ENABLE
+#include <tracy/Tracy.hpp>
+#endif
 
 template <typename T> static inline T Clamp(T value, T lo, T hi) {
   return value < lo ? lo : (value > hi ? hi : value);
@@ -51,23 +56,18 @@ static float linked_zoom_for_target(float source_zoom, int source_width,
 }
 
 void ImageEditor::render_preview() {
-  ImGui::PushID("Preview");
-  ImGui::TableNextColumn();
-  ImGui::BeginChild("ViewerChild", ImVec2(0, 0));
 
-  if (preview_texture == nullptr) {
-    ImGui::TextUnformatted("Bruh Moment");
-    ImGui::EndChild();
-    ImGui::PopID();
-    return;
-  }
+  ImGui::TableNextColumn();
+  ImGui::BeginChild("PreviewChild", ImVec2(0, 0));
 
   ImTextureRef texture_id = preview_texture;
   const ImVec2 canvas_pos = ImGui::GetCursorScreenPos();
   canvas_size = ImGui::GetContentRegionAvail();
 
-  if (zoom <= 0.0f) {
-    reset_view_to_image();
+  if (preview_texture == nullptr) {
+    ImGui::TextUnformatted("Bruh Moment");
+    ImGui::EndChild();
+    return;
   }
 
   ImGui::InvisibleButton("canvas", canvas_size,
@@ -88,12 +88,13 @@ void ImageEditor::render_preview() {
     pan.x -= mouse_local.x * scale;
     pan.y -= mouse_local.y * scale;
   }
+
   if (active && ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
     pan.x += io.MouseDelta.x;
     pan.y += io.MouseDelta.y;
   }
 
-  ImVec2 image_size = {width * zoom, height * zoom};
+  ImVec2 image_size = {image_width * zoom, image_height * zoom};
   if (image_size.x <= canvas_size.x) {
     pan.x = (canvas_size.x - image_size.x) * 0.5f;
   } else {
@@ -110,14 +111,37 @@ void ImageEditor::render_preview() {
       canvas_pos,
       ImVec2(canvas_pos.x + canvas_size.x, canvas_pos.y + canvas_size.y), true);
   const ImVec2 image_pos = {canvas_pos.x + pan.x, canvas_pos.y + pan.y};
-  draw_list->AddImage(
-      texture_id, image_pos,
-      ImVec2(image_pos.x + image_size.x, image_pos.y + image_size.y),
-      ImVec2(0, 0), ImVec2(1, 1));
+
+  // Compute roi in image-space (unscaled) pixels: the visible portion of the
+  // full image, clamped to [0, image_width] x [0, image_height].
+  roi.x = (int)std::max(0.0f, (canvas_pos.x - image_pos.x) / zoom);
+  roi.y = (int)std::max(0.0f, (canvas_pos.y - image_pos.y) / zoom);
+
+  int roi_x2 = (int)std::min(
+      (float)image_width, (canvas_pos.x + canvas_size.x - image_pos.x) / zoom);
+  int roi_y2 = (int)std::min(
+      (float)image_height, (canvas_pos.y + canvas_size.y - image_pos.y) / zoom);
+
+  roi.width = roi_x2 - roi.x;
+  roi.height = roi_y2 - roi.y;
+
+  // TODO: This is a rather naive and stupid way to do things, makes the UI
+  // unresponsive, instead maintain some sort of queueing system
+  if (roi.width != current_texture_width ||
+      roi.height != current_texture_height ||
+      roi.x != current_texture_offset_x || roi.y != current_texture_offset_y)
+    put_render_request();
+
+  ImVec2 roi_pos = {image_pos.x + current_texture_offset_x * zoom,
+                    image_pos.y + current_texture_offset_y * zoom};
+
+  draw_list->AddImage(texture_id, roi_pos,
+                      ImVec2(roi_pos.x + current_texture_width * zoom,
+                             roi_pos.y + current_texture_height * zoom),
+                      ImVec2(0, 0), ImVec2(1, 1));
 
   draw_list->PopClipRect();
   ImGui::EndChild();
-  ImGui::PopID();
 }
 
 void ImageManager::render_viewer() {
@@ -186,7 +210,7 @@ void ImageManager::render_viewer() {
       ImVec2(0, 0), ImVec2(1, 1));
 
   if (with_detection) {
-    for (auto face : scan_faces(current_image_->filename)) {
+    for (auto face : detector.scan_faces(current_image_->filename)) {
       draw_list->AddRect(face.bounds_min * zoom + image_pos,
                          face.bounds_max * zoom + image_pos,
                          ImGui::GetColorU32({0, 255, 0, 255}));
@@ -223,19 +247,31 @@ void ImageManager::render_editor() {
   if (with_detection && image != nullptr) {
     ImGui::SameLine();
     ImGui::TextColored(ImVec4(0.93f, 0.73f, 0.24f, 1.0f), "Face Count: %ld",
-                       scan_faces(image->filename).size());
+                       detector.scan_faces(image->filename).size());
   }
   if (ImGui::Button("Reset Viewer")) {
     reset_view_to_image();
   }
   if (ImGui::TreeNode("Edit")) {
     with_preview = true;
+    // ImGui::Text("Preview Image Dimensions: %d x %d", editor->image_width,
+    //             editor->image_height);
+    // ImGui::Text("ROI: %d, %d, %d, %d", editor->roi.x, editor->roi.y,
+    //             editor->roi.width, editor->roi.height);
+    // ImGui::Text("Zoom: %f", zoom);
+    // ImGui::Text("Current Texture: %d, %d, %d, %d",
+    //             editor->current_texture_width,
+    //             editor->current_texture_height,
+    //             editor->current_texture_offset_x,
+    //             editor->current_texture_offset_y);
     if (ImGui::Checkbox("Link Viewers", &link_preview_viewer) &&
         link_preview_viewer) {
-      editor.set_view(linked_zoom_for_target(zoom, image->width, image->height,
-                                             editor.width, editor.height),
-                      pan);
+      editor->set_view(linked_zoom_for_target(zoom, image->width, image->height,
+                                              editor->image_width,
+                                              editor->image_height),
+                       pan);
     }
+    editor->render_controls();
     ImGui::TreePop();
   } else
     with_preview = false;
@@ -253,40 +289,19 @@ void ImageManager::render_carousel(float carousel_height) {
   }
 
   for (const auto &name : thumbnail_order) {
-    const auto it = thumbnails.find(name);
-    if (it == thumbnails.end() || it->second.texture == nullptr) {
-      continue;
-    }
-
-    const bool is_current = !image_names.empty() && index >= 0 &&
-                            index < static_cast<int>(image_names.size()) &&
-                            name == image_names[index];
-    if (is_current) {
-      ImGui::PushStyleColor(ImGuiCol_Button,
-                            ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
-    }
-
-    ImGui::BeginGroup();
-    const int frame_number = get_image_index(name) + 1;
-    if (frame_number > 0) {
-      ImGui::Text("Frame: %d", frame_number);
-    }
-    if (ImGui::ImageButton(
-            name.c_str(), it->second.texture,
-            ImVec2((float)it->second.width, (float)it->second.height))) {
-      queue_image_by_index(get_image_index(name));
-    }
-    ImGui::EndGroup();
-
-    if (is_current) {
-      ImGui::PopStyleColor();
-      if (index != last_drawn_index) {
-        ImGui::SetScrollHereX(0.5f);
-      }
+    render_thumbnail_item(
+        name, (float)thumbnails[name].width,
+        [this](const std::string &n) {
+          queue_image_by_index(get_image_index(n));
+        },
+        true, // show frame
+        true  // highlight current
+    );
+    if (name == image_names[index] && index != last_drawn_index) {
+      ImGui::SetScrollHereX(0.5f);
     }
     ImGui::SameLine();
   }
-
   ImGui::EndChild();
 }
 
@@ -294,11 +309,14 @@ void ImageManager::render_manager() {
 #ifdef TRACY_ENABLE
   ZoneScopedN("ImageManager::draw_manager");
 #endif
+  editor->cleanup_stale_resources();
+  bool new_preview = false;
   apply_pending_selection();
   if (with_preview && current_image_ != nullptr && current_image_->is_valid() &&
-      (editor.preview_texture == nullptr ||
-       editor.image_path != current_image_->filename)) {
-    editor.load_path(current_image_->filename);
+      (editor->preview_texture == nullptr ||
+       editor->image_path != current_image_->filename)) {
+    editor->load_path(current_image_->filename);
+    new_preview = true;
   }
   auto io = ImGui::GetIO();
 
@@ -324,17 +342,20 @@ void ImageManager::render_manager() {
     render_viewer();
     if (with_preview) {
       if (link_preview_viewer) {
-        editor.set_view(linked_zoom_for_target(zoom, current_image_->width,
-                                               current_image_->height,
-                                               editor.width, editor.height),
-                        pan);
+        editor->set_view(linked_zoom_for_target(zoom, current_image_->width,
+                                                current_image_->height,
+                                                editor->image_width,
+                                                editor->image_height),
+                         pan);
       }
-      editor.render_preview();
+      editor->render_preview();
+      if (new_preview)
+        editor->reset_view_to_image();
       if (link_preview_viewer) {
-        zoom = linked_zoom_for_target(editor.get_zoom(), editor.width,
-                                      editor.height, current_image_->width,
-                                      current_image_->height);
-        pan = editor.get_pan();
+        zoom = linked_zoom_for_target(
+            editor->get_zoom(), editor->image_width, editor->image_height,
+            current_image_->width, current_image_->height);
+        pan = editor->get_pan();
       }
     }
     render_editor();
@@ -427,65 +448,21 @@ void Session::render_same_as_popup() {
   if (ImGui::BeginPopup("Same As Bill")) {
     ImGui::TextUnformatted("Copy billed entries from another image");
     ImGui::Separator();
-
-    constexpr int columns = 5;
-    constexpr float cell_width = 150.0f;
-    const float spacing = ImGui::GetStyle().ItemSpacing.x;
-    const float popup_width = columns * cell_width + spacing * (columns - 1);
-    ImGui::SetNextWindowSize(
-        ImVec2(popup_width + ImGui::GetStyle().WindowPadding.x * 2, 480.0f),
-        ImGuiCond_Appearing);
-
-    bool found_source = false;
-    int column = 0;
-    for (const auto &image_name : manager.get_thumbnail_order()) {
-      if (image_path != nullptr && image_name == image_path->string()) {
-        continue;
-      }
-
-      const Thumbnail *thumb = manager.get_thumbnail(image_name);
-      if (thumb == nullptr || thumb->texture == nullptr || thumb->width <= 0) {
-        continue;
-      }
-
-      found_source = true;
-      if (column % columns != 0) {
-        ImGui::SameLine(0.0f, spacing);
-      }
-
-      ImGui::PushID(image_name.c_str());
-      ImGui::BeginGroup();
-
-      const int frame_number = manager.get_image_index(image_name) + 1;
-      if (frame_number > 0) {
-        ImGui::Text("Frame %d", frame_number);
-      }
-
-      const float aspect = (float)thumb->height / (float)thumb->width;
-      if (ImGui::ImageButton("##thumb", thumb->texture,
-                             ImVec2(cell_width, cell_width * aspect))) {
-        append_bill_from_image(image_name);
-        draw_same_as_popup = false;
-        ImGui::CloseCurrentPopup();
-      }
-
-      ImGui::TextUnformatted(
-          std::filesystem::path(image_name).filename().string().c_str());
-      ImGui::EndGroup();
-      ImGui::PopID();
-      ++column;
-    }
-
-    if (!found_source) {
-      ImGui::TextDisabled("No other images are available.");
-    }
-
-    ImGui::Separator();
     if (ImGui::Button("Close")) {
       draw_same_as_popup = false;
       ImGui::CloseCurrentPopup();
     }
-
+    for (const auto &image_name : manager.get_thumbnail_order()) {
+      manager.render_thumbnail_item(
+          image_name, manager.thumbnails[image_name].width,
+          [this](const std::string &n) {
+            append_bill_from_image(n);
+            draw_same_as_popup = false;
+            ImGui::CloseCurrentPopup();
+          },
+          true, false);
+    }
+    ImGui::Separator();
     ImGui::EndPopup();
   } else if (draw_same_as_popup && !ImGui::IsPopupOpen("Same As Bill")) {
     draw_same_as_popup = false;

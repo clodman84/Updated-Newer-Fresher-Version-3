@@ -4,6 +4,6 @@
 [submodule "vendored/SDL"]
 	path = vendored/SDL
 	url = https://github.com/libsdl-org/SDL.git
-[submodule "vendored/opencv"]
-	path = vendored/opencv
-	url = https://github.com/opencv/opencv.git
+[submodule "vendored/ncnn"]
+	path = vendored/ncnn
+	url = https://github.com/Tencent/ncnn.git

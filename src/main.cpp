@@ -1,16 +1,22 @@
 #include "Application/application.h"
+#include "Application/operations/gimp_levels.h"
+#include "Application/operations/my_colour_enhance.h"
+
 #include "SDL3/SDL_dialog.h"
 #include "SDL3/SDL_log.h"
 #include "SDL3/SDL_video.h"
+#include "image_editor.h"
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
 #include "imgui_impl_sdlgpu3.h"
 
 #include <SDL3/SDL.h>
+#include <gegl-0.4/gegl.h>
 
 #include <deque>
 #include <filesystem>
 #include <iostream>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -30,6 +36,7 @@ struct AppState {
   SDL_GPUDevice *device = nullptr;
   std::mutex pending_mutex;
   std::vector<std::filesystem::path> pending_session_paths;
+  std::shared_ptr<ImageEditor> editor;
 };
 
 static const SDL_DialogFileFilter csv_filters[] = {{"CSV files", "csv"}};
@@ -155,8 +162,9 @@ void process_pending_sessions(AppState &app_state,
 
   for (const auto &session_path : pending_paths) {
     try {
-      sessions.push_back(std::make_unique<Session>(
-          app_state.database, session_path, app_state.device));
+      sessions.push_back(
+          std::make_unique<Session>(app_state.database, session_path,
+                                    app_state.device, app_state.editor));
     } catch (const std::exception &error) {
       std::cerr << "Failed to create session for '" << session_path.string()
                 << "': " << error.what() << std::endl;
@@ -256,6 +264,12 @@ void render_sessions(std::deque<std::unique_ptr<Session>> &sessions) {
 
 int main(int, char **) {
   prepare_database();
+  gegl_init(NULL, NULL);
+  gimp_levels_op_register();
+  colour_enhance_op_register();
+  GeglConfig *config = gegl_config();
+  g_object_set(config, "mipmap-rendering", TRUE, NULL);
+
   srand(time(NULL));
 
   if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD)) {
@@ -310,11 +324,12 @@ int main(int, char **) {
   }
 
   ImGuiIO &io = ImGui::GetIO();
-  const ImVec4 clear_color = ImVec4(0.0f, 0.0f, 0.0f, 1.0f);
+  const ImVec4 clear_color = ImVec4(0.f, 0.f, 0.f, 1.0f);
   bool done = false;
 
   Database db;
-  AppState app_state{.database = &db, .device = gpu_device};
+  auto editor = std::make_shared<ImageEditor>(gpu_device);
+  AppState app_state{.database = &db, .device = gpu_device, .editor = editor};
   std::deque<std::unique_ptr<Session>> sessions;
 
   while (!done) {
@@ -385,6 +400,7 @@ int main(int, char **) {
   }
 
   sessions.clear();
+  editor.reset();
   SDL_WaitForGPUIdle(gpu_device);
   ImGui_ImplSDL3_Shutdown();
   ImGui_ImplSDLGPU3_Shutdown();
@@ -393,5 +409,6 @@ int main(int, char **) {
   SDL_DestroyGPUDevice(gpu_device);
   SDL_DestroyWindow(window);
   SDL_Quit();
+  gegl_exit();
   return 0;
 }
