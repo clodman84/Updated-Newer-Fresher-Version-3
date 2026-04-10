@@ -174,9 +174,16 @@ jobs:
           # Rename the bundle folder to match the release package name
           mv "$BUNDLE_SRC" "dist/${PACKAGE_ROOT}"
 
-          # Zip the fully prepared bundle
-          ARCHIVE="dist/${PACKAGE_ROOT}-${{ runner.os }}.zip"
-          cmake -E tar cf "$ARCHIVE" --format=zip -- "dist/${PACKAGE_ROOT}"
+          # Compress based on OS to preserve symlinks on Linux/macOS
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            ARCHIVE="dist/${PACKAGE_ROOT}-windows.zip"
+            cmake -E tar cf "$ARCHIVE" --format=zip -- "dist/${PACKAGE_ROOT}"
+          else
+            ARCHIVE="${PACKAGE_ROOT}-${{ runner.os }}.tar.gz"
+            # Switch into dist to avoid capturing the 'dist/' directory in the archive structure
+            cd dist
+            tar -czf "$ARCHIVE" "${PACKAGE_ROOT}"
+          fi
 
       # ------------------------------------------------------------------ #
       # Upload to release
@@ -186,4 +193,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.release.tag_name }}
-          files: dist/*.zip
+          files: |
+            dist/*.zip
+            dist/*.tar.gz
