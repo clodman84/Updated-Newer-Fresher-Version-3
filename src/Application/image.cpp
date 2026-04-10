@@ -15,7 +15,7 @@
 #include "stb_truetype.h"
 
 #include <SDL3/SDL.h>
-#include <gegl-0.4/gegl.h>
+#include <gegl.h>
 
 #include <algorithm>
 #include <filesystem>
