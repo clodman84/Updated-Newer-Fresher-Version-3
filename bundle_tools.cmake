@@ -38,7 +38,7 @@ function(bundle_runtime_dependencies TARGET_NAME BUNDLE_DIR)
         endforeach()
     " COMPONENT Runtime)
 
-    # 2. Bundle MINIMAL GEGL and Babl modules
+    # Get the directories where the system installed GEGL and Babl plugins
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(GEGL REQUIRED gegl-0.4)
     pkg_check_modules(BABL REQUIRED babl-0.1)
@@ -46,22 +46,17 @@ function(bundle_runtime_dependencies TARGET_NAME BUNDLE_DIR)
     pkg_get_variable(GEGL_PLUGINS_DIR gegl-0.4 pluginsdir)
     pkg_get_variable(BABL_PLUGINS_DIR babl-0.1 pluginsdir)
 
-    # Use python script to detect actually needed GEGL ops
-    execute_process(
-        COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/detect_gegl_ops.py ${CMAKE_SOURCE_DIR}/src ${GEGL_PLUGINS_DIR}
-        OUTPUT_VARIABLE REQUIRED_GEGL_OPS
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
-
+    # Brute-force copy ALL plugins for both GEGL and Babl into the bundle
     install(CODE "
-        set(_gegl_dest \"\${CMAKE_INSTALL_PREFIX}/${BUNDLE_DIR}/lib/gegl-0.4\")
-        set(_ops \"${REQUIRED_GEGL_OPS}\")
-        string(REPLACE \"\\n\" \";\" _ops_list \"\${_ops}\")
-        foreach(_op \${_ops_list})
-            file(INSTALL \"\${_op}\" DESTINATION \"\${_gegl_dest}\" FOLLOW_SYMLINK_CHAIN)
-        endforeach()
+        # Copy GEGL plugins
+        file(INSTALL \"${GEGL_PLUGINS_DIR}/\" 
+             DESTINATION \"\${CMAKE_INSTALL_PREFIX}/${BUNDLE_DIR}/lib/gegl-0.4\" 
+             FOLLOW_SYMLINK_CHAIN)
 
-        # Copy BABL extensions
-        file(INSTALL \"${BABL_PLUGINS_DIR}/\" DESTINATION \"\${CMAKE_INSTALL_PREFIX}/${BUNDLE_DIR}/lib/babl-0.1\" FOLLOW_SYMLINK_CHAIN)
+        # Copy BABL plugins
+        file(INSTALL \"${BABL_PLUGINS_DIR}/\" 
+             DESTINATION \"\${CMAKE_INSTALL_PREFIX}/${BUNDLE_DIR}/lib/babl-0.1\" 
+             FOLLOW_SYMLINK_CHAIN)
     " COMPONENT Runtime)
+
 endfunction()

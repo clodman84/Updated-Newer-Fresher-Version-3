@@ -273,6 +273,7 @@ bool upload_texture_data_to_gpu(unsigned char *image_data, int width,
 
   if (image_data == nullptr || width <= 0 || height <= 0 || device == nullptr ||
       out_texture == nullptr) {
+    SDL_Log("Dirty Texture!!");
     return false;
   }
 

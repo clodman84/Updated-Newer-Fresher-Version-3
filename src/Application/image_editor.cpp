@@ -96,7 +96,6 @@ void ImageEditor::prepare_gegl_graph() {
 }
 
 void ImageEditor::start_render_thread() {
-  // Prevent starting multiple times
   if (running)
     return;
 
@@ -115,6 +114,7 @@ void ImageEditor::start_render_thread() {
         req = latest_request;
         has_request = false;
       }
+      SDL_Log("Render thread: Processing request for effect update...");
       apply_gegl_texture(req);
     }
   });
@@ -122,14 +122,8 @@ void ImageEditor::start_render_thread() {
 
 void ImageEditor::stop_render_thread() {
   if (running) {
-    // 1. Signal the thread to stop
     running = false;
-
-    // 2. Wake the thread up immediately if it is sleeping on the
-    // condition_variable
     request_cv.notify_one();
-
-    // 3. Wait for the thread to completely finish its current render and exit
     if (render_thread.joinable()) {
       render_thread.join();
     }
@@ -137,17 +131,12 @@ void ImageEditor::stop_render_thread() {
 }
 
 void ImageEditor::put_render_request() {
-  // (Assuming you construct your RenderRequest inside this function)
-  RenderRequest req;
-  // ... build the request based on current UI state ...
-
   {
     std::lock_guard<std::mutex> lock(request_mutex);
-    latest_request = req;
+    latest_request.roi = roi;
+    latest_request.zoom = zoom;
     has_request = true;
   }
-
-  // Wake up the background thread to process the new request
   request_cv.notify_one();
 }
 
@@ -155,6 +144,10 @@ void ImageEditor::apply_gegl_texture(RenderRequest req) {
 #ifdef TRACY_ENABLE
   ZoneScopedN("apply_gegl_texture");
 #endif
+  if (req.roi.width <= 0 || req.roi.height <= 0) {
+    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "CRITICAL: GEGL ROI is empty!.");
+    return;
+  }
   if (sink == nullptr)
     return;
   double scale = std::min(zoom, 1.0f);
@@ -171,6 +164,8 @@ void ImageEditor::apply_gegl_texture(RenderRequest req) {
   GeglRectangle broi = {(int)(roi.x * scale), (int)(roi.y * scale), out_w,
                         out_h};
 
+  SDL_Log("Hiii");
+
   gegl_node_blit(sink, scale, &broi, babl_format("R'G'B'A u8"), pixels,
                  GEGL_AUTO_ROWSTRIDE, GEGL_BLIT_DEFAULT);
 
@@ -180,6 +175,8 @@ void ImageEditor::apply_gegl_texture(RenderRequest req) {
       textures_to_release.push_back(preview_texture);
     }
     preview_texture = texture;
+  } else {
+    SDL_Log("Texture upload failed!!!");
   }
 
   IM_FREE(pixels);

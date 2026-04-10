@@ -6,10 +6,10 @@
 #include "SDL3/SDL_log.h"
 #include "SDL3/SDL_video.h"
 #include "image_editor.h"
-#include "portable_utils.h"
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
 #include "imgui_impl_sdlgpu3.h"
+#include "portable_utils.h"
 
 #include <SDL3/SDL.h>
 #include <gegl.h>
@@ -264,8 +264,30 @@ void render_sessions(std::deque<std::unique_ptr<Session>> &sessions) {
 } // namespace
 
 int main(int, char **) {
-  setup_portable_paths();
   prepare_database();
+
+  const char *base_path = SDL_GetBasePath();
+  if (base_path) {
+    std::filesystem::path root_dir(base_path);
+    std::filesystem::path bundled_gegl = root_dir / "lib" / "gegl-0.4";
+    std::filesystem::path bundled_babl = root_dir / "lib" / "babl-0.1";
+
+    // ONLY apply if we are running from a bundle/installation
+    if (std::filesystem::exists(bundled_gegl)) {
+      SDL_Log("Bundle detected! Redirecting GEGL/BABL paths.");
+
+#ifdef _WIN32
+      _putenv_s("GEGL_PATH", bundled_gegl.string().c_str());
+      _putenv_s("BABL_PATH", bundled_babl.string().c_str());
+#else
+      setenv("GEGL_PATH", bundled_gegl.string().c_str(), 1);
+      setenv("BABL_PATH", bundled_babl.string().c_str(), 1);
+#endif
+    } else {
+      SDL_Log("No bundle found. Using system GEGL/BABL paths.");
+    }
+  }
+
   gegl_init(NULL, NULL);
   gimp_levels_op_register();
   colour_enhance_op_register();
