@@ -25,11 +25,7 @@ jobs:
           ref: refs/tags/${{ github.event.release.tag_name }}
 
       # ------------------------------------------------------------------ #
-      # ccache — Linux / macOS only.
-      # Windows + MSVC does not support ccache; sccache would be the
-      # alternative but adds complexity for marginal gain on MSVC.
-      # The cache key covers every file that affects compilation so that a
-      # hit guarantees a fully warmed cache.
+      # Setup Environments & Dependencies
       # ------------------------------------------------------------------ #
 
       - name: Restore ccache (non-Windows)
@@ -67,19 +63,33 @@ jobs:
             libpulse-dev \
             libdbus-1-dev \
             libudev-dev \
+            libgegl-dev \
+            libbabl-dev \
             ccache
 
       - name: Install macOS dependencies
         if: runner.os == 'macOS'
         run: |
           brew update
-          brew install ccache
+          brew install ccache gegl babl pkg-config ninja
+
+      - name: Setup MSYS2 (Windows)
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-gegl
+            mingw-w64-ucrt-x86_64-ccache
 
       - name: Configure ccache (non-Windows)
         if: runner.os != 'Windows'
         run: |
-          # ccache on both Linux and macOS defaults to ~/.ccache.
-          # Brew's ccache and apt's ccache both honour $CCACHE_DIR.
           echo "CCACHE_DIR=${HOME}/.ccache" >> "${GITHUB_ENV}"
           echo "CMAKE_C_COMPILER_LAUNCHER=ccache"   >> "${GITHUB_ENV}"
           echo "CMAKE_CXX_COMPILER_LAUNCHER=ccache" >> "${GITHUB_ENV}"
@@ -87,16 +97,7 @@ jobs:
           ccache --zero-stats
 
       # ------------------------------------------------------------------ #
-      # CMake configure
-      #
-      # FIX (Windows): -DCMAKE_EXE_LINKER_FLAGS_RELEASE="-static" is a
-      #   GCC/MinGW flag.  On MSVC the static CRT is already selected via
-      #   CMAKE_MSVC_RUNTIME_LIBRARY in CMakeLists.txt; passing this flag
-      #   causes link warnings/errors with the MSVC linker.
-      #
-      # FIX (Windows): -DCMAKE_ASM_NASM_FLAGS_RELEASE="" served no purpose
-      #   (NASM is not installed on windows-latest and OpenCV's vendored
-      #   sources don't require it).  Removed.
+      # CMake Configure & Build
       # ------------------------------------------------------------------ #
 
       - name: Configure CMake (Linux / macOS)
@@ -109,19 +110,22 @@ jobs:
           -DCMAKE_C_COMPILER_LAUNCHER=${{ env.CMAKE_C_COMPILER_LAUNCHER }}
           -DCMAKE_CXX_COMPILER_LAUNCHER=${{ env.CMAKE_CXX_COMPILER_LAUNCHER }}
 
-      - name: Configure CMake (Windows)
+      - name: Configure CMake (Windows via MSYS2)
         if: runner.os == 'Windows'
+        shell: msys2 {0}
         run: >-
           cmake -S . -B build -G Ninja
           -DCMAKE_BUILD_TYPE=Release
           -DUNFV3_ENABLE_LTO=OFF
           -DUNFV3_USE_SYSTEM_OPENCV=OFF
 
-      - name: Build
-        # OpenCV is heavy. Capping at 4 parallel jobs prevents OOM on
-        # the 7 GB GitHub-hosted runners. On a local machine you likely
-        # want: cmake --build build --config Release -- -j$(nproc)
-        # but even there, limit to nproc/2 while OpenCV is compiling.
+      - name: Build (Linux / macOS)
+        if: runner.os != 'Windows'
+        run: cmake --build build --config Release -- -j4
+
+      - name: Build (Windows via MSYS2)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
         run: cmake --build build --config Release -- -j4
 
       - name: Show ccache stats (non-Windows)
@@ -136,49 +140,48 @@ jobs:
           key: ${{ steps.ccache-restore.outputs.cache-primary-key }}
 
       # ------------------------------------------------------------------ #
-      # Package
+      # Install & Package Bundle
       # ------------------------------------------------------------------ #
 
-      - name: Package binary and runtime data
+      - name: Trigger CMake Install Bundle (Linux / macOS)
+        if: runner.os != 'Windows'
+        run: cmake --install build --prefix stage_dir
+
+      - name: Trigger CMake Install Bundle (Windows via MSYS2)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: cmake --install build --prefix stage_dir
+
+      - name: Package portable bundle
         shell: bash
         run: |
           set -euo pipefail
 
           TAG_NAME="${{ github.event.release.tag_name }}"
           PACKAGE_ROOT="UNFV3-${TAG_NAME}"
-          STAGE_DIR="dist/${PACKAGE_ROOT}"
-          mkdir -p "$STAGE_DIR"
+          mkdir -p dist
 
-          BIN="build/bin/UNFV3"
-          BIN_NAME="UNFV3"
+          # Locate the bundle directory generated by CMakeLists.txt
           if [ "${{ runner.os }}" = "Windows" ]; then
-            BIN="build/bin/UNFV3.exe"
-            BIN_NAME="UNFV3.exe"
+            BUNDLE_SRC="stage_dir/UNFV3"
+          else
+            BUNDLE_SRC="stage_dir/UNFV3_bundle"
           fi
 
-          if [ ! -f "$BIN" ]; then
-            echo "Built binary not found at $BIN" >&2
+          if [ ! -d "$BUNDLE_SRC" ]; then
+            echo "Bundle directory not found at $BUNDLE_SRC! Install failed." >&2
             exit 1
           fi
 
-          if [ ! -d "Data" ]; then
-            echo "Data directory not found at repository root" >&2
-            exit 1
-          fi
+          # Rename the bundle folder to match the release package name
+          mv "$BUNDLE_SRC" "dist/${PACKAGE_ROOT}"
 
-          cp "$BIN" "$STAGE_DIR/$BIN_NAME"
-          cp -R Data "$STAGE_DIR/Data"
-
+          # Zip the fully prepared bundle
           ARCHIVE="dist/${PACKAGE_ROOT}-${{ runner.os }}.zip"
-          cmake -E tar cf "$ARCHIVE" --format=zip -- "$STAGE_DIR"
+          cmake -E tar cf "$ARCHIVE" --format=zip -- "dist/${PACKAGE_ROOT}"
 
       # ------------------------------------------------------------------ #
       # Upload to release
-      #
-      # FIX: body_path: CHANGELOG.md will fail hard if the file is absent.
-      #   Removed; the release body is already set when the release was
-      #   published via the GitHub UI or API.  Re-add body_path only if
-      #   CHANGELOG.md is guaranteed to exist at the repo root.
       # ------------------------------------------------------------------ #
 
       - name: Upload package to GitHub release
