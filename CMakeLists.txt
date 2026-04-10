@@ -132,20 +132,10 @@ add_subdirectory(vendored/ncnn)
 # GEGL (graph-based image processing)
 # --------------------------------------------------
 
-option(UNFV3_USE_SYSTEM_GEGL "Use system-installed GEGL" ON)
-
-if(UNFV3_USE_SYSTEM_GEGL)
-    find_package(PkgConfig REQUIRED)
-
-    pkg_check_modules(GEGL REQUIRED gegl-0.4)
-
-    message(STATUS "Found GEGL via pkg-config")
-
-    set(GEGL_INCLUDE_DIRS ${GEGL_INCLUDE_DIRS})
-    set(GEGL_LIBS ${GEGL_LIBRARIES})
-else()
-    message(FATAL_ERROR "Vendored GEGL not implemented (yet). Use system GEGL.")
-endif()
+find_package(PkgConfig REQUIRED)
+# Add IMPORTED_TARGET to these lines
+pkg_check_modules(GEGL REQUIRED IMPORTED_TARGET gegl-0.4)
+pkg_check_modules(BABL REQUIRED IMPORTED_TARGET babl-0.1)
 
 # --------------------------------------------------
 # Tracy Profiler
@@ -247,7 +237,8 @@ target_link_libraries(UNFV3 PRIVATE
     nlohmann_json
     unfv3_project_optimizations
     ncnn
-    ${GEGL_LIBS}
+    PkgConfig::GEGL 
+    PkgConfig::BABL
 )
 
 if(WIN32)
