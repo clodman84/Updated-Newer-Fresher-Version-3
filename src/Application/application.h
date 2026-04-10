@@ -202,7 +202,15 @@ private:
 
 void prepare_database();
 
-enum TokenType { FTS_SEARCH, BHAWAN_SEARCH, ID_SEARCH, OR, AND, LPAR, RPAR };
+enum UNFV3SearchTokenType {
+  FTS_SEARCH,
+  BHAWAN_SEARCH,
+  ID_SEARCH,
+  OR,
+  AND,
+  LPAR,
+  RPAR
+};
 
 struct ExportInfo {
   std::string bhawan;
@@ -217,7 +225,7 @@ public:
   void read_csv(const std::string &filename);
   void render_loaded_csv();
   void insert_data();
-  void search(TokenType search_type, std::string search_query,
+  void search(UNFV3SearchTokenType search_type, std::string search_query,
               std::vector<std::array<std::string, 4>> &search_results);
   ExportInfo get_export_information_from_id(std::string id);
 

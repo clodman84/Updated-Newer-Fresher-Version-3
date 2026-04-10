@@ -8,7 +8,7 @@
 #endif
 
 typedef struct {
-  TokenType type;
+  UNFV3SearchTokenType type;
   std::string value;
 } Token_T;
 
@@ -33,7 +33,8 @@ typedef struct {
 
 enum State { WAITING, READING_ID, READING_BHAWAN, READING_NAME };
 
-void Database::search(TokenType search_type, std::string search_query,
+void Database::search(UNFV3SearchTokenType search_type,
+                      std::string search_query,
                       std::vector<std::array<std::string, 4>> &search_results) {
   sqlite3_stmt *stmt;
   std::string query;
@@ -83,7 +84,7 @@ std::vector<Token_T> lex(std::string search_query) {
 #endif
 
   std::vector<Token_T> output;
-  TokenType type;
+  UNFV3SearchTokenType type;
   std::string value;
   State current_state = WAITING;
   int idx = 0;
