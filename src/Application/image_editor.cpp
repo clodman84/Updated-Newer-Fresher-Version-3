@@ -164,8 +164,6 @@ void ImageEditor::apply_gegl_texture(RenderRequest req) {
   GeglRectangle broi = {(int)(roi.x * scale), (int)(roi.y * scale), out_w,
                         out_h};
 
-  SDL_Log("Hiii");
-
   gegl_node_blit(sink, scale, &broi, babl_format("R'G'B'A u8"), pixels,
                  GEGL_AUTO_ROWSTRIDE, GEGL_BLIT_DEFAULT);
 

@@ -8,6 +8,12 @@
 #include <tracy/Tracy.hpp>
 #endif
 
+namespace {
+static std::string pending_same_as_image;
+static std::string pending_some_of_image;
+static std::map<std::string, bool> some_of_selections;
+} // namespace
+
 template <typename T> static inline T Clamp(T value, T lo, T hi) {
   return value < lo ? lo : (value > hi ? hi : value);
 }
@@ -289,6 +295,8 @@ void ImageManager::render_carousel(float carousel_height) {
   }
 
   for (const auto &name : thumbnail_order) {
+    ImGui::PushID(name.c_str());
+
     render_thumbnail_item(
         name, (float)thumbnails[name].width,
         [this](const std::string &n) {
@@ -297,9 +305,22 @@ void ImageManager::render_carousel(float carousel_height) {
         true, // show frame
         true  // highlight current
     );
+
+    // Right-click context menu for Same As / Some Of
+    if (ImGui::BeginPopupContextItem("ThumbnailContextMenu")) {
+      if (ImGui::MenuItem("Same As")) {
+        pending_same_as_image = name;
+      }
+      if (ImGui::MenuItem("Some Of")) {
+        pending_some_of_image = name;
+      }
+      ImGui::EndPopup();
+    }
+
     if (name == image_names[index] && index != last_drawn_index) {
       ImGui::SetScrollHereX(0.5f);
     }
+    ImGui::PopID();
     ImGui::SameLine();
   }
   ImGui::EndChild();
@@ -433,39 +454,79 @@ void Session::render_searcher() {
     manager.load_next();
   }
   ImGui::SameLine();
-  if (ImGui::Button("Same As")) {
-    draw_same_as_popup = true;
-    ImGui::OpenPopup("Same As Bill");
+
+  // Process the "Same As" request globally from the carousel right-click
+  if (!pending_same_as_image.empty()) {
+    append_bill_from_image(manager.folder() / pending_same_as_image);
+    pending_same_as_image.clear();
   }
 
-  render_same_as_popup();
+  if (ImGui::Button("Same As")) {
+    if (manager.index > 0 && manager.index <= manager.image_names.size()) {
+      append_bill_from_image(manager.folder() /
+                             manager.image_names[manager.index - 1]);
+    }
+  }
+
+  render_some_of_popup();
   render_search_results_table();
   ImGui::EndChild();
 }
 
-void Session::render_same_as_popup() {
-  const auto *image_path = current_image_path();
-  if (ImGui::BeginPopup("Same As Bill")) {
-    ImGui::TextUnformatted("Copy billed entries from another image");
+void Session::render_some_of_popup() {
+  static bool is_open = false;
+  static std::string current_target;
+
+  // Trigger popup from the carousel right-click
+  if (!pending_some_of_image.empty()) {
+    current_target = pending_some_of_image;
+    pending_some_of_image.clear();
+    some_of_selections.clear();
+    is_open = true;
+    ImGui::OpenPopup("Some Of Bill");
+  }
+
+  if (ImGui::BeginPopupModal("Some Of Bill", &is_open,
+                             ImGuiWindowFlags_AlwaysAutoResize)) {
+    ImGui::Text("Select entries to copy from %s", current_target.c_str());
     ImGui::Separator();
-    if (ImGui::Button("Close")) {
-      draw_same_as_popup = false;
+
+    // Iterate directly over your bill map (assuming BillMap handles image
+    // lookups like this)
+    if (bill.count(current_target)) {
+      const auto &target_entries = bill[current_target];
+      for (const auto &[student_id, entry] : target_entries) {
+        ImGui::Checkbox(("##chk_" + student_id).c_str(),
+                        &some_of_selections[student_id]);
+        ImGui::SameLine();
+        ImGui::Text("%s - %s", student_id.c_str(), entry.name.c_str());
+      }
+    } else {
+      ImGui::TextDisabled("No bill data found for this image.");
+    }
+
+    ImGui::Separator();
+
+    if (ImGui::Button("Copy Selected", ImVec2(120, 0))) {
+      if (bill.count(current_target)) {
+        for (const auto &[id, selected] : some_of_selections) {
+          if (selected) {
+            increment_for_id(id, bill[current_target].at(id).name);
+          }
+        }
+      }
+      is_open = false;
       ImGui::CloseCurrentPopup();
     }
-    for (const auto &image_name : manager.get_thumbnail_order()) {
-      manager.render_thumbnail_item(
-          image_name, manager.thumbnails[image_name].width,
-          [this](const std::string &n) {
-            append_bill_from_image(n);
-            draw_same_as_popup = false;
-            ImGui::CloseCurrentPopup();
-          },
-          true, false);
+
+    ImGui::SameLine();
+
+    if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+      is_open = false;
+      ImGui::CloseCurrentPopup();
     }
-    ImGui::Separator();
+
     ImGui::EndPopup();
-  } else if (draw_same_as_popup && !ImGui::IsPopupOpen("Same As Bill")) {
-    draw_same_as_popup = false;
   }
 }
 

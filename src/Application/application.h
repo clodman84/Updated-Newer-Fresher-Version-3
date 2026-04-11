@@ -175,6 +175,8 @@ public:
     }
   }
 
+  std::vector<std::string> image_names;
+
 private:
   void load_folder(const std::filesystem::path &folder);
   void clear_current_image();
@@ -188,7 +190,6 @@ private:
 
   std::filesystem::path image_folder_;
   std::unique_ptr<Image> current_image_;
-  std::vector<std::string> image_names;
   std::vector<std::string> thumbnail_order;
   SDL_GPUDevice *device = nullptr;
   float zoom = 0.0f;
@@ -293,7 +294,7 @@ private:
   void sync_billed_selection_bounds();
   void handle_search_keyboard_nav();
   void handle_billed_keyboard_nav();
-  void render_same_as_popup();
+  void render_some_of_popup();
   void render_search_results_table();
   void render_billed_table(std::map<std::string, BillEntry> &entries);
   void load_existing_bill();
