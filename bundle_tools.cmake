@@ -1,5 +1,5 @@
 function(bundle_runtime_dependencies TARGET_NAME BUNDLE_DIR)
-    # Define platform-specific exclusions (Evaluated at configure time)
+    # Define platform-specific exclusions
     if(WIN32)
         set(_pre "PRE_EXCLUDE_REGEXES" "\"api-ms-win-.*\"" "\"ext-ms-win-.*\"")
         set(_post "POST_EXCLUDE_REGEXES" "\"(?i)^([a-z]:)?/windows/.*\"") 
@@ -8,7 +8,6 @@ function(bundle_runtime_dependencies TARGET_NAME BUNDLE_DIR)
         set(_post "POST_EXCLUDE_REGEXES" "\"^/usr/lib/.*\"" "\"^/System/.*\"")
     else()
         set(_pre "")
-        # Added GLib family, D-Bus, udev, and Audio drivers to the exclusion list
         set(_post 
             "POST_EXCLUDE_REGEXES"
             "\".*/lib(gcc_s|stdc.*|pthread|dl|rt|m|c|resolv)\\\\.so.*\""
@@ -19,26 +18,29 @@ function(bundle_runtime_dependencies TARGET_NAME BUNDLE_DIR)
         )
     endif()
 
-    # Convert CMake lists into a space-separated string to safely inject into the install script
     string(REPLACE ";" " " _pre_str "${_pre}")
     string(REPLACE ";" " " _post_str "${_post}")
 
-    # Get the directories where the system installed GEGL and Babl plugins
+    # NEW: Extract the absolute Windows path to the MSYS2/MinGW bin directory
+    # This guarantees we find libgcc_s, libstdc++, libwinpthread, and libbabl
+    get_filename_component(MINGW_BIN_DIR "${CMAKE_CXX_COMPILER}" DIRECTORY)
+
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(GEGL REQUIRED gegl-0.4)
     pkg_check_modules(BABL REQUIRED babl-0.1)
 
     pkg_get_variable(GEGL_PLUGINS_DIR gegl-0.4 pluginsdir)
     pkg_get_variable(BABL_PLUGINS_DIR babl-0.1 pluginsdir)
-    
-    # NEW: Get the root prefix (e.g., C:/msys64/mingw64) to find Windows DLLs
-    pkg_get_variable(GEGL_PREFIX gegl-0.4 prefix)
 
-    # Perform all bundling in a single install step so the execution order is guaranteed
     install(CODE "
-        set(_bundle_dest \"\${CMAKE_INSTALL_PREFIX}/${BUNDLE_DIR}/lib\")
+        # Windows needs core DLLs in the root folder next to the .exe
+        if(WIN32)
+            set(_bundle_dest \"\${CMAKE_INSTALL_PREFIX}/${BUNDLE_DIR}\")
+        else()
+            set(_bundle_dest \"\${CMAKE_INSTALL_PREFIX}/${BUNDLE_DIR}/lib\")
+        endif()
 
-        # 1. Brute-force copy ALL plugins for both GEGL and Babl into the bundle first
+        # 1. Copy plugins into the lib folder (Always stays in lib/ for GEGL_PATH logic)
         file(INSTALL \"${GEGL_PLUGINS_DIR}/\" 
              DESTINATION \"\${CMAKE_INSTALL_PREFIX}/${BUNDLE_DIR}/lib/gegl-0.4\" 
              FOLLOW_SYMLINK_CHAIN)
@@ -47,28 +49,31 @@ function(bundle_runtime_dependencies TARGET_NAME BUNDLE_DIR)
              DESTINATION \"\${CMAKE_INSTALL_PREFIX}/${BUNDLE_DIR}/lib/babl-0.1\" 
              FOLLOW_SYMLINK_CHAIN)
 
-        # 2. Glob the plugins we just copied so we can scan them for dependencies
+        # 2. Glob plugins
         file(GLOB_RECURSE _plugin_files 
             \"\${CMAKE_INSTALL_PREFIX}/${BUNDLE_DIR}/lib/gegl-0.4/*\${CMAKE_SHARED_LIBRARY_SUFFIX}\"
             \"\${CMAKE_INSTALL_PREFIX}/${BUNDLE_DIR}/lib/babl-0.1/*\${CMAKE_SHARED_LIBRARY_SUFFIX}\"
         )
 
-        # 3. Scan BOTH the main executable AND the plugins. 
-        # Add DIRECTORIES to force CMake to look in the MSYS2 bin folder for Windows DLLs.
+        # 3. Scan dependencies and force CMake to look in the TRUE MinGW bin directory
         file(GET_RUNTIME_DEPENDENCIES
             EXECUTABLES $<TARGET_FILE:${TARGET_NAME}>
             LIBRARIES \${_plugin_files}
-            DIRECTORIES \"${GEGL_PREFIX}/bin\" \"${GEGL_PREFIX}/lib\"
+            DIRECTORIES \"${MINGW_BIN_DIR}\"
             RESOLVED_DEPENDENCIES_VAR _resolved_deps
             UNRESOLVED_DEPENDENCIES_VAR _unresolved_deps
             ${_pre_str}
             ${_post_str}
         )
 
-        # 4. Copy all resolved dependencies (libstdc++-6.dll, libpng, liblcms2, etc.)
+        # Print a loud warning if anything was missed
+        if(_unresolved_deps)
+            message(WARNING \"\\n--- MISSING DEPENDENCIES ---\\nCMake could not find:\\n\${_unresolved_deps}\\n---------------------------\\n\")
+        endif()
+
+        # 4. Copy core DLLs to the correct OS destination
         foreach(_lib \${_resolved_deps})
             file(INSTALL \"\${_lib}\" DESTINATION \"\${_bundle_dest}\" FOLLOW_SYMLINK_CHAIN)
         endforeach()
     " COMPONENT Runtime)
-
 endfunction()
