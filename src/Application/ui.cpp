@@ -307,12 +307,10 @@ void ImageManager::render_carousel(float carousel_height, BillMap *bill_map) {
               selection_storage.insert(image_names[j]);
             }
           } else if (io.KeyCtrl) {
-
             if (!selection_storage.contains(n))
               selection_storage.insert(n);
             else
               selection_storage.erase(n);
-
           } else {
             selection_storage.clear();
             queue_image_by_index(i);
