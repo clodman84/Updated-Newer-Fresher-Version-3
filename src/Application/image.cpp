@@ -472,6 +472,8 @@ Image *ImageManager::load_image() {
     return nullptr;
   }
 
+  selection_storage.Clear();
+
   current_image_ = std::move(next_image);
   reset_view_to_image();
   return current_image_.get();

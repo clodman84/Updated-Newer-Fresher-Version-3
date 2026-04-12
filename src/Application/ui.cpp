@@ -294,25 +294,61 @@ void ImageManager::render_carousel(float carousel_height) {
     ImGui::SetScrollX(ImGui::GetScrollX() - io.MouseWheel * 50.0f);
   }
 
-  for (const auto &name : thumbnail_order) {
+  ImGuiMultiSelectIO *ms_io = ImGui::BeginMultiSelect(
+      ImGuiMultiSelectFlags_None, selection_storage.Size,
+      (int)thumbnail_order.size());
+
+  selection_storage.ApplyRequests(ms_io);
+
+  for (int i = 0; i < (int)thumbnail_order.size(); i++) {
+    const auto &name = thumbnail_order[i];
     ImGui::PushID(name.c_str());
+    bool is_selected = selection_storage.Contains((ImGuiSelectionUserData)i);
 
     render_thumbnail_item(
         name, (float)thumbnails[name].width,
-        [this](const std::string &n) {
-          queue_image_by_index(get_image_index(n));
+        [this, i](const std::string &n) {
+          auto &io = ImGui::GetIO();
+          if (io.KeyShift && last_clicked_index != -1) {
+            int start = std::min(i, last_clicked_index);
+            int end = std::max(i, last_clicked_index);
+            if (!io.KeyCtrl)
+              selection_storage.Clear();
+            for (int j = start; j <= end; j++) {
+              selection_storage.SetItemSelected(j, true);
+            }
+          } else if (io.KeyCtrl) {
+            selection_storage.SetItemSelected(i,
+                                              !selection_storage.Contains(i));
+          } else {
+            selection_storage.Clear();
+            queue_image_by_index(i);
+          }
+          last_clicked_index = i;
         },
-        true, // show frame
-        true  // highlight current
+        true,                   // show frame
+        is_selected,            // is selected
+        (i == last_drawn_index) // is current_image_
     );
 
     // Right-click context menu for Same As / Some Of
     if (ImGui::BeginPopupContextItem("ThumbnailContextMenu")) {
+      // If right-clicking an unselected item, select it
+      if (!is_selected) {
+        selection_storage.Clear();
+        selection_storage.SetItemSelected((ImGuiSelectionUserData)i, true);
+      }
       if (ImGui::MenuItem("Same As")) {
         pending_same_as_image = name;
       }
       if (ImGui::MenuItem("Some Of")) {
         pending_some_of_image = name;
+      }
+      if (selection_storage.Size > 1) {
+        ImGui::Separator();
+        if (ImGui::MenuItem("Link Selected Items")) {
+          // Logic to link all IDs in selection_storage
+        }
       }
       ImGui::EndPopup();
     }
@@ -323,6 +359,10 @@ void ImageManager::render_carousel(float carousel_height) {
     ImGui::PopID();
     ImGui::SameLine();
   }
+
+  ms_io = ImGui::EndMultiSelect();
+  selection_storage.ApplyRequests(ms_io);
+
   ImGui::EndChild();
 }
 
@@ -592,6 +632,14 @@ void Session::render_billed_table(std::map<std::string, BillEntry> &entries) {
         visible_index == selected_billed_index) {
       ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0,
                              ImGui::GetColorU32(ImGuiCol_Header));
+      if (ImGui::IsKeyPressed(ImGuiKey_KeypadAdd))
+        entry.count += 1;
+      if (ImGui::IsKeyPressed(ImGuiKey_KeypadSubtract) ||
+          ImGui::IsKeyPressed(ImGuiKey_Backspace))
+        entry.count -= 1;
+      if (ImGui::IsKeyPressed(ImGuiKey_Delete))
+        entry.count = -1;
+
       ImGui::SetScrollHereY();
     }
 

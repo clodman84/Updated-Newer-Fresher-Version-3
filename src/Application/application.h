@@ -137,45 +137,53 @@ public:
   template <typename OnClick>
   void render_thumbnail_item(const std::string &name, float width,
                              OnClick on_click, bool show_frame,
-                             bool highlight_current) {
+                             bool is_selected, bool is_active) {
     const auto it = thumbnails.find(name);
     if (it == thumbnails.end() || it->second.texture == nullptr)
       return;
 
-    const bool is_current = highlight_current && !image_names.empty() &&
-                            index >= 0 && index < (int)image_names.size() &&
-                            name == image_names[index];
-
-    if (is_current) {
-      ImGui::PushStyleColor(ImGuiCol_Button,
-                            ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
-    }
-
-    ImGui::PushID(name.c_str());
     ImGui::BeginGroup();
-
     if (show_frame) {
-      const int frame_number = get_image_index(name) + 1;
-      if (frame_number > 0)
-        ImGui::Text("Frame: %d", frame_number);
+      ImGui::Text("Frame: %d", get_image_index(name) + 1);
     }
 
-    const float aspect = (float)it->second.height / (float)it->second.width;
+    float aspect = (float)it->second.height / (float)it->second.width;
+    ImVec2 size(width, width * aspect);
+    ImVec2 p_min = ImGui::GetCursorScreenPos();
+    ImVec2 p_max = ImVec2(p_min.x + size.x, p_min.y + size.y);
 
-    if (ImGui::ImageButton("##thumb", it->second.texture,
-                           ImVec2(width, width * aspect))) {
+    ImGui::Image(it->second.texture, size);
+
+    ImGuiSelectableFlags sel_flags = ImGuiSelectableFlags_AllowOverlap;
+
+    // This call registers the interaction with BeginMultiSelect
+    ImGui::SetCursorScreenPos(p_min);
+    if (ImGui::InvisibleButton("##hitbox", size)) {
       on_click(name);
     }
 
-    ImGui::EndGroup();
-    ImGui::PopID();
-
-    if (is_current) {
-      ImGui::PopStyleColor();
+    if (is_selected) {
+      ImDrawList *draw_list = ImGui::GetWindowDrawList();
+      draw_list->AddRect(p_min, p_max,
+                         ImGui::GetColorU32(ImGuiCol_HeaderActive), 0.0f, 0,
+                         3.0f);
+      // Semi-transparent tint over the whole image
+      draw_list->AddRectFilled(p_min, p_max,
+                               ImGui::GetColorU32(ImGuiCol_Header, 0.3f));
     }
+    if (is_active) {
+      // Thick colored border
+      ImDrawList *draw_list = ImGui::GetWindowDrawList();
+      draw_list->AddRect(p_min, p_max,
+                         ImGui::GetColorU32(ImGuiCol_HeaderActive), 0.0f, 0,
+                         3.0f);
+    }
+
+    ImGui::EndGroup();
   }
 
   std::vector<std::string> image_names;
+  int last_clicked_index = -1;
 
 private:
   void load_folder(const std::filesystem::path &folder);
@@ -187,6 +195,7 @@ private:
   void render_viewer();
   void render_editor();
   void render_carousel(float carousel_height);
+  ImGuiSelectionBasicStorage selection_storage;
 
   std::filesystem::path image_folder_;
   std::unique_ptr<Image> current_image_;
