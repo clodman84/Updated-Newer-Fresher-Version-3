@@ -244,7 +244,7 @@ void render_sessions(std::deque<std::unique_ptr<Session>> &sessions) {
         ImGui::EndChild();
         ImGui::SameLine();
 
-        session.manager.render_manager();
+        session.manager.render_manager(&session.bill);
         ImGui::EndTabItem();
       }
 

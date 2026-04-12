@@ -1,18 +1,14 @@
 #include "application.h"
 #include "imgui.h"
 #include <algorithm>
+#include <cstdio>
 #include <cstring>
 #include <misc/cpp/imgui_stdlib.h>
+#include <semaphore>
 
 #ifdef TRACY_ENABLE
 #include <tracy/Tracy.hpp>
 #endif
-
-namespace {
-static std::string pending_same_as_image;
-static std::string pending_some_of_image;
-static std::map<std::string, bool> some_of_selections;
-} // namespace
 
 template <typename T> static inline T Clamp(T value, T lo, T hi) {
   return value < lo ? lo : (value > hi ? hi : value);
@@ -284,27 +280,20 @@ void ImageManager::render_editor() {
   ImGui::EndChild();
 }
 
-void ImageManager::render_carousel(float carousel_height) {
+void ImageManager::render_carousel(float carousel_height, BillMap *bill_map) {
   ImGui::BeginChild("Carousel", ImVec2(0, carousel_height),
-                    ImGuiChildFlags_Borders,
-                    ImGuiWindowFlags_HorizontalScrollbar);
+                    ImGuiChildFlags_Borders);
 
   auto io = ImGui::GetIO();
   if (ImGui::IsWindowHovered()) {
     ImGui::SetScrollX(ImGui::GetScrollX() - io.MouseWheel * 50.0f);
   }
 
-  ImGuiMultiSelectIO *ms_io = ImGui::BeginMultiSelect(
-      ImGuiMultiSelectFlags_None, selection_storage.Size,
-      (int)thumbnail_order.size());
-
-  selection_storage.ApplyRequests(ms_io);
-
   for (int i = 0; i < (int)thumbnail_order.size(); i++) {
     const auto &name = thumbnail_order[i];
     ImGui::PushID(name.c_str());
-    bool is_selected = selection_storage.Contains((ImGuiSelectionUserData)i);
-
+    bool is_selected = selection_storage.contains(name);
+    bool is_context_menu_open = ImGui::IsPopupOpen("ThumbnailContextMenu");
     render_thumbnail_item(
         name, (float)thumbnails[name].width,
         [this, i](const std::string &n) {
@@ -313,42 +302,50 @@ void ImageManager::render_carousel(float carousel_height) {
             int start = std::min(i, last_clicked_index);
             int end = std::max(i, last_clicked_index);
             if (!io.KeyCtrl)
-              selection_storage.Clear();
+              selection_storage.clear();
             for (int j = start; j <= end; j++) {
-              selection_storage.SetItemSelected(j, true);
+              selection_storage.insert(image_names[j]);
             }
           } else if (io.KeyCtrl) {
-            selection_storage.SetItemSelected(i,
-                                              !selection_storage.Contains(i));
+
+            if (!selection_storage.contains(n))
+              selection_storage.insert(n);
+            else
+              selection_storage.erase(n);
+
           } else {
-            selection_storage.Clear();
+            selection_storage.clear();
             queue_image_by_index(i);
           }
           last_clicked_index = i;
         },
-        true,                   // show frame
-        is_selected,            // is selected
-        (i == last_drawn_index) // is current_image_
-    );
+        true,                    // show frame
+        is_selected,             // is selected
+        (i == last_drawn_index), // is current_image_
+        is_context_menu_open);
 
-    // Right-click context menu for Same As / Some Of
+    // Right-click context menu for Same As
     if (ImGui::BeginPopupContextItem("ThumbnailContextMenu")) {
-      // If right-clicking an unselected item, select it
       if (!is_selected) {
-        selection_storage.Clear();
-        selection_storage.SetItemSelected((ImGuiSelectionUserData)i, true);
+        selection_storage.clear();
+        selection_storage.insert(name);
       }
       if (ImGui::MenuItem("Same As")) {
-        pending_same_as_image = name;
-      }
-      if (ImGui::MenuItem("Some Of")) {
-        pending_some_of_image = name;
-      }
-      if (selection_storage.Size > 1) {
-        ImGui::Separator();
-        if (ImGui::MenuItem("Link Selected Items")) {
-          // Logic to link all IDs in selection_storage
+        const auto source_it = bill_map->find(name);
+        if (selection_storage.size() == 1) {
+          selection_storage.insert(current_image_->filename);
         }
+        for (auto &image : selection_storage) {
+          if (name != image) {
+            auto &current_bill = (*bill_map)[image];
+            for (const auto &[student_id, source_entry] : source_it->second) {
+              BillEntry &entry = current_bill[student_id];
+              entry.name = source_entry.name;
+              entry.count += source_entry.count;
+            }
+          }
+        }
+        selection_storage.clear();
       }
       ImGui::EndPopup();
     }
@@ -360,13 +357,10 @@ void ImageManager::render_carousel(float carousel_height) {
     ImGui::SameLine();
   }
 
-  ms_io = ImGui::EndMultiSelect();
-  selection_storage.ApplyRequests(ms_io);
-
   ImGui::EndChild();
 }
 
-void ImageManager::render_manager() {
+void ImageManager::render_manager(BillMap *bill) {
 #ifdef TRACY_ENABLE
   ZoneScopedN("ImageManager::draw_manager");
 #endif
@@ -424,7 +418,7 @@ void ImageManager::render_manager() {
   }
 
   ImGui::EndChild();
-  render_carousel(carousel_height);
+  render_carousel(carousel_height, bill);
   ImGui::EndChild();
   last_drawn_index = index;
 }
@@ -496,10 +490,6 @@ void Session::render_searcher() {
   ImGui::SameLine();
 
   // Process the "Same As" request globally from the carousel right-click
-  if (!pending_same_as_image.empty()) {
-    append_bill_from_image(manager.folder() / pending_same_as_image);
-    pending_same_as_image.clear();
-  }
 
   if (ImGui::Button("Same As")) {
     if (manager.index > 0 && manager.index <= manager.image_names.size()) {
@@ -507,67 +497,8 @@ void Session::render_searcher() {
                              manager.image_names[manager.index - 1]);
     }
   }
-
-  render_some_of_popup();
   render_search_results_table();
   ImGui::EndChild();
-}
-
-void Session::render_some_of_popup() {
-  static bool is_open = false;
-  static std::string current_target;
-
-  // Trigger popup from the carousel right-click
-  if (!pending_some_of_image.empty()) {
-    current_target = pending_some_of_image;
-    pending_some_of_image.clear();
-    some_of_selections.clear();
-    is_open = true;
-    ImGui::OpenPopup("Some Of Bill");
-  }
-
-  if (ImGui::BeginPopupModal("Some Of Bill", &is_open,
-                             ImGuiWindowFlags_AlwaysAutoResize)) {
-    ImGui::Text("Select entries to copy from %s", current_target.c_str());
-    ImGui::Separator();
-
-    // Iterate directly over your bill map (assuming BillMap handles image
-    // lookups like this)
-    if (bill.count(current_target)) {
-      const auto &target_entries = bill[current_target];
-      for (const auto &[student_id, entry] : target_entries) {
-        ImGui::Checkbox(("##chk_" + student_id).c_str(),
-                        &some_of_selections[student_id]);
-        ImGui::SameLine();
-        ImGui::Text("%s - %s", student_id.c_str(), entry.name.c_str());
-      }
-    } else {
-      ImGui::TextDisabled("No bill data found for this image.");
-    }
-
-    ImGui::Separator();
-
-    if (ImGui::Button("Copy Selected", ImVec2(120, 0))) {
-      if (bill.count(current_target)) {
-        for (const auto &[id, selected] : some_of_selections) {
-          if (selected) {
-            increment_for_id(id, bill[current_target].at(id).name);
-          }
-        }
-      }
-      is_open = false;
-      ImGui::CloseCurrentPopup();
-    }
-
-    ImGui::SameLine();
-
-    if (ImGui::Button("Cancel", ImVec2(120, 0))) {
-      is_open = false;
-      ImGui::CloseCurrentPopup();
-    }
-
-    ImGui::EndPopup();
-  }
 }
 
 void Session::render_search_results_table() {
@@ -638,7 +569,7 @@ void Session::render_billed_table(std::map<std::string, BillEntry> &entries) {
           ImGui::IsKeyPressed(ImGuiKey_Backspace))
         entry.count -= 1;
       if (ImGui::IsKeyPressed(ImGuiKey_Delete))
-        entry.count = -1;
+        entry.count = 0;
 
       ImGui::SetScrollHereY();
     }

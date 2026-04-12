@@ -187,7 +187,6 @@ void Session::handle_keyboard_nav() {
   if (keyboard_nav_mode == KeyboardNavMode::Search) {
     handle_search_keyboard_nav();
   } else {
-    ImGui::ClearActiveID();
     handle_billed_keyboard_nav();
   }
 }

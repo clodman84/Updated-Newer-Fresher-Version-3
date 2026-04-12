@@ -20,6 +20,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <set>
 #include <string>
 #include <thread>
 #include <unordered_map>
@@ -99,6 +100,8 @@ struct BillEntry {
   int count = 0;
   NLOHMANN_DEFINE_TYPE_INTRUSIVE(BillEntry, name, count);
 };
+using BillMap =
+    std::unordered_map<std::filesystem::path, std::map<std::string, BillEntry>>;
 
 class ImageManager {
 public:
@@ -126,7 +129,7 @@ public:
   bool has_images() const;
   const std::filesystem::path &folder() const;
 
-  void render_manager();
+  void render_manager(BillMap *bill);
   void load_thumbnails();
 
   int index = 0;
@@ -137,7 +140,8 @@ public:
   template <typename OnClick>
   void render_thumbnail_item(const std::string &name, float width,
                              OnClick on_click, bool show_frame,
-                             bool is_selected, bool is_active) {
+                             bool is_selected, bool is_active,
+                             bool is_highlight) {
     const auto it = thumbnails.find(name);
     if (it == thumbnails.end() || it->second.texture == nullptr)
       return;
@@ -151,32 +155,27 @@ public:
     ImVec2 size(width, width * aspect);
     ImVec2 p_min = ImGui::GetCursorScreenPos();
     ImVec2 p_max = ImVec2(p_min.x + size.x, p_min.y + size.y);
-
     ImGui::Image(it->second.texture, size);
 
-    ImGuiSelectableFlags sel_flags = ImGuiSelectableFlags_AllowOverlap;
-
-    // This call registers the interaction with BeginMultiSelect
     ImGui::SetCursorScreenPos(p_min);
     if (ImGui::InvisibleButton("##hitbox", size)) {
       on_click(name);
     }
-
-    if (is_selected) {
-      ImDrawList *draw_list = ImGui::GetWindowDrawList();
+    ImDrawList *draw_list = ImGui::GetWindowDrawList();
+    if (is_selected || is_active) {
       draw_list->AddRect(p_min, p_max,
                          ImGui::GetColorU32(ImGuiCol_HeaderActive), 0.0f, 0,
                          3.0f);
-      // Semi-transparent tint over the whole image
-      draw_list->AddRectFilled(p_min, p_max,
-                               ImGui::GetColorU32(ImGuiCol_Header, 0.3f));
     }
-    if (is_active) {
-      // Thick colored border
-      ImDrawList *draw_list = ImGui::GetWindowDrawList();
-      draw_list->AddRect(p_min, p_max,
-                         ImGui::GetColorU32(ImGuiCol_HeaderActive), 0.0f, 0,
-                         3.0f);
+    if (is_selected && !is_highlight) {
+      draw_list->AddRectFilled(p_min, p_max,
+                               ImGui::GetColorU32(ImGuiCol_Header, 0.7f));
+    }
+    if (is_highlight) {
+      draw_list->AddRectFilled(
+          p_min, p_max,
+          ImGui::GetColorU32({0.9098039215686274f, 0.48627450980392156f,
+                              0.27058823529411763f, 0.7f}));
     }
 
     ImGui::EndGroup();
@@ -194,8 +193,10 @@ private:
   void apply_pending_selection();
   void render_viewer();
   void render_editor();
-  void render_carousel(float carousel_height);
-  ImGuiSelectionBasicStorage selection_storage;
+  void render_carousel(float carousel_height, BillMap *bill_map);
+
+  // swap this out for some other data structure
+  std::set<std::string> selection_storage;
 
   std::filesystem::path image_folder_;
   std::unique_ptr<Image> current_image_;
@@ -288,11 +289,9 @@ public:
   ImageManager manager;
   std::filesystem::path path;
   bool draw_exporting = false;
+  BillMap bill;
 
 private:
-  using BillMap = std::unordered_map<std::filesystem::path,
-                                     std::map<std::string, BillEntry>>;
-
   enum class KeyboardNavMode { Search, Billed };
 
   const std::filesystem::path *current_image_path() const;
@@ -303,7 +302,6 @@ private:
   void sync_billed_selection_bounds();
   void handle_search_keyboard_nav();
   void handle_billed_keyboard_nav();
-  void render_some_of_popup();
   void render_search_results_table();
   void render_billed_table(std::map<std::string, BillEntry> &entries);
   void load_existing_bill();
@@ -320,7 +318,6 @@ private:
   Database *database = nullptr;
   std::string search_query;
   std::vector<std::array<std::string, 4>> search_results;
-  BillMap bill;
   std::vector<PendingImage> pending;
   std::thread export_worker;
   std::mutex export_status_mutex;
