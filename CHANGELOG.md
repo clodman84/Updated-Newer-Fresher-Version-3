@@ -17,6 +17,10 @@
 * Add tutorials
 * Add wrong messlist detection
 * Add DOOM
+* Double-Click to centre editor settings
+* Add a little dot for what effects are enabled
+* Add NEF, CR3, CR2, RAW, Tagging Feature
+* Add metadata tagging
 
 # v0.5.1-beta
 
