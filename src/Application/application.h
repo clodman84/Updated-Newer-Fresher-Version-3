@@ -174,8 +174,8 @@ public:
     if (is_highlight) {
       draw_list->AddRectFilled(
           p_min, p_max,
-          ImGui::GetColorU32({0.9098039215686274f, 0.48627450980392156f,
-                              0.27058823529411763f, 0.7f}));
+          ImGui::GetColorU32({0.49411764705882355, 0.8274509803921568,
+                              0.2823529411764706, 0.7f}));
     }
 
     ImGui::EndGroup();
@@ -195,7 +195,6 @@ private:
   void render_editor();
   void render_carousel(float carousel_height, BillMap *bill_map);
 
-  // swap this out for some other data structure
   std::set<std::string> selection_storage;
 
   std::filesystem::path image_folder_;

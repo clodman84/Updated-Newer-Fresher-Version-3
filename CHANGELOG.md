@@ -2,12 +2,21 @@
 
 * Added Face Counting
 * Images always open the right way up now
+* Added simple image editor
+* Added multiselect and mass "Same As"
+* Improved keyboard navigation
 
 ## Planned For Next Release
 
 * Add clipboard integration, copy paste into the search bar straight from WhatsApp
 * Add helper to show what bhawan codes are available
-* Add simple image editor
+* Add nickname feature
+* Add bookmarks for unrolled frames
+* Add lua based scripting engine for control desk
+* Add documentation
+* Add tutorials
+* Add wrong messlist detection
+* Add DOOM
 
 # v0.5.1-beta
 

@@ -1,4 +1,5 @@
 #include "image_editor.h"
+#include "SDL3/SDL_log.h"
 #include "gpu_utils.h"
 #include "imgui.h"
 #include "imgui_internal.h"
@@ -114,13 +115,14 @@ void ImageEditor::start_render_thread() {
         req = latest_request;
         has_request = false;
       }
-      SDL_Log("Render thread: Processing request for effect update...");
       apply_gegl_texture(req);
     }
+    SDL_Log("Bye Bye!");
   });
 }
 
 void ImageEditor::stop_render_thread() {
+  SDL_Log("Stopping Render Thread");
   if (running) {
     running = false;
     request_cv.notify_one();
