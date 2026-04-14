@@ -138,7 +138,7 @@ public:
 
   std::map<std::string, Thumbnail> thumbnails;
   template <typename OnClick>
-  void render_thumbnail_item(const std::string &name, float width,
+  void render_thumbnail_item(const std::string &name, float height,
                              OnClick on_click, bool show_frame,
                              bool is_selected, bool is_active,
                              bool is_highlight) {
@@ -151,8 +151,8 @@ public:
       ImGui::Text("Frame: %d", get_image_index(name) + 1);
     }
 
-    float aspect = (float)it->second.height / (float)it->second.width;
-    ImVec2 size(width, width * aspect);
+    float aspect = (float)it->second.width / (float)it->second.height;
+    ImVec2 size(height * aspect, height);
     ImVec2 p_min = ImGui::GetCursorScreenPos();
     ImVec2 p_max = ImVec2(p_min.x + size.x, p_min.y + size.y);
     ImGui::Image(it->second.texture, size);

@@ -176,7 +176,7 @@ FaceDetector::scan_faces(const std::filesystem::path &path) {
 
   // ---- load image ----
   int w, h;
-  unsigned char *img = load_texture_data_from_file(path, &w, &h);
+  unsigned char *img = load_texture_data_from_file(path, &w, &h, 3000, 2000);
   if (!img)
     return {};
 

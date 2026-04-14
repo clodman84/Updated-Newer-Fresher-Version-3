@@ -65,13 +65,14 @@ jobs:
             libudev-dev \
             libgegl-dev \
             libbabl-dev \
-            ccache
+            ccache \
+            nasm
 
       - name: Install macOS dependencies
         if: runner.os == 'macOS'
         run: |
           brew update
-          brew install ccache gegl babl pkg-config ninja
+          brew install ccache gegl babl pkg-config ninja nasm
 
       - name: Setup MSYS2 (Windows)
         if: runner.os == 'Windows'
@@ -86,6 +87,7 @@ jobs:
             mingw-w64-ucrt-x86_64-pkgconf
             mingw-w64-ucrt-x86_64-gegl
             mingw-w64-ucrt-x86_64-ccache
+            mingw-w64-ucrt-x86_64-nasm
 
       - name: Configure ccache (non-Windows)
         if: runner.os != 'Windows'

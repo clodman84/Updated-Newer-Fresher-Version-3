@@ -154,6 +154,44 @@ if(UNFV3_ENABLE_TRACY)
 endif()
 
 # --------------------------------------------------
+# LibJPEG-Turbo
+# --------------------------------------------------
+
+include(ExternalProject)
+
+set(JPEG_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/libjpeg-turbo-ext")
+set(JPEG_INSTALL_DIR "${JPEG_PREFIX}/install")
+
+if(MSVC)
+    set(JPEG_LIB "${JPEG_INSTALL_DIR}/lib/turbojpeg-static.lib")
+else()
+    set(JPEG_LIB "${JPEG_INSTALL_DIR}/lib/libturbojpeg.a") # Linux/macOS/MinGW
+endif()
+
+ExternalProject_Add(libjpeg_turbo_proj
+    GIT_REPOSITORY    https://github.com/libjpeg-turbo/libjpeg-turbo.git
+    GIT_TAG           3.0.2
+    PREFIX            "${JPEG_PREFIX}"
+    INSTALL_DIR       "${JPEG_INSTALL_DIR}"
+    CMAKE_ARGS
+        -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
+	-DCMAKE_INSTALL_LIBDIR=lib
+        -DCMAKE_BUILD_TYPE=Release
+        -DENABLE_SHARED=FALSE
+        -DENABLE_STATIC=TRUE
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+    BUILD_BYPRODUCTS  "${JPEG_LIB}"
+)
+
+file(MAKE_DIRECTORY "${JPEG_INSTALL_DIR}/include")
+
+add_library(turbojpeg STATIC IMPORTED)
+set_target_properties(turbojpeg PROPERTIES IMPORTED_LOCATION "${JPEG_LIB}")
+add_dependencies(turbojpeg libjpeg_turbo_proj)
+
+target_include_directories(turbojpeg INTERFACE "${JPEG_INSTALL_DIR}/include")
+
+# --------------------------------------------------
 # ImGui
 # --------------------------------------------------
 
@@ -227,9 +265,9 @@ add_executable(UNFV3
     src/Application/operations/my_colour_enhance.cpp
 )
 
+add_dependencies(UNFV3 libjpeg_turbo_proj)
 target_include_directories(UNFV3 PRIVATE src/Application)
 target_include_directories(UNFV3 PRIVATE ${GEGL_INCLUDE_DIRS})
-
 target_link_libraries(UNFV3 PRIVATE
     imgui
     SDL3::SDL3
@@ -239,6 +277,7 @@ target_link_libraries(UNFV3 PRIVATE
     ncnn
     PkgConfig::GEGL 
     PkgConfig::BABL
+    turbojpeg
 )
 
 if(WIN32)

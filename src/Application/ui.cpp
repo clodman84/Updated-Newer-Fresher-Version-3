@@ -294,7 +294,7 @@ void ImageManager::render_carousel(float carousel_height, BillMap *bill_map) {
     bool is_selected = selection_storage.contains(name);
     bool is_context_menu_open = ImGui::IsPopupOpen("ThumbnailContextMenu");
     render_thumbnail_item(
-        name, (float)thumbnails[name].width,
+        name, 200,
         [this, i](const std::string &n) {
           auto &io = ImGui::GetIO();
           if (io.KeyShift && last_clicked_index != -1) {

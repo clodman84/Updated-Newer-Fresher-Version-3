@@ -1,5 +1,4 @@
 #include "gpu_utils.h"
-
 #include "imgui.h"
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -7,25 +6,31 @@
 #include "stb_image.h"
 #include "stb_image_resize2.h"
 
+#include <filesystem>
 #include <iostream>
+#include <turbojpeg.h>
 #include <vector>
 
 #ifdef TRACY_ENABLE
 #include <tracy/Tracy.hpp>
 #endif
 
-unsigned char *
-load_texture_data_from_file(const std::filesystem::path &file_name, int *width,
-                            int *height) {
+unsigned char *load_jpeg_data_from_file(const std::filesystem::path &file_name,
+                                        int *width, int *height, int max_width,
+                                        int max_height) {
+  // TODO: Rethink the max_height max_width shenanigans since only 1/2 and 1/4
+  // resolutions are SIMD Accelerated.
 #ifdef TRACY_ENABLE
-  ZoneScopedN("load_texture_data_from_file");
+  ZoneScopedN("load_jpeg_from_file");
 #endif
+
   FILE *file = fopen(file_name.string().c_str(), "rb");
   if (file == nullptr) {
     std::cerr << "Failed to open image file: " << file_name.string()
               << std::endl;
     return nullptr;
   }
+
   fseek(file, 0, SEEK_END);
   const long raw_size = ftell(file);
   if (raw_size <= 0) {
@@ -34,234 +39,260 @@ load_texture_data_from_file(const std::filesystem::path &file_name, int *width,
     return nullptr;
   }
   fseek(file, 0, SEEK_SET);
+
   const size_t file_size = static_cast<size_t>(raw_size);
-  void *file_data = IM_ALLOC(file_size);
-  const size_t bytes_read = fread(file_data, 1, file_size, file);
-  if (bytes_read != file_size) {
-    fclose(file);
-    IM_FREE(file_data);
-    std::cerr << "Failed to read image file: " << file_name.string()
-              << std::endl;
-    return nullptr;
-  }
-  fclose(file);
-
-  unsigned char *image_data = stbi_load_from_memory(
-      static_cast<const unsigned char *>(file_data),
-      static_cast<int>(file_size), width, height, nullptr, 4);
-  IM_FREE(file_data);
-
-  if (image_data == nullptr) {
-    std::cerr << "Failed to decode image: " << file_name.string() << std::endl;
-    return nullptr;
-  }
-
-  // Parse EXIF orientation directly from the raw file bytes.
-  // Only JPEG (FF D8) files carry EXIF; skip silently for everything else.
-  int orientation = 1; // default: normal
+  std::vector<unsigned char> file_data(file_size);
   {
-    // Re-read just enough bytes to locate the EXIF APP1 marker.
-    // JPEG layout: FF D8  [FF Ex marker, 2-byte length, data] ...
-    // We only need the first APP1 block which is almost always ≤ 64 KB.
-    FILE *exif_file = fopen(file_name.string().c_str(), "rb");
-    if (exif_file) {
-      // Read up to 65536 bytes — enough to cover the APP1 segment.
-      constexpr size_t EXIF_BUF = 65536;
-      std::vector<unsigned char> buf(EXIF_BUF);
-      const size_t n = fread(buf.data(), 1, EXIF_BUF, exif_file);
-      fclose(exif_file);
 
-      // Verify JPEG SOI marker.
-      if (n > 4 && buf[0] == 0xFF && buf[1] == 0xD8) {
-        size_t pos = 2;
-        while (pos + 4 <= n) {
-          if (buf[pos] != 0xFF)
-            break; // lost sync
-          const unsigned char marker = buf[pos + 1];
-          const size_t seg_len =
-              (static_cast<size_t>(buf[pos + 2]) << 8) | buf[pos + 3];
-          // APP1 marker (FF E1) with "Exif\0\0" header.
-          if (marker == 0xE1 && pos + 10 <= n && buf[pos + 4] == 'E' &&
-              buf[pos + 5] == 'x' && buf[pos + 6] == 'i' &&
-              buf[pos + 7] == 'f' && buf[pos + 8] == 0x00 &&
-              buf[pos + 9] == 0x00) {
-            // TIFF header starts at pos+10.
-            const size_t tiff_base = pos + 10;
-            if (tiff_base + 8 > n)
-              break;
+#ifdef TRACY_ENABLE
+    ZoneScopedN("load_jpeg_from_file: File Read");
+#endif
+    if (fread(file_data.data(), 1, file_size, file) != file_size) {
+      fclose(file);
+      std::cerr << "Failed to read image file: " << file_name.string()
+                << std::endl;
+      return nullptr;
+    }
+    fclose(file);
+  }
 
-            // Determine byte order: "II" = little-endian, "MM" = big-endian.
-            const bool little_endian =
-                buf[tiff_base] == 'I' && buf[tiff_base + 1] == 'I';
+  int orientation = 1;
+  const unsigned char *buf = file_data.data();
+  const size_t n = file_size;
 
-            auto read16 = [&](size_t offset) -> uint16_t {
-              if (offset + 2 > n)
-                return 0;
-              return little_endian
-                         ? (static_cast<uint16_t>(buf[offset]) |
-                            (static_cast<uint16_t>(buf[offset + 1]) << 8))
-                         : (static_cast<uint16_t>(buf[offset + 1]) |
-                            (static_cast<uint16_t>(buf[offset]) << 8));
-            };
-            auto read32 = [&](size_t offset) -> uint32_t {
-              if (offset + 4 > n)
-                return 0;
-              return little_endian
-                         ? (static_cast<uint32_t>(buf[offset]) |
-                            (static_cast<uint32_t>(buf[offset + 1]) << 8) |
-                            (static_cast<uint32_t>(buf[offset + 2]) << 16) |
-                            (static_cast<uint32_t>(buf[offset + 3]) << 24))
-                         : (static_cast<uint32_t>(buf[offset + 3]) |
-                            (static_cast<uint32_t>(buf[offset + 2]) << 8) |
-                            (static_cast<uint32_t>(buf[offset + 1]) << 16) |
-                            (static_cast<uint32_t>(buf[offset]) << 24));
-            };
+  if (n > 4 && buf[0] == 0xFF && buf[1] == 0xD8) {
+    size_t pos = 2;
+    while (pos + 4 <= n) {
+      if (buf[pos] != 0xFF)
+        break; // lost sync
+      const unsigned char marker = buf[pos + 1];
+      const size_t seg_len =
+          (static_cast<size_t>(buf[pos + 2]) << 8) | buf[pos + 3];
 
-            // IFD0 offset is at tiff_base+4.
-            const uint32_t ifd_offset = read32(tiff_base + 4);
-            const size_t ifd_pos = tiff_base + ifd_offset;
-            if (ifd_pos + 2 > n)
-              break;
+      // APP1 marker (FF E1) with "Exif\0\0" header
+      if (marker == 0xE1 && pos + 10 <= n && buf[pos + 4] == 'E' &&
+          buf[pos + 5] == 'x' && buf[pos + 6] == 'i' && buf[pos + 7] == 'f' &&
+          buf[pos + 8] == 0x00 && buf[pos + 9] == 0x00) {
 
-            const uint16_t entry_count = read16(ifd_pos);
-            for (uint16_t i = 0; i < entry_count; ++i) {
-              const size_t entry_pos = ifd_pos + 2 + i * 12;
-              if (entry_pos + 12 > n)
-                break;
-              const uint16_t tag = read16(entry_pos);
-              if (tag == 0x0112) { // Orientation tag
-                orientation = static_cast<int>(read16(entry_pos + 8));
-                break;
-              }
-            }
-            break; // Done with APP1.
+        const size_t tiff_base = pos + 10;
+        if (tiff_base + 8 > n)
+          break;
+
+        const bool little_endian =
+            buf[tiff_base] == 'I' && buf[tiff_base + 1] == 'I';
+
+        auto read16 = [&](size_t offset) -> uint16_t {
+          if (offset + 2 > n)
+            return 0;
+          return little_endian ? (static_cast<uint16_t>(buf[offset]) |
+                                  (static_cast<uint16_t>(buf[offset + 1]) << 8))
+                               : (static_cast<uint16_t>(buf[offset + 1]) |
+                                  (static_cast<uint16_t>(buf[offset]) << 8));
+        };
+        auto read32 = [&](size_t offset) -> uint32_t {
+          if (offset + 4 > n)
+            return 0;
+          return little_endian
+                     ? (static_cast<uint32_t>(buf[offset]) |
+                        (static_cast<uint32_t>(buf[offset + 1]) << 8) |
+                        (static_cast<uint32_t>(buf[offset + 2]) << 16) |
+                        (static_cast<uint32_t>(buf[offset + 3]) << 24))
+                     : (static_cast<uint32_t>(buf[offset + 3]) |
+                        (static_cast<uint32_t>(buf[offset + 2]) << 8) |
+                        (static_cast<uint32_t>(buf[offset + 1]) << 16) |
+                        (static_cast<uint32_t>(buf[offset]) << 24));
+        };
+
+        const uint32_t ifd_offset = read32(tiff_base + 4);
+        const size_t ifd_pos = tiff_base + ifd_offset;
+        if (ifd_pos + 2 > n)
+          break;
+
+        const uint16_t entry_count = read16(ifd_pos);
+        for (uint16_t i = 0; i < entry_count; ++i) {
+          const size_t entry_pos = ifd_pos + 2 + i * 12;
+          if (entry_pos + 12 > n)
+            break;
+          const uint16_t tag = read16(entry_pos);
+          if (tag == 0x0112) { // Orientation tag
+            orientation = static_cast<int>(read16(entry_pos + 8));
+            break;
           }
-          // Skip to next marker (length field includes its own 2 bytes).
-          pos += 2 + seg_len;
+        }
+        break; // Done with APP1
+      }
+      pos += 2 + seg_len; // Skip to next marker
+    }
+  }
+
+  // Decompress the JPEG using libjpeg-turbo (SIMD Accelerated)
+  tjhandle tjInstance = tjInitDecompress();
+  if (!tjInstance) {
+    std::cerr << "TurboJPEG init failed: " << tjGetErrorStr() << std::endl;
+    return nullptr;
+  }
+
+  int jpegSubsamp, jpegColorspace;
+  // Read the header to extract width and height
+  if (tjDecompressHeader3(tjInstance, file_data.data(), file_size, width,
+                          height, &jpegSubsamp, &jpegColorspace) < 0) {
+    std::cerr << "TurboJPEG header failed: " << tjGetErrorStr2(tjInstance)
+              << std::endl;
+    tjDestroy(tjInstance);
+    return nullptr;
+  }
+
+  // --- NEW: FRACTIONAL SCALING LOGIC ---
+  int scaled_w = *width;
+  int scaled_h = *height;
+
+  if (max_width > 0 && max_height > 0) {
+    int num_factors;
+    tjscalingfactor *factors = tjGetScalingFactors(&num_factors);
+
+    if (factors) {
+      // Loop through all supported hardware fractions
+      for (int i = 0; i < num_factors; i++) {
+        int temp_w = TJSCALED(*width, factors[i]);
+        int temp_h = TJSCALED(*height, factors[i]);
+
+        // Find the smallest scale that is still larger than your requested max
+        // limits
+        if (temp_w >= max_width && temp_h >= max_height) {
+          scaled_w = temp_w;
+          scaled_h = temp_h;
         }
       }
     }
   }
 
-  // Apply orientation transform in-place using a temporary buffer.
-  // EXIF orientations 2–8 require flip and/or rotation.
-  // orientations 1 → no-op; 2 → flip-H; 3 → rotate 180; 4 → flip-V;
-  //              5 → transpose; 6 → rotate 90 CW; 7 → transverse;
-  //              8 → rotate 90 CCW
-  if (orientation != 1 && orientation >= 1 && orientation <= 8) {
-    const int w = *width;
-    const int h = *height;
-    constexpr int CH = 4; // RGBA
+  // printf("Scaled width and heights: %d * %d\n", scaled_w, scaled_h);
 
-    // Helper: swap two pixels.
-    auto px = [&](unsigned char *data, int x, int y) -> unsigned char * {
-      return data + (y * w + x) * CH;
-    };
+  // Update output pointers to the new scaled dimensions
+  *width = scaled_w;
+  *height = scaled_h;
+  // -------------------------------------
 
-    // In-place horizontal flip.
-    auto flip_h = [&]() {
-      for (int y = 0; y < h; ++y)
-        for (int x = 0; x < w / 2; ++x)
+  // Allocate target RGBA buffer using the NEW scaled dimensions
+  const size_t image_size = static_cast<size_t>(*width) * (*height) * 4;
+  unsigned char *image_data =
+      static_cast<unsigned char *>(IM_ALLOC(image_size));
+
+  // Decode directly into the buffer.
+  // By passing scaled_w and scaled_h, TurboJPEG automatically applies the
+  // block-skipping math.
+  {
+#ifdef TRACY_ENABLE
+    ZoneScopedN("load_jpeg_from_file:Decompress JPEG");
+#endif
+    if (tjDecompress2(tjInstance, file_data.data(), file_size, image_data,
+                      *width, 0, *height, TJPF_RGBA, TJFLAG_FASTDCT) < 0) {
+      IM_FREE(image_data);
+      tjDestroy(tjInstance);
+      return nullptr;
+    }
+    tjDestroy(tjInstance);
+  }
+
+  // Apply orientation transform in-place / via a temporary buffer.
+  {
+
+#ifdef TRACY_ENABLE
+    ZoneScopedN("load_jpeg_from_file:rotate_image")
+#endif
+        // TODO: This can be even faster since TurboJPEG gives us autorotate in
+        // the decode step itself
+        if (orientation != 1 && orientation >= 1 && orientation <= 8) {
+      const int w = *width;
+      const int h = *height;
+      constexpr int CH = 4; // RGBA
+
+      auto px = [&](unsigned char *data, int x, int y) -> unsigned char * {
+        return data + (y * w + x) * CH;
+      };
+
+      auto flip_h = [&]() {
+        for (int y = 0; y < h; ++y)
+          for (int x = 0; x < w / 2; ++x)
+            for (int c = 0; c < CH; ++c)
+              std::swap(px(image_data, x, y)[c],
+                        px(image_data, w - 1 - x, y)[c]);
+      };
+
+      auto flip_v = [&]() {
+        for (int y = 0; y < h / 2; ++y)
+          for (int x = 0; x < w; ++x)
+            for (int c = 0; c < CH; ++c)
+              std::swap(px(image_data, x, y)[c],
+                        px(image_data, x, h - 1 - y)[c]);
+      };
+
+      // Refactored rotation to ensure IM_ALLOC/IM_FREE safety
+      auto rotate_buffer = [&](auto pixel_mapper) {
+        unsigned char *tmp = static_cast<unsigned char *>(IM_ALLOC(image_size));
+        for (int y = 0; y < h; ++y) {
+          for (int x = 0; x < w; ++x) {
+            pixel_mapper(tmp, x, y);
+          }
+        }
+        IM_FREE(image_data); // Cleanly free the original decode buffer
+        image_data = tmp;
+        *width = h;
+        *height = w;
+      };
+
+      switch (orientation) {
+      case 2:
+        flip_h();
+        break;
+      case 3:
+        flip_h();
+        flip_v();
+        break;
+      case 4:
+        flip_v();
+        break;
+      case 5:
+        rotate_buffer([&](unsigned char *tmp, int x, int y) {
           for (int c = 0; c < CH; ++c)
-            std::swap(px(image_data, x, y)[c], px(image_data, w - 1 - x, y)[c]);
-    };
-
-    // In-place vertical flip.
-    auto flip_v = [&]() {
-      for (int y = 0; y < h / 2; ++y)
-        for (int x = 0; x < w; ++x)
-          for (int c = 0; c < CH; ++c)
-            std::swap(px(image_data, x, y)[c], px(image_data, x, h - 1 - y)[c]);
-    };
-
-    // Rotation / transpose requires a new buffer (dimensions may change).
-    auto rotate_90_cw = [&]() {
-      // Output is h×w (new_w = h, new_h = w).
-      unsigned char *tmp = static_cast<unsigned char *>(
-          IM_ALLOC(static_cast<size_t>(w) * h * CH));
-      for (int y = 0; y < h; ++y)
-        for (int x = 0; x < w; ++x)
+            tmp[(x * h + y) * CH + c] = image_data[(y * w + x) * CH + c];
+        });
+        break;
+      case 6:
+        rotate_buffer([&](unsigned char *tmp, int x, int y) {
           for (int c = 0; c < CH; ++c)
             tmp[(x * h + (h - 1 - y)) * CH + c] =
                 image_data[(y * w + x) * CH + c];
-      stbi_image_free(image_data);
-      image_data = tmp;
-      *width = h;
-      *height = w;
-    };
-
-    auto rotate_90_ccw = [&]() {
-      unsigned char *tmp = static_cast<unsigned char *>(
-          IM_ALLOC(static_cast<size_t>(w) * h * CH));
-      for (int y = 0; y < h; ++y)
-        for (int x = 0; x < w; ++x)
-          for (int c = 0; c < CH; ++c)
-            tmp[((w - 1 - x) * h + y) * CH + c] =
-                image_data[(y * w + x) * CH + c];
-      stbi_image_free(image_data);
-      image_data = tmp;
-      *width = h;
-      *height = w;
-    };
-
-    auto transpose = [&]() {
-      // Reflect across main diagonal: (x,y) → (y,x), output is h×w.
-      unsigned char *tmp = static_cast<unsigned char *>(
-          IM_ALLOC(static_cast<size_t>(w) * h * CH));
-      for (int y = 0; y < h; ++y)
-        for (int x = 0; x < w; ++x)
-          for (int c = 0; c < CH; ++c)
-            tmp[(x * h + y) * CH + c] = image_data[(y * w + x) * CH + c];
-      stbi_image_free(image_data);
-      image_data = tmp;
-      *width = h;
-      *height = w;
-    };
-
-    auto transverse = [&]() {
-      // Reflect across anti-diagonal: (x,y) → (w-1-y, h-1-x).
-      unsigned char *tmp = static_cast<unsigned char *>(
-          IM_ALLOC(static_cast<size_t>(w) * h * CH));
-      for (int y = 0; y < h; ++y)
-        for (int x = 0; x < w; ++x)
+        });
+        break;
+      case 7:
+        rotate_buffer([&](unsigned char *tmp, int x, int y) {
           for (int c = 0; c < CH; ++c)
             tmp[((w - 1 - x) * h + (h - 1 - y)) * CH + c] =
                 image_data[(y * w + x) * CH + c];
-      stbi_image_free(image_data);
-      image_data = tmp;
-      *width = h;
-      *height = w;
-    };
-
-    switch (orientation) {
-    case 2:
-      flip_h();
-      break;
-    case 3:
-      flip_h();
-      flip_v();
-      break; // rotate 180
-    case 4:
-      flip_v();
-      break;
-    case 5:
-      transpose();
-      break;
-    case 6:
-      rotate_90_cw();
-      break;
-    case 7:
-      transverse();
-      break;
-    case 8:
-      rotate_90_ccw();
-      break;
-    default:
-      break;
+        });
+        break;
+      case 8:
+        rotate_buffer([&](unsigned char *tmp, int x, int y) {
+          for (int c = 0; c < CH; ++c)
+            tmp[((w - 1 - x) * h + y) * CH + c] =
+                image_data[(y * w + x) * CH + c];
+        });
+        break;
+      default:
+        break;
+      }
     }
   }
 
   return image_data;
+}
+
+unsigned char *
+load_texture_data_from_file(const std::filesystem::path &file_name, int *width,
+                            int *height, int max_width, int max_height) {
+  return load_jpeg_data_from_file(file_name, width, height, max_width,
+                                  max_height);
 }
 
 bool upload_texture_data_to_gpu(unsigned char *image_data, int width,

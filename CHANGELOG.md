@@ -5,6 +5,7 @@
 * Added simple image editor
 * Added multiselect and mass "Same As"
 * Improved keyboard navigation
+* Lowered JPEG loading times to ~100ms
 
 ## Planned For Next Release
 
@@ -21,6 +22,10 @@
 * Add a little dot for what effects are enabled
 * Add NEF, CR3, CR2, RAW, Tagging Feature
 * Add metadata tagging
+* Aspect ratio crop
+* Auto Angle
+* Add help hover to the thing
+* Preset making
 
 # v0.5.1-beta
 

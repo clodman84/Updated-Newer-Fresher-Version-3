@@ -64,8 +64,10 @@ Image::Image(SDL_GPUDevice *device, const std::filesystem::path &filename)
 #ifdef TRACY_ENABLE
   ZoneScopedN("Image::Image");
 #endif
+  // This is bad, hardcoded image dimensions in general suck ass, fix scaling to
+  // 1/2 or 1/4
   unsigned char *image_data =
-      load_texture_data_from_file(filename, &width, &height);
+      load_texture_data_from_file(filename, &width, &height, 3000, 2000);
   if (image_data == nullptr) {
     return;
   }
@@ -269,7 +271,7 @@ void ImageManager::load_thumbnails() {
       int src_w = 0;
       int src_h = 0;
       unsigned char *src = load_texture_data_from_file(
-          pending_thumbnails[index].file_name, &src_w, &src_h);
+          pending_thumbnails[index].file_name, &src_w, &src_h, 200, 200);
       if (src == nullptr || src_h <= 0) {
         return;
       }
@@ -473,7 +475,6 @@ Image *ImageManager::load_image() {
   }
 
   selection_storage.clear();
-
   current_image_ = std::move(next_image);
   reset_view_to_image();
   return current_image_.get();
