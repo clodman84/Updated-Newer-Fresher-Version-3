@@ -1,9 +1,0 @@
-[submodule "vendored/imgui"]
-	path = vendored/imgui
-	url = https://github.com/ocornut/imgui.git
-[submodule "vendored/SDL"]
-	path = vendored/SDL
-	url = https://github.com/libsdl-org/SDL.git
-[submodule "vendored/ncnn"]
-	path = vendored/ncnn
-	url = https://github.com/Tencent/ncnn.git
