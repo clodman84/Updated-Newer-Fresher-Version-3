@@ -43,7 +43,7 @@ jobs:
       # Setup Ninja (Cross-Platform)
       # --------------------------------------------------
       - name: Setup Ninja
-        uses: pipx install ninja
+        run: pipx install ninja
 
       # --------------------------------------------------
       # Platform Dependencies (Ninja removed, now handled above)
