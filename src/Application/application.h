@@ -8,7 +8,7 @@
 #include "image_editor.h"
 #include <SDL3/SDL.h>
 #include <imgui.h>
-#include <json.hpp>
+#include <nlohmann/json.hpp>
 #include <sqlite3.h>
 
 #include <array>

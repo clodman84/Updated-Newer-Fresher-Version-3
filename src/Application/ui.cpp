@@ -1,9 +1,9 @@
 #include "application.h"
-#include "imgui.h"
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
-#include <misc/cpp/imgui_stdlib.h>
+#include <imgui.h>
+#include <imgui_stdlib.h>
 
 #ifdef TRACY_ENABLE
 #include <tracy/Tracy.hpp>

@@ -11,6 +11,7 @@
 #include "imgui_impl_sdlgpu3.h"
 
 #include <SDL3/SDL.h>
+#include <cstdio>
 #include <gegl.h>
 
 #include <deque>
@@ -287,7 +288,10 @@ int main(int, char **) {
     }
   }
 
+  printf("Time to boogie\n");
   gegl_init(NULL, NULL);
+  printf("Uh oh\n");
+
   gimp_levels_op_register();
   colour_enhance_op_register();
   GeglConfig *config = gegl_config();

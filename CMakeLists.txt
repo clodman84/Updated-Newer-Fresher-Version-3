@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-set(BUILD_SHARED_LIBS OFF)
+set(X_VCPKG_APPLOCAL_DEPS_INSTALL ON)
 
 set(CMAKE_C_VISIBILITY_PRESET hidden)
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
@@ -28,8 +28,6 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 option(UNFV3_ENABLE_LTO "Enable link-time optimization for Release builds" ON)
-option(UNFV3_AGGRESSIVE_STRIP "Remove RTTI and Exceptions" OFF)
-option(UNFV3_USE_SYSTEM_OPENCV "Use system OpenCV (may pull shared libs at runtime)" OFF)
 
 include(CheckIPOSupported)
 check_ipo_supported(RESULT ipo_supported OUTPUT ipo_error)
@@ -39,22 +37,9 @@ if(ipo_supported AND UNFV3_ENABLE_LTO)
     message(STATUS "LTO enabled")
 endif()
 
-# ThinLTO for Clang
 if(UNFV3_ENABLE_LTO AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     add_compile_options($<$<CONFIG:Release>:-flto=thin>)
     add_link_options($<$<CONFIG:Release>:-flto=thin>)
-endif()
-
-# --------------------------------------------------
-# Platform: Windows static-runtime + no DLLs
-# --------------------------------------------------
-
-if(WIN32)
-    set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS OFF)
-    # Static CRT: MT in Release, MTd in Debug.
-    # This is consumed by CMake's MSVC toolchain; no linker flag needed.
-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-    add_compile_definitions(WIN32_LEAN_AND_MEAN NOMINMAX VC_EXTRALEAN)
 endif()
 
 # --------------------------------------------------
@@ -62,7 +47,6 @@ endif()
 # --------------------------------------------------
 
 set(_gnu_clang "$<CXX_COMPILER_ID:GNU,Clang>")
-set(_msvc      "$<CXX_COMPILER_ID:MSVC>")
 set(_c_or_cxx  "$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>")
 
 add_library(unfv3_project_optimizations INTERFACE)
@@ -70,182 +54,39 @@ add_library(unfv3_project_optimizations INTERFACE)
 target_compile_options(unfv3_project_optimizations INTERFACE
     # GCC / Clang — omit frame pointer in all build types
     $<$<AND:${_c_or_cxx},${_gnu_clang}>:-fomit-frame-pointer>
-
     # GCC / Clang — optimisation level per config
     $<$<AND:${_c_or_cxx},${_gnu_clang},$<CONFIG:Release>>:-O3>
     $<$<AND:${_c_or_cxx},${_gnu_clang},$<CONFIG:Release>>:-ffunction-sections>
     $<$<AND:${_c_or_cxx},${_gnu_clang},$<CONFIG:Release>>:-fdata-sections>
     $<$<AND:${_c_or_cxx},${_gnu_clang},$<CONFIG:RelWithDebInfo>>:-O2>
     $<$<AND:${_c_or_cxx},${_gnu_clang},$<CONFIG:MinSizeRel>>:-Os>
-
-    # MSVC — speed optimisation
-    $<$<AND:${_c_or_cxx},${_msvc},$<CONFIG:Release>>:/O2>
-    $<$<AND:${_c_or_cxx},${_msvc},$<CONFIG:Release>>:/Gy>   # function-level linking
-    $<$<AND:${_c_or_cxx},${_msvc},$<CONFIG:Release>>:/Gw>   # data-section splitting
-
-    # MSVC whole-program opt — only when LTO is explicitly requested
-    $<$<AND:${_c_or_cxx},${_msvc},$<CONFIG:Release>,$<BOOL:${UNFV3_ENABLE_LTO}>>:/GL>
-
-    # Aggressive stripping: No RTTI, No Exceptions
-    $<$<AND:${_c_or_cxx},${_gnu_clang},$<BOOL:${UNFV3_AGGRESSIVE_STRIP}>>:-fno-rtti>
-    $<$<AND:${_c_or_cxx},${_gnu_clang},$<BOOL:${UNFV3_AGGRESSIVE_STRIP}>>:-fno-exceptions>
-    $<$<AND:${_c_or_cxx},${_msvc},$<BOOL:${UNFV3_AGGRESSIVE_STRIP}>>:/GR->
-    $<$<AND:${_c_or_cxx},${_msvc},$<BOOL:${UNFV3_AGGRESSIVE_STRIP}>>:/EHs-c->
 )
 
 target_link_options(unfv3_project_optimizations INTERFACE
-    # MSVC link-time code generation — only when LTO is explicitly requested
-    $<$<AND:${_msvc},$<CONFIG:Release>,$<BOOL:${UNFV3_ENABLE_LTO}>>:/LTCG>
-    $<$<AND:${_msvc},$<CONFIG:Release>>:/OPT:REF>
-    $<$<AND:${_msvc},$<CONFIG:Release>>:/OPT:ICF>
-
     # Linker Garbage Collection (Linux)
     $<$<AND:${_c_or_cxx},$<PLATFORM_ID:Linux>,${_gnu_clang},$<CONFIG:Release>>:-Wl,--gc-sections>
-
     # Linker Garbage Collection (macOS)
     $<$<AND:${_c_or_cxx},$<PLATFORM_ID:Darwin>,${_gnu_clang},$<CONFIG:Release>>:-Wl,-dead_strip>
 )
 
-# --------------------------------------------------
-# SDL3
-# --------------------------------------------------
+find_package(SDL3 REQUIRED)
+find_package(ncnn REQUIRED)
+find_package(imgui CONFIG REQUIRED)
+find_package(unofficial-sqlite3 CONFIG REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
+find_package(libjpeg-turbo CONFIG REQUIRED)
 
-set(SDL_SHARED OFF CACHE BOOL "" FORCE)
-set(SDL_STATIC ON  CACHE BOOL "" FORCE)
-set(SDL_INSTALL OFF CACHE BOOL "" FORCE)
-add_subdirectory(vendored/SDL)
-
-# --------------------------------------------------
-# ncnn (portable, no Vulkan)
-# --------------------------------------------------
-
-set(NCNN_VULKAN OFF CACHE BOOL "" FORCE)
-set(NCNN_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-set(NCNN_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
-set(NCNN_BUILD_BENCHMARK OFF CACHE BOOL "" FORCE)
-set(NCNN_OPENMP OFF CACHE BOOL "" FORCE)
-set(NCNN_INSTALL_SDK OFF CACHE BOOL "" FORCE)
-
-add_subdirectory(vendored/ncnn)
-
-# --------------------------------------------------
-# GEGL (graph-based image processing)
-# --------------------------------------------------
-
+# Force system glib to be used dynamically, resolving the dual-instance problem
 find_package(PkgConfig REQUIRED)
-# Add IMPORTED_TARGET to these lines
+pkg_check_modules(GLIB REQUIRED IMPORTED_TARGET glib-2.0)
+pkg_check_modules(GOBJECT REQUIRED IMPORTED_TARGET gobject-2.0)
 pkg_check_modules(GEGL REQUIRED IMPORTED_TARGET gegl-0.4)
 pkg_check_modules(BABL REQUIRED IMPORTED_TARGET babl-0.1)
 
-# --------------------------------------------------
-# Tracy Profiler
-# --------------------------------------------------
-
-option(UNFV3_ENABLE_TRACY "Enable Tracy profiler instrumentation" OFF)
-
 if(UNFV3_ENABLE_TRACY)
-    include(FetchContent)
-    FetchContent_Declare(
-        tracy
-        GIT_REPOSITORY https://github.com/wolfpld/tracy.git
-        GIT_TAG v0.13.1
-    )
-    FetchContent_MakeAvailable(tracy)
+    find_package(Tracy CONFIG REQUIRED)
 endif()
-
-# --------------------------------------------------
-# LibJPEG-Turbo
-# --------------------------------------------------
-
-include(ExternalProject)
-
-set(JPEG_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/libjpeg-turbo-ext")
-set(JPEG_INSTALL_DIR "${JPEG_PREFIX}/install")
-
-if(MSVC)
-    set(JPEG_LIB "${JPEG_INSTALL_DIR}/lib/turbojpeg-static.lib")
-else()
-    set(JPEG_LIB "${JPEG_INSTALL_DIR}/lib/libturbojpeg.a") # Linux/macOS/MinGW
-endif()
-
-ExternalProject_Add(libjpeg_turbo_proj
-    GIT_REPOSITORY    https://github.com/libjpeg-turbo/libjpeg-turbo.git
-    GIT_TAG           3.0.2
-    PREFIX            "${JPEG_PREFIX}"
-    INSTALL_DIR       "${JPEG_INSTALL_DIR}"
-    CMAKE_ARGS
-        -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
-	-DCMAKE_INSTALL_LIBDIR=lib
-        -DCMAKE_BUILD_TYPE=Release
-        -DENABLE_SHARED=FALSE
-        -DENABLE_STATIC=TRUE
-        -DCMAKE_POSITION_INDEPENDENT_CODE=ON
-    BUILD_BYPRODUCTS  "${JPEG_LIB}"
-)
-
-file(MAKE_DIRECTORY "${JPEG_INSTALL_DIR}/include")
-
-add_library(turbojpeg STATIC IMPORTED)
-set_target_properties(turbojpeg PROPERTIES IMPORTED_LOCATION "${JPEG_LIB}")
-add_dependencies(turbojpeg libjpeg_turbo_proj)
-
-target_include_directories(turbojpeg INTERFACE "${JPEG_INSTALL_DIR}/include")
-
-# --------------------------------------------------
-# ImGui
-# --------------------------------------------------
-
-add_library(imgui STATIC
-    vendored/imgui/imgui.cpp
-    vendored/imgui/imgui_draw.cpp
-    vendored/imgui/imgui_tables.cpp
-    vendored/imgui/imgui_widgets.cpp
-    vendored/imgui/imgui_demo.cpp
-    vendored/imgui/backends/imgui_impl_sdl3.cpp
-    vendored/imgui/backends/imgui_impl_sdlgpu3.cpp
-    vendored/imgui/misc/cpp/imgui_stdlib.cpp
-)
-
-target_include_directories(imgui PUBLIC
-    vendored/imgui
-    vendored/imgui/backends
-    vendored/SDL/include
-)
-
-target_link_libraries(imgui PUBLIC SDL3::SDL3)
-
-# --------------------------------------------------
-# SQLite
-# --------------------------------------------------
-
-add_library(sqlite STATIC
-    vendored/sqlite-amalgamation-3510200/sqlite3.c
-)
-
-target_include_directories(sqlite PUBLIC
-    vendored/sqlite-amalgamation-3510200
-)
-
-target_compile_definitions(sqlite PRIVATE
-    SQLITE_ENABLE_FTS5
-    SQLITE_ENABLE_JSON1
-    SQLITE_ENABLE_RTREE
-    SQLITE_THREADSAFE=2
-    SQLITE_DEFAULT_MEMSTATUS=0
-    SQLITE_LIKE_DOESNT_MATCH_BLOBS
-    SQLITE_MAX_EXPR_DEPTH=0
-    SQLITE_OMIT_DEPRECATED
-    SQLITE_USE_ALLOCA
-)
-
-target_link_libraries(sqlite PRIVATE unfv3_project_optimizations)
-
-# --------------------------------------------------
-# nlohmann_json (header-only)
-# --------------------------------------------------
-
-add_library(nlohmann_json INTERFACE)
-target_include_directories(nlohmann_json INTERFACE vendored/json)
 
 # --------------------------------------------------
 # Main executable
@@ -265,28 +106,53 @@ add_executable(UNFV3
     src/Application/operations/my_colour_enhance.cpp
 )
 
-add_dependencies(UNFV3 libjpeg_turbo_proj)
 target_include_directories(UNFV3 PRIVATE src/Application)
 target_include_directories(UNFV3 PRIVATE ${GEGL_INCLUDE_DIRS})
+
 target_link_libraries(UNFV3 PRIVATE
-    imgui
-    SDL3::SDL3
-    sqlite
-    nlohmann_json
     unfv3_project_optimizations
-    ncnn
-    PkgConfig::GEGL 
+    imgui::imgui                 
+    SDL3::SDL3                  
+    unofficial::sqlite3::sqlite3
+    nlohmann_json::nlohmann_json
+    ncnn                       
+    PkgConfig::GLIB
+    PkgConfig::GOBJECT
+    PkgConfig::GEGL
     PkgConfig::BABL
-    turbojpeg
+    $<IF:$<TARGET_EXISTS:libjpeg-turbo::turbojpeg>,libjpeg-turbo::turbojpeg,libjpeg-turbo::turbojpeg-static>
 )
+
+if(UNFV3_ENABLE_TRACY)
+    target_link_libraries(UNFV3 PRIVATE Tracy::TracyClient) # Changed from TracyClient
+    target_compile_definitions(UNFV3 PRIVATE TRACY_ENABLE)
+endif()
 
 if(WIN32)
     target_link_libraries(UNFV3 PRIVATE ws2_32 comctl32 setupapi version)
 endif()
 
 # --------------------------------------------------
-# Post-build stripping
+# Post-build
 # --------------------------------------------------
+
+set(VCPKG_LIB_DIR "${CMAKE_CURRENT_BINARY_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/lib")
+
+# Auto-copy vcpkg's BABL plugins to the build directory
+add_custom_command(TARGET UNFV3 POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    "${VCPKG_LIB_DIR}/babl-0.1"
+    "$<TARGET_FILE_DIR:UNFV3>/lib/babl-0.1"
+    COMMENT "Copying vcpkg BABL plugins to build directory"
+)
+
+# Auto-copy vcpkg's GEGL plugins to the build directory
+add_custom_command(TARGET UNFV3 POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    "${VCPKG_LIB_DIR}/gegl-0.4"
+    "$<TARGET_FILE_DIR:UNFV3>/lib/gegl-0.4"
+    COMMENT "Copying vcpkg GEGL plugins to build directory"
+)
 
 if(NOT APPLE AND NOT WIN32)
     add_custom_command(TARGET UNFV3 POST_BUILD
@@ -306,38 +172,109 @@ elseif(WIN32)
 endif()
 
 # --------------------------------------------------
-# Tracy
+# Install rules (consumed by CPack)
 # --------------------------------------------------
+ 
+include(GNUInstallDirs)
+ 
+# Windows: flat layout — exe + DLLs all sit at the root, plugins under lib/
+# Unix/macOS: conventional bin/ + lib/ hierarchy
+set(UNFV3_INSTALL_BINDIR ".")
+set(UNFV3_INSTALL_LIBDIR "lib")
+ 
+install(TARGETS UNFV3
+    RUNTIME DESTINATION "${UNFV3_INSTALL_BINDIR}"
+)
+ 
+# BABL plugins
+install(DIRECTORY "${VCPKG_LIB_DIR}/babl-0.1/"
+    DESTINATION "${UNFV3_INSTALL_LIBDIR}/babl-0.1"
+)
+ 
+# GEGL plugins
+install(DIRECTORY "${VCPKG_LIB_DIR}/gegl-0.4/"
+    DESTINATION "${UNFV3_INSTALL_LIBDIR}/gegl-0.4"
+)
 
-if(UNFV3_ENABLE_TRACY)
-    target_link_libraries(UNFV3 PRIVATE TracyClient)
-    target_compile_definitions(UNFV3 PRIVATE TRACY_ENABLE)
+# Data Folder
+install(DIRECTORY "./Data/" DESTINATION "./Data")
+ 
+if(WIN32)
+    install(CODE [[
+        file(GET_RUNTIME_DEPENDENCIES
+            EXECUTABLES "$<TARGET_FILE:UNFV3>"
+            RESOLVED_DEPENDENCIES_VAR   _resolved
+            UNRESOLVED_DEPENDENCIES_VAR _unresolved
+            PRE_EXCLUDE_REGEXES
+                "^api-ms-"
+                "^ext-ms-"
+                "^hvsifiletrust"
+            POST_EXCLUDE_REGEXES
+                ".*[Ss]ystem32/.*\\.dll$"
+                ".*[Ww]in[Ss][Xx][Ss]/.*"
+        )
+        foreach(_dll ${_resolved})
+            file(INSTALL "${_dll}" DESTINATION "${CMAKE_INSTALL_PREFIX}/.")
+        endforeach()
+        if(_unresolved)
+            message(WARNING "Unresolved runtime deps: ${_unresolved}")
+        endif()
+    ]])
+endif()
+ 
+# macOS: rewrite all dylib IDs and rpaths so the bundle is relocatable.
+if(APPLE)
+    install(CODE [[
+        include(BundleUtilities)
+        fixup_bundle("${CMAKE_INSTALL_PREFIX}/UNFV3" "" "")
+    ]])
 endif()
 
 # --------------------------------------------------
-# Diagnostics
+# CPack
 # --------------------------------------------------
+ 
+set(CPACK_PACKAGE_NAME                "UNFV3")
+set(CPACK_PACKAGE_VENDOR              "DoPySOFT Inc.")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "The DoPy Billing Software")
+set(CPACK_PACKAGE_VERSION_MAJOR       "1")
+set(CPACK_PACKAGE_VERSION_MINOR       "0")
+set(CPACK_PACKAGE_VERSION_PATCH       "0")
+set(CPACK_PACKAGE_VERSION
+    "${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}")
+set(CPACK_PACKAGE_INSTALL_DIRECTORY   "UNFV3")
+set(CPACK_PACKAGE_FILE_NAME
+    "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}")
+set(CPACK_STRIP_FILES TRUE)
+ 
+# --------------------------------------------------
+# Generator-specific config
+# --------------------------------------------------
+ 
+if(WIN32)
+    set(CPACK_GENERATOR "NSIS")
+    set(CPACK_NSIS_DISPLAY_NAME                  	"UNFV3")
+    set(CPACK_NSIS_PACKAGE_NAME                  	"UNFV3")
+    set(CPACK_NSIS_INSTALL_ROOT                  	"$PROGRAMFILES64")
+    set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL 	ON)
+    set(CPACK_NSIS_MODIFY_PATH                   	OFF)
+    set(CPACK_NSIS_CREATE_ICONS_EXTRA
+        "CreateShortCut '$SMPROGRAMS\\\\$STARTMENU_FOLDER\\\\UNFV3.lnk' '$INSTDIR\\\\UNFV3.exe'")
+    set(CPACK_NSIS_DELETE_ICONS_EXTRA
+        "Delete '$SMPROGRAMS\\\\$STARTMENU_FOLDER\\\\UNFV3.lnk'")
+ 
+elseif(APPLE)
+    set(CPACK_GENERATOR 				"DragNDrop")
+    set(CPACK_DMG_VOLUME_NAME 				"UNFV3")
+    set(CPACK_DMG_FORMAT      				"UDZO")
+ 
+else()
+    set(CPACK_GENERATOR "TGZ")
+endif()
+ 
+include(CPack)
 
 message(STATUS "Build type       : ${CMAKE_BUILD_TYPE}")
 message(STATUS "LTO enabled      : ${UNFV3_ENABLE_LTO}")
-message(STATUS "GEGL libs        : ${GEGL_LIBS}")
-
-# --------------------------------------------------
-# Bundle & Distribution (V3 System Implementation)
-# --------------------------------------------------
-
-include(bundle_tools.cmake)
-
-if(NOT WIN32)
-    set(BUNDLE_DEST "UNFV3_bundle")
-else()
-    set(BUNDLE_DEST "UNFV3")
-endif()
-
-bundle_runtime_dependencies(UNFV3 "${BUNDLE_DEST}")
-
-# Install main executable to bundle root
-install(TARGETS UNFV3 DESTINATION "${BUNDLE_DEST}")
-
-# Install Data directory
-install(DIRECTORY Data DESTINATION "${BUNDLE_DEST}")
+message(STATUS "Compiler         : ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
+message(STATUS "CPack generators : ${CPACK_GENERATOR}")
