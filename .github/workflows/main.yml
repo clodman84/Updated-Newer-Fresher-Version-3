@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest]
 
     steps:
       # --------------------------------------------------
@@ -80,20 +80,14 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           brew update
-          brew install ninja nasm pkg-config
-
-      - name: MinGW (Windows)
-        if: runner.os == 'Windows'
-        uses: egor-tensin/setup-mingw@v2
-        with:
-          platform: x64
+          brew install ninja nasm pkg-config pactchelf
 
       # --------------------------------------------------
       # Configure
       # --------------------------------------------------
 
-      - name: Configure (Linux/macOS)
-        if: runner.os != 'Windows'
+      - name: Configure (Linux)
+        if: runner.os == 'Linux'
         run: >
           cmake -S . -B build -G Ninja
           -DCMAKE_BUILD_TYPE=Release
@@ -102,18 +96,17 @@ jobs:
           -DCMAKE_TOOLCHAIN_FILE=${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake
           -DVCPKG_TARGET_TRIPLET=x64-linux-mixed
           -DVCPKG_OVERLAY_TRIPLETS=./triplets/
-
-      - name: Configure (Windows)
-        if: runner.os == 'Windows'
+          
+      - name: Configure (MacOS)
+        if: runner.os == 'macOS'
         run: >
           cmake -S . -B build -G Ninja
           -DCMAKE_BUILD_TYPE=Release
           -DUNFV3_ENABLE_LTO=ON
           -DUNFV3_ENABLE_TRACY=OFF
           -DCMAKE_TOOLCHAIN_FILE=${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake
-          -DVCPKG_TARGET_TRIPLET=x64-mingw-dynamic
-          -DVCPKG_OVERLAY_TRIPLETS=./triplets/
-
+          -DVCPKG_TARGET_TRIPLET=arm64-osx-dynamic
+        
       # --------------------------------------------------
       # Build
       # --------------------------------------------------
@@ -135,9 +128,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            build/*.exe
-            build/*.dmg
-            build/*.tar.gz
+            *.dmg
+            *.tar.gz
 
       # --------------------------------------------------
       # Append release notes
