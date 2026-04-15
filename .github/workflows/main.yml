@@ -5,8 +5,8 @@ on:
     types: [published]
 
 jobs:
-  build_release:
-    name: Build release binaries (${{ matrix.os }})
+  build:
+    name: Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     permissions:
       contents: write
@@ -17,184 +17,135 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
-      - name: Checkout repository (with submodules)
-        uses: actions/checkout@v4
+      # --------------------------------------------------
+      # Checkout
+      # --------------------------------------------------
+
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
           fetch-depth: 1
           ref: refs/tags/${{ github.event.release.tag_name }}
 
-      # ------------------------------------------------------------------ #
-      # Setup Environments & Dependencies
-      # ------------------------------------------------------------------ #
+      # --------------------------------------------------
+      # vcpkg
+      # --------------------------------------------------
 
-      - name: Restore ccache (non-Windows)
-        id: ccache-restore
-        if: runner.os != 'Windows'
-        uses: actions/cache/restore@v4
+      - uses: lukka/run-vcpkg@v11
+
+      - name: Enable binary caching
+        run: |
+          echo "VCPKG_FEATURE_FLAGS=manifests,binarycaching" >> $GITHUB_ENV
+          echo "VCPKG_DEFAULT_BINARY_CACHE=${{ github.workspace }}/vcpkg_cache" >> $GITHUB_ENV
+
+      - name: Cache vcpkg installed
+        uses: actions/cache@v4
         with:
-          path: ~/.ccache
-          key: ${{ runner.os }}-ccache-${{ hashFiles('CMakeLists.txt', '.github/workflows/main.yml', 'src/**/*.cpp', 'src/**/*.h', 'src/**/*.hpp', 'src/**/*.c', 'src/**/*.cc') }}
+          path: build/vcpkg_installed
+          key: vcpkg-installed-${{ runner.os }}-${{ hashFiles('vcpkg.json', 'triplets/**') }}
           restore-keys: |
-            ${{ runner.os }}-ccache-
+            vcpkg-installed-${{ runner.os }}-
 
-      - name: Install Linux dependencies
+      - name: Cache vcpkg binary cache
+        uses: actions/cache@v4
+        with:
+          path: vcpkg_cache
+          key: vcpkg-binary-${{ runner.os }}-${{ hashFiles('vcpkg.json', 'triplets/**') }}
+          restore-keys: |
+            vcpkg-binary-${{ runner.os }}-
+
+      - name: Cache downloads
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.VCPKG_ROOT }}/downloads
+          key: vcpkg-downloads-${{ runner.os }}
+
+      # --------------------------------------------------
+      # Platform deps
+      # --------------------------------------------------
+
+      - name: Linux deps
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            build-essential \
-            cmake \
-            ninja-build \
-            pkg-config \
-            libx11-dev \
-            libxext-dev \
-            libxrandr-dev \
-            libxcursor-dev \
-            libxfixes-dev \
-            libxi-dev \
-            libxss-dev \
-            libxtst-dev \
-            libwayland-dev \
-            wayland-protocols \
-            libxkbcommon-dev \
-            libgl1-mesa-dev \
-            libasound2-dev \
-            libpulse-dev \
-            libdbus-1-dev \
-            libudev-dev \
-            libgegl-dev \
-            libbabl-dev \
-            ccache \
-            nasm
+          sudo apt-get install -y ninja-build pkg-config nasm
 
-      - name: Install macOS dependencies
+      - name: macOS deps
         if: runner.os == 'macOS'
         run: |
           brew update
-          brew install ccache gegl babl pkg-config ninja nasm
+          brew install ninja nasm pkg-config
 
-      - name: Setup MSYS2 (Windows)
+      - name: MinGW (Windows)
         if: runner.os == 'Windows'
-        uses: msys2/setup-msys2@v2
+        uses: egor-tensin/setup-mingw@v2
         with:
-          msystem: UCRT64
-          update: true
-          install: >-
-            mingw-w64-ucrt-x86_64-gcc
-            mingw-w64-ucrt-x86_64-cmake
-            mingw-w64-ucrt-x86_64-ninja
-            mingw-w64-ucrt-x86_64-pkgconf
-            mingw-w64-ucrt-x86_64-gegl
-            mingw-w64-ucrt-x86_64-ccache
-            mingw-w64-ucrt-x86_64-nasm
+          platform: x64
 
-      - name: Configure ccache (non-Windows)
+      # --------------------------------------------------
+      # Configure
+      # --------------------------------------------------
+
+      - name: Configure (Linux/macOS)
         if: runner.os != 'Windows'
-        run: |
-          echo "CCACHE_DIR=${HOME}/.ccache" >> "${GITHUB_ENV}"
-          echo "CMAKE_C_COMPILER_LAUNCHER=ccache"   >> "${GITHUB_ENV}"
-          echo "CMAKE_CXX_COMPILER_LAUNCHER=ccache" >> "${GITHUB_ENV}"
-          ccache --max-size=1G
-          ccache --zero-stats
-
-      # ------------------------------------------------------------------ #
-      # CMake Configure & Build
-      # ------------------------------------------------------------------ #
-
-      - name: Configure CMake (Linux / macOS)
-        if: runner.os != 'Windows'
-        run: >-
+        run: >
           cmake -S . -B build -G Ninja
           -DCMAKE_BUILD_TYPE=Release
           -DUNFV3_ENABLE_LTO=ON
-          -DCMAKE_C_COMPILER_LAUNCHER=${{ env.CMAKE_C_COMPILER_LAUNCHER }}
-          -DCMAKE_CXX_COMPILER_LAUNCHER=${{ env.CMAKE_CXX_COMPILER_LAUNCHER }}
+          -DUNFV3_ENABLE_TRACY=OFF
+          -DCMAKE_TOOLCHAIN_FILE=${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake
+          -DVCPKG_TARGET_TRIPLET=x64-linux-mixed
+          -DVCPKG_OVERLAY_TRIPLETS=./triplets/
 
-      - name: Configure CMake (Windows via MSYS2)
+      - name: Configure (Windows)
         if: runner.os == 'Windows'
-        shell: msys2 {0}
-        run: >-
+        run: >
           cmake -S . -B build -G Ninja
           -DCMAKE_BUILD_TYPE=Release
           -DUNFV3_ENABLE_LTO=ON
+          -DUNFV3_ENABLE_TRACY=OFF
+          -DCMAKE_TOOLCHAIN_FILE=${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake
+          -DVCPKG_TARGET_TRIPLET=x64-mingw-dynamic
+          -DVCPKG_OVERLAY_TRIPLETS=./triplets/
 
-      - name: Build (Linux / macOS)
-        if: runner.os != 'Windows'
-        run: cmake --build build --config Release -- -j4
+      # --------------------------------------------------
+      # Build
+      # --------------------------------------------------
 
-      - name: Build (Windows via MSYS2)
-        if: runner.os == 'Windows'
-        shell: msys2 {0}
-        run: cmake --build build --config Release -- -j4
+      - run: cmake --build build --config Release -- -j4
 
-      - name: Show ccache stats (non-Windows)
-        if: runner.os != 'Windows'
-        run: ccache --show-stats
+      # --------------------------------------------------
+      # Package via CPack 
+      # --------------------------------------------------
 
-      - name: Save ccache (non-Windows)
-        if: runner.os != 'Windows' && steps.ccache-restore.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: ~/.ccache
-          key: ${{ steps.ccache-restore.outputs.cache-primary-key }}
+      - name: Run CPack
+        run: cpack --config build/CPackConfig.cmake
 
-      # ------------------------------------------------------------------ #
-      # Install & Package Bundle
-      # ------------------------------------------------------------------ #
+      # --------------------------------------------------
+      # Upload artifacts
+      # --------------------------------------------------
 
-      - name: Trigger CMake Install Bundle (Linux / macOS)
-        if: runner.os != 'Windows'
-        run: cmake --install build --prefix stage_dir
-
-      - name: Trigger CMake Install Bundle (Windows via MSYS2)
-        if: runner.os == 'Windows'
-        shell: msys2 {0}
-        run: cmake --install build --prefix stage_dir
-
-      - name: Package portable bundle
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          TAG_NAME="${{ github.event.release.tag_name }}"
-          PACKAGE_ROOT="UNFV3-${TAG_NAME}"
-          mkdir -p dist
-
-          # Locate the bundle directory generated by CMakeLists.txt
-          if [ "${{ runner.os }}" = "Windows" ]; then
-            BUNDLE_SRC="stage_dir/UNFV3"
-          else
-            BUNDLE_SRC="stage_dir/UNFV3_bundle"
-          fi
-
-          if [ ! -d "$BUNDLE_SRC" ]; then
-            echo "Bundle directory not found at $BUNDLE_SRC! Install failed." >&2
-            exit 1
-          fi
-
-          # Rename the bundle folder to match the release package name
-          mv "$BUNDLE_SRC" "dist/${PACKAGE_ROOT}"
-
-          # Compress based on OS to preserve symlinks on Linux/macOS
-          if [ "${{ runner.os }}" = "Windows" ]; then
-            ARCHIVE="dist/${PACKAGE_ROOT}-windows.zip"
-            cmake -E tar cf "$ARCHIVE" --format=zip -- "dist/${PACKAGE_ROOT}"
-          else
-            ARCHIVE="${PACKAGE_ROOT}-${{ runner.os }}.tar.gz"
-            # Switch into dist to avoid capturing the 'dist/' directory in the archive structure
-            cd dist
-            tar -czf "$ARCHIVE" "${PACKAGE_ROOT}"
-          fi
-
-      # ------------------------------------------------------------------ #
-      # Upload to release
-      # ------------------------------------------------------------------ #
-
-      - name: Upload package to GitHub release
+      - name: Upload
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event.release.tag_name }}
           files: |
-            dist/*.zip
-            dist/*.tar.gz
+            build/*.exe
+            build/*.dmg
+            build/*.tar.gz
+
+      # --------------------------------------------------
+      # Append release notes
+      # --------------------------------------------------
+
+      - name: Append release notes
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const os = "${{ runner.os }}";
+            const release = context.payload.release;
+            await github.rest.repos.updateRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: release.id,
+              body: release.body
+            });
