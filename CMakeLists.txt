@@ -5,7 +5,8 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-set(BUILD_SHARED_LIBS OFF)
+# set(BUILD_SHARED_LIBS OFF)
+set(X_VCPKG_APPLOCAL_DEPS_INSTALL ON)
 
 set(CMAKE_C_VISIBILITY_PRESET hidden)
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
@@ -106,146 +107,21 @@ target_link_options(unfv3_project_optimizations INTERFACE
     $<$<AND:${_c_or_cxx},$<PLATFORM_ID:Darwin>,${_gnu_clang},$<CONFIG:Release>>:-Wl,-dead_strip>
 )
 
-# --------------------------------------------------
-# SDL3
-# --------------------------------------------------
-
-set(SDL_SHARED OFF CACHE BOOL "" FORCE)
-set(SDL_STATIC ON  CACHE BOOL "" FORCE)
-set(SDL_INSTALL OFF CACHE BOOL "" FORCE)
-add_subdirectory(vendored/SDL)
-
-# --------------------------------------------------
-# ncnn (portable, no Vulkan)
-# --------------------------------------------------
-
-set(NCNN_VULKAN OFF CACHE BOOL "" FORCE)
-set(NCNN_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-set(NCNN_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
-set(NCNN_BUILD_BENCHMARK OFF CACHE BOOL "" FORCE)
-set(NCNN_OPENMP OFF CACHE BOOL "" FORCE)
-set(NCNN_INSTALL_SDK OFF CACHE BOOL "" FORCE)
-
-add_subdirectory(vendored/ncnn)
-
-# --------------------------------------------------
-# GEGL (graph-based image processing)
-# --------------------------------------------------
+find_package(SDL3 REQUIRED)
+find_package(ncnn REQUIRED)
+find_package(imgui CONFIG REQUIRED)
+find_package(unofficial-sqlite3 CONFIG REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
+find_package(libjpeg-turbo CONFIG REQUIRED)
 
 find_package(PkgConfig REQUIRED)
-# Add IMPORTED_TARGET to these lines
 pkg_check_modules(GEGL REQUIRED IMPORTED_TARGET gegl-0.4)
 pkg_check_modules(BABL REQUIRED IMPORTED_TARGET babl-0.1)
 
-# --------------------------------------------------
-# Tracy Profiler
-# --------------------------------------------------
-
-option(UNFV3_ENABLE_TRACY "Enable Tracy profiler instrumentation" OFF)
-
 if(UNFV3_ENABLE_TRACY)
-    include(FetchContent)
-    FetchContent_Declare(
-        tracy
-        GIT_REPOSITORY https://github.com/wolfpld/tracy.git
-        GIT_TAG v0.13.1
-    )
-    FetchContent_MakeAvailable(tracy)
+    find_package(Tracy CONFIG REQUIRED)
 endif()
-
-# --------------------------------------------------
-# LibJPEG-Turbo
-# --------------------------------------------------
-
-include(ExternalProject)
-
-set(JPEG_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/libjpeg-turbo-ext")
-set(JPEG_INSTALL_DIR "${JPEG_PREFIX}/install")
-
-if(MSVC)
-    set(JPEG_LIB "${JPEG_INSTALL_DIR}/lib/turbojpeg-static.lib")
-else()
-    set(JPEG_LIB "${JPEG_INSTALL_DIR}/lib/libturbojpeg.a") # Linux/macOS/MinGW
-endif()
-
-ExternalProject_Add(libjpeg_turbo_proj
-    GIT_REPOSITORY    https://github.com/libjpeg-turbo/libjpeg-turbo.git
-    GIT_TAG           3.0.2
-    PREFIX            "${JPEG_PREFIX}"
-    INSTALL_DIR       "${JPEG_INSTALL_DIR}"
-    CMAKE_ARGS
-        -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
-	-DCMAKE_INSTALL_LIBDIR=lib
-        -DCMAKE_BUILD_TYPE=Release
-        -DENABLE_SHARED=FALSE
-        -DENABLE_STATIC=TRUE
-        -DCMAKE_POSITION_INDEPENDENT_CODE=ON
-    BUILD_BYPRODUCTS  "${JPEG_LIB}"
-)
-
-file(MAKE_DIRECTORY "${JPEG_INSTALL_DIR}/include")
-
-add_library(turbojpeg STATIC IMPORTED)
-set_target_properties(turbojpeg PROPERTIES IMPORTED_LOCATION "${JPEG_LIB}")
-add_dependencies(turbojpeg libjpeg_turbo_proj)
-
-target_include_directories(turbojpeg INTERFACE "${JPEG_INSTALL_DIR}/include")
-
-# --------------------------------------------------
-# ImGui
-# --------------------------------------------------
-
-add_library(imgui STATIC
-    vendored/imgui/imgui.cpp
-    vendored/imgui/imgui_draw.cpp
-    vendored/imgui/imgui_tables.cpp
-    vendored/imgui/imgui_widgets.cpp
-    vendored/imgui/imgui_demo.cpp
-    vendored/imgui/backends/imgui_impl_sdl3.cpp
-    vendored/imgui/backends/imgui_impl_sdlgpu3.cpp
-    vendored/imgui/misc/cpp/imgui_stdlib.cpp
-)
-
-target_include_directories(imgui PUBLIC
-    vendored/imgui
-    vendored/imgui/backends
-    vendored/SDL/include
-)
-
-target_link_libraries(imgui PUBLIC SDL3::SDL3)
-
-# --------------------------------------------------
-# SQLite
-# --------------------------------------------------
-
-add_library(sqlite STATIC
-    vendored/sqlite-amalgamation-3510200/sqlite3.c
-)
-
-target_include_directories(sqlite PUBLIC
-    vendored/sqlite-amalgamation-3510200
-)
-
-target_compile_definitions(sqlite PRIVATE
-    SQLITE_ENABLE_FTS5
-    SQLITE_ENABLE_JSON1
-    SQLITE_ENABLE_RTREE
-    SQLITE_THREADSAFE=2
-    SQLITE_DEFAULT_MEMSTATUS=0
-    SQLITE_LIKE_DOESNT_MATCH_BLOBS
-    SQLITE_MAX_EXPR_DEPTH=0
-    SQLITE_OMIT_DEPRECATED
-    SQLITE_USE_ALLOCA
-)
-
-target_link_libraries(sqlite PRIVATE unfv3_project_optimizations)
-
-# --------------------------------------------------
-# nlohmann_json (header-only)
-# --------------------------------------------------
-
-add_library(nlohmann_json INTERFACE)
-target_include_directories(nlohmann_json INTERFACE vendored/json)
 
 # --------------------------------------------------
 # Main executable
@@ -265,29 +141,66 @@ add_executable(UNFV3
     src/Application/operations/my_colour_enhance.cpp
 )
 
-add_dependencies(UNFV3 libjpeg_turbo_proj)
 target_include_directories(UNFV3 PRIVATE src/Application)
 target_include_directories(UNFV3 PRIVATE ${GEGL_INCLUDE_DIRS})
+
 target_link_libraries(UNFV3 PRIVATE
-    imgui
-    SDL3::SDL3
-    sqlite
-    nlohmann_json
     unfv3_project_optimizations
-    ncnn
-    PkgConfig::GEGL 
-    PkgConfig::BABL
-    turbojpeg
+    imgui::imgui                 
+    SDL3::SDL3                  
+    unofficial::sqlite3::sqlite3
+    nlohmann_json::nlohmann_json
+    ncnn                       
+    PkgConfig::GEGL           
+    PkgConfig::BABL          
+    $<IF:$<TARGET_EXISTS:libjpeg-turbo::turbojpeg>,libjpeg-turbo::turbojpeg,libjpeg-turbo::turbojpeg-static>
 )
+
+if(UNFV3_ENABLE_TRACY)
+    target_link_libraries(UNFV3 PRIVATE Tracy::TracyClient) # Changed from TracyClient
+    target_compile_definitions(UNFV3 PRIVATE TRACY_ENABLE)
+endif()
 
 if(WIN32)
     target_link_libraries(UNFV3 PRIVATE ws2_32 comctl32 setupapi version)
 endif()
 
 # --------------------------------------------------
-# Post-build stripping
+# Post-build
 # --------------------------------------------------
 
+# 1. Setup paths
+set(BUNDLE_LIB_DIR "$<TARGET_FILE_DIR:UNFV3>/lib")
+set(VCPKG_LIB_DIR "${CMAKE_CURRENT_BINARY_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/lib")
+
+# 2. Copy the plugin folders (Existing logic, ensure paths are absolute)
+add_custom_command(TARGET UNFV3 POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${BUNDLE_LIB_DIR}"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory "${VCPKG_LIB_DIR}/babl-0.1" "${BUNDLE_LIB_DIR}/babl-0.1"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory "${VCPKG_LIB_DIR}/gegl-0.4" "${BUNDLE_LIB_DIR}/gegl-0.4"
+    COMMENT "Bundling plugin folders"
+)
+
+# 3. Copy ALL .so files from vcpkg to your bundle's lib/
+# We use -P to preserve symlinks for versioned libs like libTracyClient.so.0.13.1
+add_custom_command(TARGET UNFV3 POST_BUILD
+    COMMAND /bin/sh -c "cp -Pn ${VCPKG_LIB_DIR}/*.so* ${BUNDLE_LIB_DIR}/"
+    COMMENT "Copying shared libraries to bundle"
+)
+
+# 4. Patch the Main Executable to look in ./lib
+add_custom_command(TARGET UNFV3 POST_BUILD
+    COMMAND patchelf --set-rpath "\\$ORIGIN/lib" $<TARGET_FILE:UNFV3>
+    COMMENT "Directing UNFV3 to look in local lib folder"
+)
+
+# 5. Patch the Plugins to look at their parent folder (lib/)
+add_custom_command(TARGET UNFV3 POST_BUILD
+    COMMAND /bin/sh -c "find ${BUNDLE_LIB_DIR} -name '*.so*' -exec patchelf --set-rpath '\\$ORIGIN:\\$ORIGIN/..' {} +"
+    COMMENT "Directing plugins to look in parent lib folder"
+)
+
+# 6. Your existing Strip logic
 if(NOT APPLE AND NOT WIN32)
     add_custom_command(TARGET UNFV3 POST_BUILD
         COMMAND strip --strip-unneeded $<TARGET_FILE:UNFV3>
@@ -306,15 +219,6 @@ elseif(WIN32)
 endif()
 
 # --------------------------------------------------
-# Tracy
-# --------------------------------------------------
-
-if(UNFV3_ENABLE_TRACY)
-    target_link_libraries(UNFV3 PRIVATE TracyClient)
-    target_compile_definitions(UNFV3 PRIVATE TRACY_ENABLE)
-endif()
-
-# --------------------------------------------------
 # Diagnostics
 # --------------------------------------------------
 
@@ -322,22 +226,3 @@ message(STATUS "Build type       : ${CMAKE_BUILD_TYPE}")
 message(STATUS "LTO enabled      : ${UNFV3_ENABLE_LTO}")
 message(STATUS "GEGL libs        : ${GEGL_LIBS}")
 
-# --------------------------------------------------
-# Bundle & Distribution (V3 System Implementation)
-# --------------------------------------------------
-
-include(bundle_tools.cmake)
-
-if(NOT WIN32)
-    set(BUNDLE_DEST "UNFV3_bundle")
-else()
-    set(BUNDLE_DEST "UNFV3")
-endif()
-
-bundle_runtime_dependencies(UNFV3 "${BUNDLE_DEST}")
-
-# Install main executable to bundle root
-install(TARGETS UNFV3 DESTINATION "${BUNDLE_DEST}")
-
-# Install Data directory
-install(DIRECTORY Data DESTINATION "${BUNDLE_DEST}")

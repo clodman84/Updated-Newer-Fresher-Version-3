@@ -26,6 +26,8 @@
 * Auto Angle
 * Add help hover to the thing
 * Preset making
+* Add bookmark feature in the carousel to show what images have been billed and what haven't
+* Test the whole application in valgrind
 
 # v0.5.1-beta
 

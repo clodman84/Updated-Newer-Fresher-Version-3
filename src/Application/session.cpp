@@ -1,14 +1,14 @@
 #include "application.h"
-#include "imgui.h"
-#include "imgui_internal.h"
+#include <imgui.h>
+#include <imgui_internal.h>
 
 #include <SDL3/SDL_log.h>
 
 #include <algorithm>
 #include <fstream>
+#include <imgui_stdlib.h>
 #include <iostream>
 #include <memory>
-#include <misc/cpp/imgui_stdlib.h>
 #include <sstream>
 #include <stdexcept>
 #include <string>
