@@ -30,22 +30,22 @@ jobs:
       # --------------------------------------------------
       # vcpkg
       # --------------------------------------------------
-
+      
       - uses: lukka/run-vcpkg@v11
-
-      - name: Enable binary caching
+      # --------------------------------------------------
+      # Binary cache
+      # --------------------------------------------------
+      
+      - name: Setup vcpkg binary cache
         run: |
+          mkdir -p ${{ github.workspace }}/vcpkg_cache
           echo "VCPKG_FEATURE_FLAGS=manifests,binarycaching" >> $GITHUB_ENV
           echo "VCPKG_DEFAULT_BINARY_CACHE=${{ github.workspace }}/vcpkg_cache" >> $GITHUB_ENV
-
-      - name: Cache vcpkg installed
-        uses: actions/cache@v4
-        with:
-          path: build/vcpkg_installed
-          key: vcpkg-installed-${{ runner.os }}-${{ hashFiles('vcpkg.json', 'triplets/**') }}
-          restore-keys: |
-            vcpkg-installed-${{ runner.os }}-
-
+      
+      # --------------------------------------------------
+      # Cache binary artifacts
+      # --------------------------------------------------
+      
       - name: Cache vcpkg binary cache
         uses: actions/cache@v4
         with:
@@ -53,13 +53,19 @@ jobs:
           key: vcpkg-binary-${{ runner.os }}-${{ hashFiles('vcpkg.json', 'triplets/**') }}
           restore-keys: |
             vcpkg-binary-${{ runner.os }}-
-
-      - name: Cache downloads
+      
+      # --------------------------------------------------
+      # Cache installed tree
+      # --------------------------------------------------
+      
+      - name: Cache vcpkg installed
         uses: actions/cache@v4
         with:
-          path: ${{ env.VCPKG_ROOT }}/downloads
-          key: vcpkg-downloads-${{ runner.os }}
-
+          path: build/vcpkg_installed
+          key: vcpkg-installed-${{ runner.os }}-${{ hashFiles('vcpkg.json', 'triplets/**') }}
+          restore-keys: |
+            vcpkg-installed-${{ runner.os }}-
+      
       # --------------------------------------------------
       # Platform deps
       # --------------------------------------------------
