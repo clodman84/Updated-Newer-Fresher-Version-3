@@ -80,7 +80,7 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           brew update
-          brew install ninja nasm pkg-config pactchelf
+          brew install ninja nasm pkg-config patchelf
 
       # --------------------------------------------------
       # Configure
