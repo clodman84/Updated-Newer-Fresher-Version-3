@@ -14,136 +14,89 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            triplet: x64-linux-mixed
+            extra_cmake_args: "-DVCPKG_OVERLAY_TRIPLETS=./triplets/"
+          - os: macos-latest
+            triplet: arm64-osx-dynamic
+            extra_cmake_args: ""
+          - os: windows-latest
+            triplet: x64-mingw-dynamic
+            # Force MinGW compilers instead of MSVC
+            extra_cmake_args: "-DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++"
 
     steps:
       # --------------------------------------------------
       # Checkout
       # --------------------------------------------------
-
-      - uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4
         with:
           submodules: recursive
           fetch-depth: 1
           ref: refs/tags/${{ github.event.release.tag_name }}
 
       # --------------------------------------------------
-      # vcpkg
+      # vcpkg (Handles setup AND caching automatically)
       # --------------------------------------------------
-      
-      - uses: lukka/run-vcpkg@v11
-      # --------------------------------------------------
-      # Binary cache
-      # --------------------------------------------------
-      
-      - name: Setup vcpkg binary cache
-        run: |
-          mkdir -p ${{ github.workspace }}/vcpkg_cache
-          echo "VCPKG_FEATURE_FLAGS=manifests,binarycaching" >> $GITHUB_ENV
-          echo "VCPKG_DEFAULT_BINARY_CACHE=${{ github.workspace }}/vcpkg_cache" >> $GITHUB_ENV
-      
-      # --------------------------------------------------
-      # Cache binary artifacts
-      # --------------------------------------------------
-      
-      - name: Cache vcpkg binary cache
-        uses: actions/cache@v4
-        with:
-          path: vcpkg_cache
-          key: vcpkg-binary-${{ runner.os }}-${{ hashFiles('vcpkg.json', 'triplets/**') }}
-          restore-keys: |
-            vcpkg-binary-${{ runner.os }}-
-      
-      # --------------------------------------------------
-      # Cache installed tree
-      # --------------------------------------------------
-      
-      - name: Cache vcpkg installed
-        uses: actions/cache@v4
-        with:
-          path: build/vcpkg_installed
-          key: vcpkg-installed-${{ runner.os }}-${{ hashFiles('vcpkg.json', 'triplets/**') }}
-          restore-keys: |
-            vcpkg-installed-${{ runner.os }}-
-      
-      # --------------------------------------------------
-      # Platform deps
-      # --------------------------------------------------
+      - name: Setup vcpkg
+        uses: lukka/run-vcpkg@v11
 
-      - name: Linux deps
+      # --------------------------------------------------
+      # Platform Dependencies
+      # --------------------------------------------------
+      - name: Install System Dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y ninja-build pkg-config nasm
 
-      - name: macOS deps
+      - name: Install System Dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
           brew update
-          brew install ninja nasm pkg-config patchelf
+          brew install ninja nasm pkg-config
+
+      - name: Install System Dependencies (Windows)
+        if: runner.os == 'Windows'
+        run: choco install ninja pkgconfiglite -y
 
       # --------------------------------------------------
       # Configure
       # --------------------------------------------------
+      - name: Configure CMake
+        # Enforcing bash ensures consistent multi-line evaluation across platforms
+        shell: bash
+        run: >
+          cmake -S . -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DUNFV3_ENABLE_LTO=ON
+          -DUNFV3_ENABLE_TRACY=OFF
+          -DCMAKE_TOOLCHAIN_FILE=${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake
+          -DVCPKG_TARGET_TRIPLET=${{ matrix.triplet }}
+          ${{ matrix.extra_cmake_args }}
 
-      - name: Configure (Linux)
-        if: runner.os == 'Linux'
-        run: >
-          cmake -S . -B build -G Ninja
-          -DCMAKE_BUILD_TYPE=Release
-          -DUNFV3_ENABLE_LTO=ON
-          -DUNFV3_ENABLE_TRACY=OFF
-          -DCMAKE_TOOLCHAIN_FILE=${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake
-          -DVCPKG_TARGET_TRIPLET=x64-linux-mixed
-          -DVCPKG_OVERLAY_TRIPLETS=./triplets/
-          
-      - name: Configure (MacOS)
-        if: runner.os == 'macOS'
-        run: >
-          cmake -S . -B build -G Ninja
-          -DCMAKE_BUILD_TYPE=Release
-          -DUNFV3_ENABLE_LTO=ON
-          -DUNFV3_ENABLE_TRACY=OFF
-          -DCMAKE_TOOLCHAIN_FILE=${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake
-          -DVCPKG_TARGET_TRIPLET=arm64-osx-dynamic
-        
       # --------------------------------------------------
       # Build
       # --------------------------------------------------
-
-      - run: cmake --build build --config Release -- -j4
+      - name: Build
+        run: cmake --build build --config Release
 
       # --------------------------------------------------
       # Package via CPack 
       # --------------------------------------------------
-
       - name: Run CPack
-        run: cpack --config build/CPackConfig.cmake
+        working-directory: ${{ github.workspace }}/build
+        run: cpack -C Release
 
       # --------------------------------------------------
-      # Upload artifacts
+      # Upload artifacts to GitHub Release
       # --------------------------------------------------
-
-      - name: Upload
+      - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            *.dmg
-            *.tar.gz
-
-      # --------------------------------------------------
-      # Append release notes
-      # --------------------------------------------------
-
-      - name: Append release notes
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const os = "${{ runner.os }}";
-            const release = context.payload.release;
-            await github.rest.repos.updateRelease({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              release_id: release.id,
-              body: release.body
-            });
+            build/*.dmg
+            build/*.tar.gz
+            build/*.exe
