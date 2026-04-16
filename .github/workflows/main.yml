@@ -63,7 +63,9 @@ jobs:
 
       - name: Install System Dependencies (Windows)
         if: runner.os == 'Windows'
-        run: choco install pkgconfiglite -y
+        run: | 
+          choco install pkgconfiglite -y
+          choco install nsis
 
       # --------------------------------------------------
       # Configure
