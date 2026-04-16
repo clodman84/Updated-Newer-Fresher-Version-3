@@ -264,9 +264,14 @@ void render_sessions(std::deque<std::unique_ptr<Session>> &sessions) {
 
 } // namespace
 
-int main(int, char **) {
-  prepare_database();
+int main(int argc, char *argv[]) {
 
+  // This is a fucking nightmare
+  std::filesystem::path exePath = std::filesystem::weakly_canonical(argv[0]);
+  // Change the working directory to the folder containing the executable
+  std::filesystem::current_path(exePath.parent_path());
+
+  prepare_database();
   const char *base_path = SDL_GetBasePath();
   if (base_path) {
     std::filesystem::path root_dir(base_path);
@@ -277,7 +282,6 @@ int main(int, char **) {
     if (std::filesystem::exists(bundled_gegl)) {
       SDL_Log("Bundle detected! Redirecting GEGL/BABL paths to %s and %s",
               bundled_gegl.c_str(), bundled_babl.c_str());
-
 #ifdef _WIN32
       _putenv_s("GEGL_PATH", bundled_gegl.string().c_str());
       _putenv_s("BABL_PATH", bundled_babl.string().c_str());

@@ -304,11 +304,11 @@ void ImageManager::render_carousel(float carousel_height, BillMap *bill_map) {
             if (!io.KeyCtrl)
               selection_storage.clear();
             for (int j = start; j <= end; j++) {
-              selection_storage.insert(image_names[j]);
+              selection_storage.emplace(image_names[j]);
             }
           } else if (io.KeyCtrl) {
             if (!selection_storage.contains(n))
-              selection_storage.insert(n);
+              selection_storage.emplace(n);
             else
               selection_storage.erase(n);
           } else {
@@ -326,12 +326,12 @@ void ImageManager::render_carousel(float carousel_height, BillMap *bill_map) {
     if (ImGui::BeginPopupContextItem("ThumbnailContextMenu")) {
       if (!is_selected) {
         selection_storage.clear();
-        selection_storage.insert(name);
+        selection_storage.emplace(name);
       }
       if (ImGui::MenuItem("Same As")) {
         const auto source_it = bill_map->find(name);
         if (selection_storage.size() == 1) {
-          selection_storage.insert(current_image_->filename);
+          selection_storage.emplace(current_image_->filename);
         }
         for (auto &image : selection_storage) {
           if (name != image) {

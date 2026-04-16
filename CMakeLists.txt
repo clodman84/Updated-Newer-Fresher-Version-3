@@ -92,7 +92,7 @@ endif()
 # Main executable
 # --------------------------------------------------
 
-add_executable(UNFV3
+add_executable(UNFV3 MACOSX_BUNDLE
     src/main.cpp
     src/Application/database.cpp
     src/Application/session.cpp
@@ -154,35 +154,39 @@ add_custom_command(TARGET UNFV3 POST_BUILD
     COMMENT "Copying vcpkg GEGL plugins to build directory"
 )
 
-if(NOT APPLE AND NOT WIN32)
-    add_custom_command(TARGET UNFV3 POST_BUILD
-        COMMAND strip --strip-unneeded $<TARGET_FILE:UNFV3>
-        COMMENT "Stripping UNFV3 (Linux)"
-    )
-elseif(APPLE)
-    add_custom_command(TARGET UNFV3 POST_BUILD
-        COMMAND strip -x $<TARGET_FILE:UNFV3>
-        COMMENT "Stripping UNFV3 (macOS)"
-    )
-elseif(WIN32)
-    add_custom_command(TARGET UNFV3 POST_BUILD
-        COMMAND ${CMAKE_STRIP} $<TARGET_FILE:UNFV3>
-        COMMENT "Stripping UNFV3 (Windows)"
-    )
-endif()
-
 # --------------------------------------------------
 # Install rules (consumed by CPack)
 # --------------------------------------------------
  
 include(GNUInstallDirs)
- 
-# Windows: flat layout — exe + DLLs all sit at the root, plugins under lib/
+
 # Unix/macOS: conventional bin/ + lib/ hierarchy
 set(UNFV3_INSTALL_BINDIR ".")
-set(UNFV3_INSTALL_LIBDIR "lib")
+
+if(APPLE)
+    # macOS: Put libs inside the bundle, right next to the executable
+    set(UNFV3_INSTALL_LIBDIR "UNFV3.app/Contents/MacOS/lib")
+else()
+    set(UNFV3_INSTALL_LIBDIR "lib")
+endif()
  
 install(TARGETS UNFV3
+    BUNDLE  DESTINATION "."
+    RUNTIME DESTINATION "${UNFV3_INSTALL_BINDIR}"
+)
+ 
+# BABL plugins
+install(DIRECTORY "${VCPKG_LIB_DIR}/babl-0.1/"
+    DESTINATION "${UNFV3_INSTALL_LIBDIR}/babl-0.1"
+)
+ 
+# GEGL plugins
+install(DIRECTORY "${VCPKG_LIB_DIR}/gegl-0.4/"
+    DESTINATION "${UNFV3_INSTALL_LIBDIR}/gegl-0.4"
+)
+ 
+install(TARGETS UNFV3
+    BUNDLE DESTINATION "."
     RUNTIME DESTINATION "${UNFV3_INSTALL_BINDIR}"
 )
  
@@ -196,8 +200,17 @@ install(DIRECTORY "${VCPKG_LIB_DIR}/gegl-0.4/"
     DESTINATION "${UNFV3_INSTALL_LIBDIR}/gegl-0.4"
 )
 
-# Data Folder
-install(DIRECTORY "./Data/" DESTINATION "./Data")
+# --------------------------------------------------
+# Install Data Folder
+# --------------------------------------------------
+
+if(APPLE)
+    # macOS: Put Data inside the standard Resources folder of the bundle
+    install(DIRECTORY "./Data/" DESTINATION "UNFV3.app/Contents/MacOS/Data")
+else()
+    # Windows/Linux: Put Data right next to the executable
+    install(DIRECTORY "./Data/" DESTINATION "./Data")
+endif()
 
 if(NOT APPLE AND NOT WIN32)
     install(DIRECTORY "${VCPKG_LIB_DIR}/"
@@ -235,10 +248,11 @@ endif()
  
 # macOS: rewrite all dylib IDs and rpaths so the bundle is relocatable.
 if(APPLE)
+    # We use configure-time evaluation (double quotes) to safely pass VCPKG_LIB_DIR
     install(CODE "
         include(BundleUtilities)
         set(APPS \"\${CMAKE_INSTALL_PREFIX}/UNFV3.app\")
-        set(DIRS \"${CMAKE_BINARY_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/lib\")
+        set(DIRS \"${VCPKG_LIB_DIR}\")
         fixup_bundle(\"\${APPS}\" \"\" \"\${DIRS}\")
     ")
 endif()
