@@ -45,10 +45,6 @@ jobs:
       - name: Setup Ninja
         run: pipx install ninja
 
-      # --------------------------------------------------
-      # Platform Dependencies (Ninja removed, now handled above)
-      # --------------------------------------------------
-      
       - name: Install System Dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
