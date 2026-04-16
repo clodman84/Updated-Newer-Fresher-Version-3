@@ -224,10 +224,12 @@ endif()
  
 # macOS: rewrite all dylib IDs and rpaths so the bundle is relocatable.
 if(APPLE)
-    install(CODE [[
+    install(CODE "
         include(BundleUtilities)
-        fixup_bundle("${CMAKE_INSTALL_PREFIX}/UNFV3" "" "")
-    ]])
+        set(APPS \"\${CMAKE_INSTALL_PREFIX}/UNFV3.app\")
+        set(DIRS \"${CMAKE_BINARY_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/lib\")
+        fixup_bundle(\"\${APPS}\" \"\" \"\${DIRS}\")
+    ")
 endif()
 
 # --------------------------------------------------

@@ -12,6 +12,7 @@
 
 #include <SDL3/SDL.h>
 #include <cstdio>
+#include <gegl-init.h>
 #include <gegl.h>
 
 #include <deque>
@@ -288,10 +289,7 @@ int main(int, char **) {
     }
   }
 
-  printf("Time to boogie\n");
   gegl_init(NULL, NULL);
-  printf("Uh oh\n");
-
   gimp_levels_op_register();
   colour_enhance_op_register();
   GeglConfig *config = gegl_config();
@@ -426,6 +424,7 @@ int main(int, char **) {
     SDL_SubmitGPUCommandBuffer(command_buffer);
   }
 
+  gegl_exit();
   sessions.clear();
   editor.reset();
   SDL_WaitForGPUIdle(gpu_device);
@@ -436,6 +435,5 @@ int main(int, char **) {
   SDL_DestroyGPUDevice(gpu_device);
   SDL_DestroyWindow(window);
   SDL_Quit();
-  gegl_exit();
   return 0;
 }

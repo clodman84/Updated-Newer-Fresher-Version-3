@@ -4,6 +4,7 @@
 #include <cstring>
 #include <imgui.h>
 #include <imgui_stdlib.h>
+#include <set>
 
 #ifdef TRACY_ENABLE
 #include <tracy/Tracy.hpp>
