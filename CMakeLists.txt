@@ -154,6 +154,14 @@ add_custom_command(TARGET UNFV3 POST_BUILD
     COMMENT "Copying vcpkg GEGL plugins to build directory"
 )
 
+add_custom_command(TARGET UNFV3 POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    "./Data"
+    "$<TARGET_FILE_DIR:UNFV3>/Data"
+    COMMENT "Copying Data folder to build directory"
+)
+
+
 # --------------------------------------------------
 # Install rules (consumed by CPack)
 # --------------------------------------------------
