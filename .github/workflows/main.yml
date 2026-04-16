@@ -50,6 +50,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y pkg-config nasm
+          sudo apt-get install libwayland-dev libxkbcommon-dev libegl1-mesa-dev
+          sudo apt-get install libx11-dev libxft-dev libxext-dev
 
       - name: Install System Dependencies (macOS)
         if: runner.os == 'macOS'

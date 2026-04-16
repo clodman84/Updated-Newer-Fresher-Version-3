@@ -241,6 +241,17 @@ if(APPLE)
     ")
 endif()
 
+if(NOT APPLE AND NOT WIN32)
+    install(CODE "
+        message(STATUS \"Stripping bundled shared libraries and plugins...\")
+        file(GLOB_RECURSE _bundled_sos \"\${CMAKE_INSTALL_PREFIX}/${UNFV3_INSTALL_LIBDIR}/*.so*\")
+        foreach(_so \${_bundled_sos})
+            # execute_process silently strips the libraries in the staging directory before CPack zips them
+            execute_process(COMMAND strip --strip-unneeded \"\${_so}\" ERROR_QUIET)
+        endforeach()
+    ")
+endif()
+
 # --------------------------------------------------
 # CPack
 # --------------------------------------------------
