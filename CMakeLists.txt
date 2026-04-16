@@ -156,7 +156,7 @@ add_custom_command(TARGET UNFV3 POST_BUILD
 
 add_custom_command(TARGET UNFV3 POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
-    "./Data"
+    "${CMAKE_CURRENT_SOURCE_DIR}/Data"
     "$<TARGET_FILE_DIR:UNFV3>/Data"
     COMMENT "Copying Data folder to build directory"
 )
@@ -198,10 +198,10 @@ install(DIRECTORY "${VCPKG_LIB_DIR}/gegl-0.4/"
 # --------------------------------------------------
 
 if(APPLE)
-    install(DIRECTORY "./Data/" DESTINATION "UNFV3.app/Contents/MacOS/Data")
+    install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/Data/" DESTINATION "UNFV3.app/Contents/MacOS")
 else()
     # Windows/Linux: Put Data right next to the executable
-    install(DIRECTORY "./Data/" DESTINATION "./Data")
+    install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/Data/" DESTINATION "./Data")
 endif()
 
 if(NOT APPLE AND NOT WIN32)
