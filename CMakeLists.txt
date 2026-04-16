@@ -198,6 +198,17 @@ install(DIRECTORY "${VCPKG_LIB_DIR}/gegl-0.4/"
 
 # Data Folder
 install(DIRECTORY "./Data/" DESTINATION "./Data")
+
+if(NOT APPLE AND NOT WIN32)
+    install(DIRECTORY "${VCPKG_LIB_DIR}/"
+        DESTINATION "${UNFV3_INSTALL_LIBDIR}"
+        FILES_MATCHING 
+        PATTERN "*.so*"
+        PATTERN "babl-0.1" EXCLUDE # Already handled
+        PATTERN "gegl-0.4" EXCLUDE # Already handled
+        PATTERN "pkgconfig" EXCLUDE
+    )
+endif()
  
 if(WIN32)
     install(CODE [[

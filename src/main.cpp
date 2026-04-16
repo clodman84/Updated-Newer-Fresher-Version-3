@@ -275,7 +275,8 @@ int main(int, char **) {
 
     // ONLY apply if we are running from a bundle/installation
     if (std::filesystem::exists(bundled_gegl)) {
-      SDL_Log("Bundle detected! Redirecting GEGL/BABL paths.");
+      SDL_Log("Bundle detected! Redirecting GEGL/BABL paths to %s and %s",
+              bundled_gegl.c_str(), bundled_babl.c_str());
 
 #ifdef _WIN32
       _putenv_s("GEGL_PATH", bundled_gegl.string().c_str());
