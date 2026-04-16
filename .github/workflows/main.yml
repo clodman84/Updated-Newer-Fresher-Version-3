@@ -104,4 +104,4 @@ jobs:
           files: |
             build/*.dmg
             build/*.tar.gz
-            build/*.exe
+            build/*AMD64.exe
