@@ -49,9 +49,12 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y pkg-config nasm
-          sudo apt-get install libwayland-dev libxkbcommon-dev libegl1-mesa-dev
-          sudo apt-get install libx11-dev libxft-dev libxext-dev
+          sudo apt-get install -y pkg-config nasm \
+            libasound2-dev libpulse-dev libaudio-dev \
+            libudev-dev libdbus-1-dev libsamplerate0-dev \
+            libx11-dev libxext-dev libxft-dev libxcursor-dev libxi-dev libxinerama-dev libxrandr-dev libxss-dev \
+            libwayland-dev wayland-protocols libxkbcommon-dev \
+            libegl1-mesa-dev libgl1-mesa-dev libvulkan-dev libdrm-dev libgbm-dev
 
       - name: Install System Dependencies (macOS)
         if: runner.os == 'macOS'
