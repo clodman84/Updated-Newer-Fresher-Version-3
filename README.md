@@ -1,8 +1,8 @@
 # Build Instructions
 
-You need to have vcpkg installed. This program does not compile on MSVC due to it's GEGL dependency. Use MinGW.
+You need to have vcpkg installed
 
-## Release Build
+## Release Build Linux
 
 1. Setup
 
