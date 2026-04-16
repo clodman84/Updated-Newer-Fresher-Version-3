@@ -185,27 +185,11 @@ install(DIRECTORY "${VCPKG_LIB_DIR}/gegl-0.4/"
     DESTINATION "${UNFV3_INSTALL_LIBDIR}/gegl-0.4"
 )
  
-install(TARGETS UNFV3
-    BUNDLE DESTINATION "."
-    RUNTIME DESTINATION "${UNFV3_INSTALL_BINDIR}"
-)
- 
-# BABL plugins
-install(DIRECTORY "${VCPKG_LIB_DIR}/babl-0.1/"
-    DESTINATION "${UNFV3_INSTALL_LIBDIR}/babl-0.1"
-)
- 
-# GEGL plugins
-install(DIRECTORY "${VCPKG_LIB_DIR}/gegl-0.4/"
-    DESTINATION "${UNFV3_INSTALL_LIBDIR}/gegl-0.4"
-)
-
 # --------------------------------------------------
 # Install Data Folder
 # --------------------------------------------------
 
 if(APPLE)
-    # macOS: Put Data inside the standard Resources folder of the bundle
     install(DIRECTORY "./Data/" DESTINATION "UNFV3.app/Contents/MacOS/Data")
 else()
     # Windows/Linux: Put Data right next to the executable
