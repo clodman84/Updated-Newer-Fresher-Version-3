@@ -331,7 +331,7 @@ void ImageManager::render_carousel(float carousel_height, BillMap *bill_map) {
       if (ImGui::MenuItem("Same As")) {
         const auto source_it = bill_map->find(name);
         if (selection_storage.size() == 1) {
-          selection_storage.emplace(current_image_->filename);
+          selection_storage.emplace(current_image_->filename.string());
         }
         for (auto &image : selection_storage) {
           if (name != image) {
