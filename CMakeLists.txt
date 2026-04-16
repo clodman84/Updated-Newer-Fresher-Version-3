@@ -130,6 +130,7 @@ endif()
 
 if(WIN32)
     target_link_libraries(UNFV3 PRIVATE ws2_32 comctl32 setupapi version)
+    target_link_options(UNFV3 PRIVATE -static-libgcc -static-libstdc++)
 endif()
 
 # --------------------------------------------------
