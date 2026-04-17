@@ -73,8 +73,9 @@ void SDLCALL prepare_export_queue(void *userdata, const char *const *folderlist,
   auto *session = static_cast<Session *>(userdata);
   session->pending.clear();
   session->export_font_data.clear();
-  session->export_output_directory =
-      std::filesystem::path(*folderlist) / session->session_path().filename();
+  std::filesystem::path output =
+      std::filesystem::path(*folderlist) / session->session_path();
+  session->export_output_directory = output.string();
 
   size_t total_items = 0;
   for (const auto &[image_path, entries] : session->bill) {

@@ -52,7 +52,7 @@ Database::Database() {
 #ifdef TRACY_ENABLE
   ZoneScopedN("Database::Database");
 #endif
-  const int rc = sqlite3_open(db_filename.c_str(), &db);
+  const int rc = sqlite3_open(db_filename.string().c_str(), &db);
   if (rc != SQLITE_OK) {
     const std::string err =
         db != nullptr ? sqlite3_errmsg(db) : "unknown error";
@@ -289,7 +289,7 @@ void prepare_database() {
   // TODO: Migrate to a cross platform resource based thing
   const std::filesystem::path sql_filename = "./Data/schema.sql";
 
-  if (sqlite3_open(db_filename.c_str(), &database) != SQLITE_OK) {
+  if (sqlite3_open(db_filename.string().c_str(), &database) != SQLITE_OK) {
     std::cerr << "Error opening/creating DB: " << sqlite3_errmsg(database)
               << std::endl;
     sqlite3_close(database);
@@ -297,7 +297,8 @@ void prepare_database() {
   }
 
   try {
-    const std::string sql_script = get_file_contents(sql_filename).str();
+    const std::string sql_script =
+        get_file_contents(sql_filename.string()).str();
     char *err_msg = nullptr;
     const int exit_code =
         sqlite3_exec(database, sql_script.c_str(), nullptr, nullptr, &err_msg);
