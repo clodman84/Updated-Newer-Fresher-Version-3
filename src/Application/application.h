@@ -1,6 +1,7 @@
 #ifndef IMAGE_H
 #define IMAGE_H
 
+#include <SDL3/SDL_stdinc.h>
 #include <cstddef>
 #define _CRT_SECURE_NO_WARNINGS
 
@@ -252,7 +253,9 @@ private:
   bool execute_sql(const char *sql) const;
   void clear_loaded_csv();
 
-  std::string db_filename = "./Data/database.db";
+  const std::filesystem::path db_filename =
+      std::filesystem::path(SDL_GetPrefPath("DoPySOFT", "UNFV3")) /
+      "database.db";
   std::vector<CsvRow> loaded;
   sqlite3 *db = nullptr;
   sqlite3_stmt *fts_search = nullptr;
@@ -268,6 +271,8 @@ struct PendingImage {
   std::string label;
 };
 
+static void SDLCALL prepare_export_queue(void *userdata,
+                                         const char *const *folderlist, int);
 class Session {
 public:
   Session(Database *database, std::filesystem::path path, SDL_GPUDevice *device,
@@ -282,6 +287,7 @@ public:
   void handle_keyboard_nav();
   void open_export_modal();
   void render_export_modal();
+
   const std::filesystem::path &session_path() const;
   const std::filesystem::path &image_folder() const;
 
@@ -290,9 +296,22 @@ public:
   bool draw_exporting = false;
   BillMap bill;
 
+  // All of these being public is making me uncomfortable, maybe exports should
+  // be handled by a different object? Idk.
+  Database *database = nullptr;
+  std::vector<PendingImage> pending;
+  std::vector<unsigned char> export_font_data;
+  std::string export_status_message = "Ready to export";
+  std::string export_output_directory;
+  int export_total = 0;
+  bool exporting = false;
+  bool export_completed = false;
+  std::atomic<int> export_progress{0};
+  std::vector<std::string> export_active_items;
+
 private:
   enum class KeyboardNavMode { Search, Billed };
-
+  SDL_Window *window;
   const std::filesystem::path *current_image_path() const;
   std::map<std::string, BillEntry> *current_bill_entries();
   const std::map<std::string, BillEntry> *current_bill_entries() const;
@@ -307,23 +326,16 @@ private:
   void increment_for_id(const std::string &id, const std::string &name);
   void autosave();
   void evaluate();
-  void prepare_export_queue();
   void start_export();
   void finish_export_if_ready();
   void export_images();
   void process_pending_image(const PendingImage &image, size_t worker_index);
   void append_bill_from_image(const std::filesystem::path &source_image);
 
-  Database *database = nullptr;
   std::string search_query;
   std::vector<std::array<std::string, 4>> search_results;
-  std::vector<PendingImage> pending;
   std::thread export_worker;
   std::mutex export_status_mutex;
-  std::vector<std::string> export_active_items;
-  std::vector<unsigned char> export_font_data;
-  std::string export_status_message = "Ready to export";
-  std::string export_output_directory;
   std::string quote;
   bool export_apply_watermark = true;
   KeyboardNavMode keyboard_nav_mode = KeyboardNavMode::Search;
@@ -331,10 +343,6 @@ private:
   int selected_billed_index = 0;
   bool focus_search_on_next_frame = false;
   bool focus_billed_on_next_frame = false;
-  std::atomic<int> export_progress{0};
-  int export_total = 0;
-  bool exporting = false;
-  bool export_completed = false;
   bool draw_same_as_popup = false;
 };
 

@@ -924,67 +924,66 @@ const char *get_random_civ6_quote(void) {
 }
 
 void Session::open_export_modal() {
-  if (!exporting) {
-    prepare_export_queue();
-  }
   draw_exporting = true;
   quote = get_random_civ6_quote();
 }
 
-void Session::prepare_export_queue() {
+void SDLCALL prepare_export_queue(void *userdata, const char *const *folderlist,
+                                  int) {
 #ifdef TRACY_ENABLE
-  ZoneScopedN("Session::prepare_export_queue");
+  ZoneScopedN("prepare_export_queue");
 #endif
-  pending.clear();
-  export_font_data.clear();
-  if (export_output_directory.empty()) {
-    export_output_directory =
-        (std::filesystem::path("./Data") / path.filename()).string();
+
+  auto *session = static_cast<Session *>(userdata);
+  session->pending.clear();
+  session->export_font_data.clear();
+  if (session->export_output_directory.empty()) {
+    return;
   }
 
   size_t total_items = 0;
-  for (const auto &[image_path, entries] : bill) {
+  for (const auto &[image_path, entries] : session->bill) {
     for (const auto &[student_id, entry] : entries) {
       (void)student_id;
       total_items += std::max(entry.count, 0);
     }
   }
-  pending.reserve(total_items);
+  session->pending.reserve(total_items);
 
-  const std::string roll = path.filename().string();
-  for (const auto &[image_path, entries] : bill) {
+  const std::string roll = session->path.filename().string();
+  for (const auto &[image_path, entries] : session->bill) {
     for (const auto &[student_id, entry] : entries) {
       if (entry.count < 1) {
         continue;
       }
 
       const ExportInfo info =
-          database->get_export_information_from_id(student_id);
+          session->database->get_export_information_from_id(student_id);
       const std::string watermark = info.bhawan + " " + info.roomno;
       for (int copy_index = 1; copy_index <= entry.count; ++copy_index) {
         const std::string filename = roll + "_" + image_path.stem().string() +
                                      "_" + info.bhawan + "_" + info.roomno +
                                      "_" + student_id + "_" +
                                      std::to_string(copy_index) + ".jpg";
-        pending.push_back(
+        session->pending.push_back(
             {image_path,
-             std::filesystem::path(export_output_directory) / filename,
+             std::filesystem::path(session->export_output_directory) / filename,
              watermark, image_path.filename().string()});
       }
     }
   }
 
-  export_total = static_cast<int>(pending.size());
-  export_progress = 0;
-  export_completed = false;
-  export_active_items.clear();
+  session->export_total = static_cast<int>(session->pending.size());
+  session->export_progress = 0;
+  session->export_completed = false;
+  session->export_active_items.clear();
 
   std::ostringstream status;
-  status << "Ready: " << pending.size() << " image";
-  if (pending.size() != 1) {
+  status << "Ready: " << session->pending.size() << " image";
+  if (session->pending.size() != 1) {
     status << 's';
   }
-  export_status_message = status.str();
+  session->export_status_message = status.str();
 }
 
 void Session::start_export() {

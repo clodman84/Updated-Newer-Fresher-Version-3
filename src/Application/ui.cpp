@@ -1,7 +1,9 @@
 #include "application.h"
 #include <algorithm>
+#include <cstddef>
 #include <cstdio>
 #include <cstring>
+#include <filesystem>
 #include <imgui.h>
 #include <imgui_stdlib.h>
 #include <set>
@@ -55,6 +57,68 @@ static float linked_zoom_for_target(float source_zoom, int source_width,
     return source_zoom * ratio_x;
   }
   return source_zoom * std::sqrt(ratio_x * ratio_y);
+}
+
+void SDLCALL prepare_export_queue(void *userdata, const char *const *folderlist,
+                                  int) {
+#ifdef TRACY_ENABLE
+  ZoneScopedN("prepare_export_queue");
+#endif
+
+  if (!strcmp(*folderlist, "")) {
+    SDL_Log("Export folder dialog cancelled by user");
+    return;
+  }
+
+  auto *session = static_cast<Session *>(userdata);
+  session->pending.clear();
+  session->export_font_data.clear();
+  session->export_output_directory =
+      std::filesystem::path(*folderlist) / session->session_path().filename();
+
+  size_t total_items = 0;
+  for (const auto &[image_path, entries] : session->bill) {
+    for (const auto &[student_id, entry] : entries) {
+      (void)student_id;
+      total_items += std::max(entry.count, 0);
+    }
+  }
+  session->pending.reserve(total_items);
+
+  const std::string roll = session->path.filename().string();
+  for (const auto &[image_path, entries] : session->bill) {
+    for (const auto &[student_id, entry] : entries) {
+      if (entry.count < 1) {
+        continue;
+      }
+
+      const ExportInfo info =
+          session->database->get_export_information_from_id(student_id);
+      const std::string watermark = info.bhawan + " " + info.roomno;
+      for (int copy_index = 1; copy_index <= entry.count; ++copy_index) {
+        const std::string filename = roll + "_" + image_path.stem().string() +
+                                     "_" + info.bhawan + "_" + info.roomno +
+                                     "_" + student_id + "_" +
+                                     std::to_string(copy_index) + ".jpg";
+        session->pending.push_back(
+            {image_path,
+             std::filesystem::path(session->export_output_directory) / filename,
+             watermark, image_path.filename().string()});
+      }
+    }
+  }
+
+  session->export_total = static_cast<int>(session->pending.size());
+  session->export_progress = 0;
+  session->export_completed = false;
+  session->export_active_items.clear();
+
+  std::ostringstream status;
+  status << "Ready: " << session->pending.size() << " image";
+  if (session->pending.size() != 1) {
+    status << 's';
+  }
+  session->export_status_message = status.str();
 }
 
 void ImageEditor::render_preview() {
@@ -648,10 +712,12 @@ void Session::render_export_modal() {
   ImGui::Text("Destination");
   ImGui::SameLine(150.0f);
   ImGui::SetNextItemWidth(340.0f);
-  if (ImGui::InputText("##export_destination", &export_output_directory,
-                       ImGuiInputTextFlags_AutoSelectAll) &&
+
+  if (ImGui::SmallButton(export_output_directory.empty()
+                             ? "Browse..."
+                             : export_output_directory.c_str()) &&
       !exporting) {
-    prepare_export_queue();
+    SDL_ShowOpenFolderDialog(prepare_export_queue, this, window, ".", false);
   }
 
   ImGui::Text("Options");
@@ -663,10 +729,6 @@ void Session::render_export_modal() {
                                 : "Watermark stamping disabled";
   }
   ImGui::SameLine();
-  if (ImGui::Button("Reset destination") && !exporting) {
-    export_output_directory.clear();
-    prepare_export_queue();
-  }
 
   ImGui::Spacing();
   ImGui::TextUnformatted(export_status_message.c_str());

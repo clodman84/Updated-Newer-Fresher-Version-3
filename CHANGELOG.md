@@ -28,6 +28,7 @@
 * Preset making
 * Add bookmark feature in the carousel to show what images have been billed and what haven't
 * Test the whole application in valgrind
+* Move all Data folder access behind SDL_GetBasePath()
 
 # v0.5.1-beta
 

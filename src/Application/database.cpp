@@ -2,6 +2,7 @@
 #include "imgui.h"
 #include "sqlite3.h"
 
+#include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_log.h>
 
 #include <algorithm>
@@ -280,8 +281,13 @@ void prepare_database() {
   ZoneScopedN("prepare_database");
 #endif
   sqlite3 *database = nullptr;
-  const std::string db_filename = "./Data/database.db";
-  const std::string sql_filename = "./Data/schema.sql";
+  std::filesystem::path preferred_path = SDL_GetPrefPath("DoPySOFT", "UNFV3");
+  std::filesystem::path db_filename = preferred_path / "database.db";
+
+  std::cout << "Database Path: " << db_filename << '\n';
+
+  // TODO: Migrate to a cross platform resource based thing
+  const std::filesystem::path sql_filename = "./Data/schema.sql";
 
   if (sqlite3_open(db_filename.c_str(), &database) != SQLITE_OK) {
     std::cerr << "Error opening/creating DB: " << sqlite3_errmsg(database)

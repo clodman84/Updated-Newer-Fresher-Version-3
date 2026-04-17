@@ -210,6 +210,7 @@ void render_sessions(std::deque<std::unique_ptr<Session>> &sessions) {
 #ifdef TRACY_ENABLE
   ZoneScopedN("render_sessions");
 #endif
+
   ImGuiViewport *viewport = ImGui::GetMainViewport();
   const float menu_bar_height = ImGui::GetFrameHeight();
 
@@ -281,10 +282,11 @@ int main(int argc, char *argv[]) {
     // ONLY apply if we are running from a bundle/installation
     if (std::filesystem::exists(bundled_gegl)) {
       SDL_Log("Bundle detected! Redirecting GEGL/BABL paths to %s and %s",
-              bundled_gegl.c_str(), bundled_babl.c_str());
+              bundled_gegl.generic_string().c_str(),
+              bundled_babl.generic_string().c_str());
 #ifdef _WIN32
-      _putenv_s("GEGL_PATH", bundled_gegl.string().c_str());
-      _putenv_s("BABL_PATH", bundled_babl.string().c_str());
+      _putenv_s("GEGL_PATH", bundled_gegl.generic_string().c_str());
+      _putenv_s("BABL_PATH", bundled_babl.generic_string().c_str());
 #else
       setenv("GEGL_PATH", bundled_gegl.string().c_str(), 1);
       setenv("BABL_PATH", bundled_babl.string().c_str(), 1);
