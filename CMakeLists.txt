@@ -279,7 +279,7 @@ endif()
 # --------------------------------------------------
  
 set(CPACK_PACKAGE_NAME                "UNFV3")
-set(CPACK_PACKAGE_VENDOR              "DoPySOFT Inc.")
+set(CPACK_PACKAGE_VENDOR              "DoPySOFT")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "The DoPy Billing Software")
 set(CPACK_PACKAGE_VERSION_MAJOR       "0")
 set(CPACK_PACKAGE_VERSION_MINOR       "7")
@@ -290,6 +290,9 @@ set(CPACK_PACKAGE_INSTALL_DIRECTORY   "UNFV3")
 set(CPACK_PACKAGE_FILE_NAME
     "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}")
 set(CPACK_STRIP_FILES TRUE)
+set(CPACK_RESOURCE_FILE_LICENSE       "${CMAKE_CURRENT_SOURCE_DIR}/License.txt")
+set(CPACK_PACKAGE_HOMEPAGE_URL        "https://github.com/clodman84/Updated-Newer-Fresher-Version-3")
+
  
 # --------------------------------------------------
 # Generator-specific config
