@@ -259,7 +259,7 @@ if(WIN32)
     # Grab ALL compiled DLLs from vcpkg's bin directory and drop them next to the executable
     # This guarantees that all runtime plugins (like GEGL's png/jpg loaders) have their dependencies
     install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/bin/"
-            DESTINATION "${CMAKE_INSTALL_PREFIX}/."
+            DESTINATION "."
             FILES_MATCHING PATTERN "*.dll")
 endif()
 
