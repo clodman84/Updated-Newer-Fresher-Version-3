@@ -20,10 +20,10 @@
 ⡿⠋⠄⠄⠄⠄⢀⠒⠝⣞⢿⡿⣿⣽⢿⡽⣧⣳⡅⠌⠻⣿
 ⠁⠄⠄⠄⠄⠄⠐⡐⠱⡱⣻⡻⣝⣮⣟⣿⣻⣟⣻⡺⣊⣿
 
-By using this software, you acknowledge that you are up to no good.
-We don’t know what kind of no good. Probably minor.
-If this software causes any temporal anomalies, you agree to fix them before they happen.
-Unauthorised use of this software by a member of Photog will be met with a lot of bickering.
+By using this software, you acknowledge that you are up to no good. We don’t 
+know what kind of no good. Probably minor. If this software causes any temporal 
+anomalies, you agree to fix them before they happen. Unauthorised use of this 
+software by a member of Photog will be met with a lot of bickering.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the “Software”), to deal
