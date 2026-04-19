@@ -36,16 +36,19 @@ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 copies of the Software, and to permit persons to whom the Software is
 furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-If this software causes any temporal anomalies, you agree to fix them before 
-they happen.
-
-Use of this software by a member of Photograpy Club, BITS Pilani, Pilani Campus
-will have to be authorised by the copyright holder. The terms of such
-authorisation will have to necessarily include a payment of 7 seven cigarettes
-to the copyright holder.
+	1. The above copyright notice and this permission notice shall be 
+	   included in all copies or substantial portions of the Software.
+	   
+	2. In the event this Software causes temporal anomalies, paradoxes, 
+	   or violations of causality, you agree to resolve such issues 
+	   retroactively, proactively, or otherwise, preferably before 
+	   they occur.
+	   
+	3. Use of this Software by members of the Photography Club, BITS 
+	   Pilani (Pilani Campus) requires prior authorization from the 
+	   copyright holder. Such authorization must include a 
+	   non-negotiable fee of seven (7) cigarettes, payable in advance. 
+	   Brand disputes are outside the scope of this license.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
