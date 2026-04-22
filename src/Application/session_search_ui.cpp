@@ -24,11 +24,11 @@ void Session::render_searcher() {
 
   ImGui::SameLine();
   if (ImGui::ArrowButton("Previous", ImGuiDir_Left)) {
-    image_manager.load_previous();
+    current_image = image_manager.load_previous();
   }
   ImGui::SameLine(0.0f, 0.0f);
   if (ImGui::ArrowButton("Next", ImGuiDir_Right)) {
-    image_manager.load_next();
+    current_image = image_manager.load_next();
   }
   ImGui::SameLine();
 

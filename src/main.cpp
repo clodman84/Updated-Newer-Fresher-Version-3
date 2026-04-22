@@ -226,7 +226,7 @@ void render_sessions(std::deque<std::unique_ptr<Session>> &sessions,
                              ImGuiTabBarFlags_AutoSelectNewTabs)) {
     for (auto it = sessions.begin(); it != sessions.end();) {
       Session &session = **it;
-      if (session.draw_exporting) {
+      if (session.export_manager.draw_exporting) {
         session.export_manager.render_export_modal(window);
       }
 

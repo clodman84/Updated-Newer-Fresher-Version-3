@@ -36,7 +36,6 @@ public:
   std::filesystem::path folder_path;
   ExportManager export_manager;
   ImageManager image_manager;
-  bool draw_exporting = false;
 
 private:
   enum class KeyboardNavMode { Search, Billed };

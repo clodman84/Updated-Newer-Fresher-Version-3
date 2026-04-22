@@ -25,9 +25,7 @@ void SDLCALL prepare_export_queue(void *userdata, const char *const *folderlist,
   auto *export_manager = static_cast<ExportManager *>(userdata);
   export_manager->pending.clear();
   export_manager->export_font_data.clear();
-  if (export_manager->export_output_directory.empty()) {
-    return;
-  }
+  export_manager->export_output_directory = *folderlist;
 
   size_t total_items = 0;
   for (const auto &[image_path, entries] : export_manager->bill) {
