@@ -1,15 +1,11 @@
-#include "application.h"
-#include "imgui.h"
-#include "sqlite3.h"
-
-#include <SDL3/SDL_filesystem.h>
-#include <SDL3/SDL_log.h>
+#include "include/database.h"
 
 #include <algorithm>
-#include <array>
 #include <cctype>
 #include <fstream>
+#include <imgui.h>
 #include <iostream>
+#include <sqlite3.h>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -36,7 +32,7 @@ std::stringstream get_file_contents(const std::string &filename) {
 }
 
 void log_sqlite_error(const char *context, sqlite3 *db) {
-  std::cerr << context << ": " << sqlite3_errmsg(db) << std::endl;
+  SDL_Log("DB Error - %s - %s", context, sqlite3_errmsg(db));
 }
 
 void finalize_statement(sqlite3_stmt *&stmt) {
@@ -345,3 +341,43 @@ ExportInfo Database::get_export_information_from_id(std::string idno) {
 }
 
 void Database::clear_loaded_csv() { loaded.clear(); }
+
+void Database::render_loaded_csv() {
+  if (!show_loaded_csv) {
+    return;
+  }
+
+#ifdef TRACY_ENABLE
+  ZoneScopedN("Database::render_loaded_csv");
+#endif
+  if (!ImGui::Begin("Loaded Mess List", &show_loaded_csv)) {
+    ImGui::End();
+    return;
+  }
+
+  ImGui::Text("%zu CSV rows parsed. Review before importing.", loaded.size());
+  if (ImGui::BeginTable("##loaded_csv", 5,
+                        ImGuiTableFlags_RowBg |
+                            ImGuiTableFlags_SizingFixedFit)) {
+    ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_WidthFixed, 120.0f);
+    ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthStretch, 2.0f);
+    ImGui::TableSetupColumn("Sex", ImGuiTableColumnFlags_WidthFixed, 40.0f);
+    ImGui::TableSetupColumn("Bhawan", ImGuiTableColumnFlags_WidthFixed, 50.0f);
+    ImGui::TableSetupColumn("Room", ImGuiTableColumnFlags_WidthFixed, 40.0f);
+    ImGui::TableHeadersRow();
+
+    for (const auto &line : loaded) {
+      ImGui::TableNextRow();
+      for (const auto &item : line) {
+        ImGui::TableNextColumn();
+        ImGui::TextUnformatted(item.c_str());
+      }
+    }
+    ImGui::EndTable();
+  }
+
+  if (ImGui::Button("Looks good to me, load this messlist")) {
+    insert_data();
+  }
+  ImGui::End();
+}

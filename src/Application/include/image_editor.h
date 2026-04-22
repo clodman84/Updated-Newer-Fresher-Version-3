@@ -1,7 +1,7 @@
-#ifndef IMAGE_EDITOR
-#define IMAGE_EDITOR
+#pragma once
 
 #include <SDL3/SDL.h>
+#include <SDL3/SDL_gpu.h>
 #include <atomic>
 #include <condition_variable>
 #include <filesystem>
@@ -103,7 +103,6 @@ public:
     start_render_thread();
   };
   ~ImageEditor();
-  SDL_GPUTexture *preview_texture = nullptr;
   std::filesystem::path image_path;
   int image_width = 0;
   int image_height = 0;
@@ -129,11 +128,12 @@ public:
 
 private:
   std::vector<SDL_GPUTexture *> textures_to_release;
-  SDL_GPUDevice *device = nullptr;
+  SDL_GPUDevice *device;
+  SDL_GPUTexture *preview_texture;
+
   float zoom = 1.0f;
   ImVec2 canvas_size = ImVec2(0.0f, 0.0f);
   ImVec2 pan = ImVec2(0.0f, 0.0f);
-
   void prepare_gegl_graph();
 
   void start_render_thread();
@@ -175,5 +175,3 @@ private:
   GeglNode *crop = nullptr;
   GeglNode *last_node = nullptr;
 };
-
-#endif // !IMAGE_EDITOR

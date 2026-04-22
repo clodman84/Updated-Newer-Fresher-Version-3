@@ -1,11 +1,7 @@
-#include "Application/application.h"
 #include "Application/operations/gimp_levels.h"
 #include "Application/operations/my_colour_enhance.h"
+#include "include/session.h"
 
-#include "SDL3/SDL_dialog.h"
-#include "SDL3/SDL_log.h"
-#include "SDL3/SDL_video.h"
-#include "image_editor.h"
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
 #include "imgui_impl_sdlgpu3.h"
@@ -38,7 +34,6 @@ struct AppState {
   SDL_GPUDevice *device = nullptr;
   std::mutex pending_mutex;
   std::vector<std::filesystem::path> pending_session_paths;
-  std::shared_ptr<ImageEditor> editor;
 };
 
 static const SDL_DialogFileFilter csv_filters[] = {{"CSV files", "csv"}};
@@ -165,8 +160,10 @@ void process_pending_sessions(AppState &app_state,
   for (const auto &session_path : pending_paths) {
     try {
       sessions.push_back(
-          std::make_unique<Session>(app_state.database, session_path,
-                                    app_state.device, app_state.editor));
+          std::make_unique<Session>(session_path, app_state.device));
+      sessions.back()->image_manager.load_folder(app_state.device);
+      sessions.back()->image_manager.load_image_thumbnails(
+          0, sessions.back()->image_manager.size);
     } catch (const std::exception &error) {
       std::cerr << "Failed to create session for '" << session_path.string()
                 << "': " << error.what() << std::endl;
@@ -189,9 +186,9 @@ void render_menu_bar(SDL_Window *window, Database &db, AppState &app_state,
     if (ImGui::BeginMenu("Export Roll")) {
       for (auto &session_ptr : sessions) {
         Session &session = *session_ptr;
-        const std::string session_label = session.session_path().string();
+        const std::string session_label = session.folder_path.string();
         if (ImGui::MenuItem(session_label.c_str())) {
-          session.open_export_modal();
+          session.export_manager.open_export_modal();
         }
       }
       ImGui::EndMenu();
@@ -201,12 +198,12 @@ void render_menu_bar(SDL_Window *window, Database &db, AppState &app_state,
   ImGui::EndMainMenuBar();
 }
 
-void render_sessions(std::deque<std::unique_ptr<Session>> &sessions) {
+void render_sessions(std::deque<std::unique_ptr<Session>> &sessions,
+                     SDL_Window *window) {
   if (sessions.empty()) {
     return;
   }
   auto io = ImGui::GetIO();
-
 #ifdef TRACY_ENABLE
   ZoneScopedN("render_sessions");
 #endif
@@ -230,11 +227,11 @@ void render_sessions(std::deque<std::unique_ptr<Session>> &sessions) {
     for (auto it = sessions.begin(); it != sessions.end();) {
       Session &session = **it;
       if (session.draw_exporting) {
-        session.render_export_modal();
+        session.export_manager.render_export_modal(window);
       }
 
       bool open = true;
-      const std::string tab_name = get_folder_name(session.image_folder());
+      const std::string tab_name = get_folder_name(session.folder_path);
       if (ImGui::BeginTabItem(tab_name.c_str(), &open)) {
         session.handle_keyboard_nav();
         const float available_width = ImGui::GetContentRegionAvail().x;
@@ -247,7 +244,7 @@ void render_sessions(std::deque<std::unique_ptr<Session>> &sessions) {
         ImGui::EndChild();
         ImGui::SameLine();
 
-        session.manager.render_manager(&session.bill);
+        session.render_image_panel();
         ImGui::EndTabItem();
       }
 
@@ -360,8 +357,7 @@ int main(int argc, char *argv[]) {
   bool done = false;
 
   Database db;
-  auto editor = std::make_shared<ImageEditor>(gpu_device);
-  AppState app_state{.database = &db, .device = gpu_device, .editor = editor};
+  AppState app_state{.database = &db, .device = gpu_device};
   std::deque<std::unique_ptr<Session>> sessions;
 
   while (!done) {
@@ -392,7 +388,7 @@ int main(int argc, char *argv[]) {
     ImGui::NewFrame();
 
     render_menu_bar(window, db, app_state, sessions);
-    render_sessions(sessions);
+    render_sessions(sessions, window);
 
     if (db.show_loaded_csv) {
       db.render_loaded_csv();
@@ -433,7 +429,6 @@ int main(int argc, char *argv[]) {
 
   gegl_exit();
   sessions.clear();
-  editor.reset();
   SDL_WaitForGPUIdle(gpu_device);
   ImGui_ImplSDL3_Shutdown();
   ImGui_ImplSDLGPU3_Shutdown();

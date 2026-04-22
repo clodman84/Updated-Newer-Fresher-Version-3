@@ -2,17 +2,29 @@
   "name": "unfv3",
   "version": "1.0.0",
   "dependencies": [
-    {"name":"sdl3", "features": ["vulkan"]},
-    "ncnn",
-    {"name":"sqlite3", "features": ["fts5"]},
-    "nlohmann-json",
-    "libjpeg-turbo",
-    "tracy",
-    "gegl",
     "babl",
+    "gegl",
     {
       "name": "imgui",
-      "features": ["sdlgpu3-binding"]
-    }
+      "features": [
+        "sdlgpu3-binding"
+      ]
+    },
+    "libjpeg-turbo",
+    "ncnn",
+    "nlohmann-json",
+    {
+      "name": "sdl3",
+      "features": [
+        "vulkan"
+      ]
+    },
+    {
+      "name": "sqlite3",
+      "features": [
+        "fts5"
+      ]
+    },
+    "tracy"
   ]
 }

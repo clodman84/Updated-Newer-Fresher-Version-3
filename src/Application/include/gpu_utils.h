@@ -2,11 +2,12 @@
 #define GPU_UTILS_H
 
 #include <SDL3/SDL.h>
+#include <SDL3/SDL_gpu.h>
 #include <filesystem>
 
 unsigned char *
 load_texture_data_from_file(const std::filesystem::path &file_name, int *width,
-                            int *height, int max_width = 0, int max_height = 0);
+                            int *height, float scale);
 
 bool upload_texture_data_to_gpu(unsigned char *image_data, int width,
                                 int height, SDL_GPUDevice *device,

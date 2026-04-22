@@ -1,7 +1,4 @@
-#include "application.h"
-#include <algorithm>
-#include <string>
-#include <vector>
+#include "include/database.h"
 
 #ifdef TRACY_ENABLE
 #include <tracy/Tracy.hpp>
@@ -205,21 +202,23 @@ std::vector<Token_T> parse(std::vector<Token_T> tokens) {
   return output;
 }
 
-void Session::evaluate() {
+std::vector<std::array<std::string, 4>>
+Database::evaluate(std::string search_query) {
 
 #ifdef TRACY_ENABLE
-  ZoneScopedN("Evaluate Query");
+  ZoneScopedN("Database::evaluate");
 #endif
 
   std::vector<Token_T> tokens = parse(lex(search_query));
   std::vector<std::vector<std::array<std::string, 4>>> result_stack;
+  std::vector<std::array<std::string, 4>> search_results;
 
   for (const auto token : tokens) {
     switch (token.type) {
     case FTS_SEARCH:
     case BHAWAN_SEARCH:
     case ID_SEARCH:
-      database->search(token.type, token.value, search_results);
+      search(token.type, token.value, search_results);
       result_stack.push_back(search_results);
       break;
     case AND:
@@ -253,4 +252,5 @@ void Session::evaluate() {
   }
   if (!result_stack.empty())
     search_results = result_stack.back();
+  return search_results;
 }

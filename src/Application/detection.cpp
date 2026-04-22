@@ -1,6 +1,6 @@
-#include "detection.h"
-#include "gpu_utils.h"
-#include "stb_image.h"
+#include "include/detection.h"
+#include "include/gpu_utils.h"
+#include "include/stb_image.h"
 
 #include <algorithm>
 #include <cmath>
@@ -176,7 +176,7 @@ FaceDetector::scan_faces(const std::filesystem::path &path) {
 
   // ---- load image ----
   int w, h;
-  unsigned char *img = load_texture_data_from_file(path, &w, &h, 3000, 2000);
+  unsigned char *img = load_texture_data_from_file(path, &w, &h, 0.5);
   if (!img)
     return {};
 
@@ -244,23 +244,13 @@ FaceDetector::scan_faces(const std::filesystem::path &path) {
                          scale_y, tmp);
     }
 
-    // append
     all_results.insert(all_results.end(), tmp.begin(), tmp.end());
   };
-
-  // ----------------------------------------
-  // run multi-scale
-  // ----------------------------------------
 
   run_scale(1.0f); // normal
   run_scale(0.5f); // helps large faces
 
   stbi_image_free(img);
-
-  // ----------------------------------------
-  // final NMS
-  // ----------------------------------------
-
   nms(all_results, nms_thresh);
 
   for (auto &f : all_results) {
@@ -270,9 +260,6 @@ FaceDetector::scan_faces(const std::filesystem::path &path) {
     f.bounds_max.y = std::min((float)h, f.bounds_max.y);
   }
 
-  // ----------------------------------------
-  // sort left → right
-  // ----------------------------------------
   std::sort(all_results.begin(), all_results.end(),
             [](const FaceRect &a, const FaceRect &b) {
               return a.bounds_min.x < b.bounds_min.x;

@@ -1,10 +1,10 @@
-#include "gpu_utils.h"
+#include "include/gpu_utils.h"
 #include "imgui.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_RESIZE_IMPLEMENTATION
-#include "stb_image.h"
-#include "stb_image_resize2.h"
+#include "include/stb_image.h"
+#include "include/stb_image_resize2.h"
 
 #include <filesystem>
 #include <iostream>
@@ -16,10 +16,7 @@
 #endif
 
 unsigned char *load_jpeg_data_from_file(const std::filesystem::path &file_name,
-                                        int *width, int *height, int max_width,
-                                        int max_height) {
-  // TODO: Rethink the max_height max_width shenanigans since only 1/2 and 1/4
-  // resolutions are SIMD Accelerated.
+                                        int *width, int *height, float scale) {
 #ifdef TRACY_ENABLE
   ZoneScopedN("load_jpeg_from_file");
 #endif
@@ -142,36 +139,9 @@ unsigned char *load_jpeg_data_from_file(const std::filesystem::path &file_name,
     return nullptr;
   }
 
-  // --- NEW: FRACTIONAL SCALING LOGIC ---
-  int scaled_w = *width;
-  int scaled_h = *height;
-
-  if (max_width > 0 && max_height > 0) {
-    int num_factors;
-    tjscalingfactor *factors = tjGetScalingFactors(&num_factors);
-
-    if (factors) {
-      // Loop through all supported hardware fractions
-      for (int i = 0; i < num_factors; i++) {
-        int temp_w = TJSCALED(*width, factors[i]);
-        int temp_h = TJSCALED(*height, factors[i]);
-
-        // Find the smallest scale that is still larger than your requested max
-        // limits
-        if (temp_w >= max_width && temp_h >= max_height) {
-          scaled_w = temp_w;
-          scaled_h = temp_h;
-        }
-      }
-    }
-  }
-
-  // printf("Scaled width and heights: %d * %d\n", scaled_w, scaled_h);
-
   // Update output pointers to the new scaled dimensions
-  *width = scaled_w;
-  *height = scaled_h;
-  // -------------------------------------
+  *width = *width * scale;
+  *height = *height * scale;
 
   // Allocate target RGBA buffer using the NEW scaled dimensions
   const size_t image_size = static_cast<size_t>(*width) * (*height) * 4;
@@ -290,9 +260,8 @@ unsigned char *load_jpeg_data_from_file(const std::filesystem::path &file_name,
 
 unsigned char *
 load_texture_data_from_file(const std::filesystem::path &file_name, int *width,
-                            int *height, int max_width, int max_height) {
-  return load_jpeg_data_from_file(file_name, width, height, max_width,
-                                  max_height);
+                            int *height, float scale) {
+  return load_jpeg_data_from_file(file_name, width, height, scale);
 }
 
 bool upload_texture_data_to_gpu(unsigned char *image_data, int width,
