@@ -2,6 +2,7 @@
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_gpu.h>
+#include <cstdio>
 #include <filesystem>
 #include <functional>
 #include <imgui.h>
@@ -42,8 +43,18 @@ public:
     ImVec2 p_min = ImGui::GetCursorScreenPos();
     ImVec2 p_max = ImVec2(p_min.x + size.x, p_min.y + size.y);
 
-    if (thumbnail_texture)
+    if (thumbnail_texture != nullptr)
       ImGui::Image(thumbnail_texture, size);
+    else {
+      if (thumb_height == 0) {
+        // placeholder sizes
+        size = {150, 200};
+        p_max = ImVec2(p_min.x + size.x, p_min.y + size.y);
+      }
+      ImDrawList *draw_list = ImGui::GetWindowDrawList();
+      draw_list->AddRectFilled(p_min, p_max,
+                               ImGui::GetColorU32(ImGuiCol_FrameBg));
+    }
 
     ImGui::SetCursorScreenPos(p_min);
     if (ImGui::InvisibleButton("##hitbox", size)) {

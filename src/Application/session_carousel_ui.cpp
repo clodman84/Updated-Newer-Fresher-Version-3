@@ -1,4 +1,6 @@
 #include "include/session.h"
+#include <algorithm>
+#include <cstdio>
 #include <imgui.h>
 
 void Session::render_carousel(float carousel_height) {
@@ -9,6 +11,9 @@ void Session::render_carousel(float carousel_height) {
   if (ImGui::IsWindowHovered()) {
     ImGui::SetScrollX(ImGui::GetScrollX() - io.MouseWheel * 50.0f);
   }
+
+  int currently_visible_start = -1;
+  int currently_visible_end = -1;
 
   for (int i = 0; i < (int)image_manager.size; i++) {
 
@@ -49,6 +54,12 @@ void Session::render_carousel(float carousel_height) {
         is_selected, (i == last_drawn_index), is_context_menu_open);
     ImGui::EndGroup();
 
+    if (ImGui::IsItemVisible()) {
+      if (currently_visible_start == -1)
+        currently_visible_start = i;
+      currently_visible_end = i;
+    };
+
     // Right-click context menu for Same As
     if (ImGui::BeginPopupContextItem("ThumbnailContextMenu")) {
       if (!is_selected) {
@@ -78,6 +89,12 @@ void Session::render_carousel(float carousel_height) {
     ImGui::PopID();
     ImGui::SameLine();
   }
-
   ImGui::EndChild();
+  if (currently_visible_start != visible_start ||
+      currently_visible_end != visible_end) {
+    visible_start = currently_visible_start;
+    visible_end = currently_visible_end;
+    image_manager.load_thumbnail_range(visible_start, visible_end);
+    image_manager.schedule_thumbnail_cleanup(visible_start, visible_end);
+  }
 }

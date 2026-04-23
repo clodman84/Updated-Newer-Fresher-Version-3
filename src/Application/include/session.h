@@ -53,7 +53,7 @@ private:
   ImVec2 canvas_size;
   ImVec2 pan;
   float zoom;
-  bool with_detection;
+  bool with_detection = false;
 
   bool with_preview = false;
   bool link_preview_viewer = false;
@@ -76,4 +76,7 @@ private:
   bool focus_billed_on_next_frame = false;
   int last_drawn_index = -1;
   int last_clicked_index = -1;
+
+  int visible_start = -1;
+  int visible_end = -1;
 };

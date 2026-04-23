@@ -223,7 +223,7 @@ void Session::render_image_panel() {
   auto io = ImGui::GetIO();
 
   ImGui::BeginChild("ImagePanel");
-  constexpr float carousel_height = 270.0f;
+  constexpr float carousel_height = 250.0f;
   const ImVec2 available = ImGui::GetContentRegionAvail();
   const float top_height = std::max(0.0f, available.y - carousel_height - 5.0f);
   ImGui::BeginChild("TopRegion", ImVec2(0, top_height),

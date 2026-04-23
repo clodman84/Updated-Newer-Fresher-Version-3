@@ -1,6 +1,7 @@
 #include "include/image_manager.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <filesystem>
 #include <iostream>
 #include <vector>
@@ -93,19 +94,67 @@ Image *ImageManager::load_previous() {
   return load_image();
 }
 
-void ImageManager::load_image_thumbnails(int start_idx, int end_idx) {
-#ifdef TRACY_ENABLE
-  ZoneScopedN("ImageManager::load_image_thumbnails");
-#endif
-  std::vector<std::thread> workers;
-  workers.reserve(end_idx - start_idx);
+void ImageManager::start_thumbnail_workers(size_t num_threads) {
+  for (size_t i = 0; i < num_threads; ++i) {
+    thumbnail_threads.emplace_back([this]() {
+      while (true) {
+        Task task;
 
-  for (size_t index = start_idx; index < end_idx - start_idx; ++index) {
-    workers.emplace_back(
-        [this, index]() { image_order[index].load_thumbnail(); });
+        {
+          std::unique_lock<std::mutex> lock(thumbnail_mutex);
+          thumbnail_cv.wait(
+              lock, [this]() { return !task_queue.empty() || stop_flag; });
+
+          if (stop_flag && task_queue.empty())
+            return;
+
+          task = task_queue.top();
+          task_queue.pop();
+        }
+
+        if (task.generation != current_generation.load())
+          continue;
+
+        if (task.type == TaskType::Create) {
+          if (task.generation != current_generation.load())
+            continue;
+          image_order[task.index].load_thumbnail();
+        } else {
+          if (task.generation != current_generation.load())
+            continue;
+          image_order[task.index].destroy_thumbnail();
+        }
+      }
+    });
+  }
+}
+
+void ImageManager::stop_thumbnail_workers() {
+  stop_flag = true;
+  thumbnail_cv.notify_all();
+  for (auto &t : thumbnail_threads)
+    if (t.joinable())
+      t.join();
+}
+
+void ImageManager::load_thumbnail_range(int start, int end) {
+  uint64_t gen = ++current_generation;
+  std::lock_guard<std::mutex> lock(thumbnail_mutex);
+
+  for (int i = start; i <= end; ++i) {
+    task_queue.push(Task{TaskType::Create, (size_t)i, 0, gen});
   }
 
-  for (auto &worker : workers) {
-    worker.join();
+  thumbnail_cv.notify_all();
+}
+
+void ImageManager::schedule_thumbnail_cleanup(int start, int end) {
+  std::lock_guard<std::mutex> lock(thumbnail_mutex);
+  for (size_t i = 0; i < image_order.size(); ++i) {
+    if (i < start || i > end) {
+      task_queue.push(Task{TaskType::Destroy, i,
+                           10000, // very low priority
+                           current_generation});
+    }
   }
 }

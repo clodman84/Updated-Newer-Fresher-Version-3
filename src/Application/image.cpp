@@ -60,31 +60,34 @@ void Image::load_thumbnail() {
 #ifdef TRACY_ENABLE
   ZoneScopedN("Image::load_thumbnail");
 #endif
-  unsigned char *src =
-      load_texture_data_from_file(filename, &thumb_width, &thumb_height, 0.25);
+  if (thumbnail_texture != nullptr)
+    return;
+  int w;
+  int h;
+  unsigned char *src = load_texture_data_from_file(filename, &w, &h, 0.25);
   if (src == nullptr) {
     return;
   }
 
   constexpr int dst_h = 200;
-  const float factor = static_cast<float>(dst_h) / thumb_height;
-  const int dst_w = std::max(1, static_cast<int>(thumb_width * factor));
+  const float factor = static_cast<float>(dst_h) / h;
+  const int dst_w = std::max(1, static_cast<int>(w * factor));
 
-  unsigned char *dst =
-      resize_image_rgba8(src, thumb_width, thumb_height, dst_w, dst_h);
+  unsigned char *dst = resize_image_rgba8(src, w, h, dst_w, dst_h);
 
   free(src);
 
-  thumb_width = dst_w;
-  thumb_height = dst_h;
+  w = dst_w;
+  h = dst_h;
 
-  if (!upload_texture_data_to_gpu(dst, thumb_width, thumb_height, device,
-                                  &thumbnail_texture)) {
+  if (!upload_texture_data_to_gpu(dst, w, h, device, &thumbnail_texture)) {
     texture = nullptr;
-    width = 0;
-    height = 0;
+    thumb_width = 0;
+    thumb_height = 0;
+  } else {
+    thumb_width = w;
+    thumb_height = h;
   }
-
   free(dst);
 }
 
