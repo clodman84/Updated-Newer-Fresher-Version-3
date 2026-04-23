@@ -40,8 +40,8 @@ public:
   void start_export();
   void finish_export_if_ready();
 
-  int visible_billed_entry_count(std::filesystem::path path) const {
-    const auto entries = bill.at(path);
+  int visible_billed_entry_count(std::filesystem::path path) {
+    auto entries = bill[path];
     int count = 0;
     for (const auto &[id, entry] : entries) {
       (void)id;

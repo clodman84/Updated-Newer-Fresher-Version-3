@@ -24,11 +24,11 @@ void Session::render_searcher() {
 
   ImGui::SameLine();
   if (ImGui::ArrowButton("Previous", ImGuiDir_Left)) {
-    current_image = image_manager.load_previous();
+    image_manager.load_previous();
   }
   ImGui::SameLine(0.0f, 0.0f);
   if (ImGui::ArrowButton("Next", ImGuiDir_Right)) {
-    current_image = image_manager.load_next();
+    image_manager.load_next();
   }
   ImGui::SameLine();
 
@@ -73,8 +73,9 @@ void Session::render_search_results_table() {
       ImGui::TableNextColumn();
       if (column == 0) {
         if (ImGui::Button(line[column].c_str())) {
-          export_manager.increment_for_id(line[column], line[column + 1],
-                                          current_image->filename);
+          export_manager.increment_for_id(
+              line[column], line[column + 1],
+              image_manager.current_image->filename);
         }
       } else {
         ImGui::TextUnformatted(line[column].c_str());

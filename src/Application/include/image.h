@@ -42,7 +42,8 @@ public:
     ImVec2 p_min = ImGui::GetCursorScreenPos();
     ImVec2 p_max = ImVec2(p_min.x + size.x, p_min.y + size.y);
 
-    ImGui::Image(thumbnail_texture, size);
+    if (thumbnail_texture)
+      ImGui::Image(thumbnail_texture, size);
 
     ImGui::SetCursorScreenPos(p_min);
     if (ImGui::InvisibleButton("##hitbox", size)) {

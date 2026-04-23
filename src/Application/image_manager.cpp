@@ -50,6 +50,13 @@ void ImageManager::load_folder(SDL_GPUDevice *device) {
   size = image_order.size();
 }
 
+void ImageManager::cleanup_stale_images() {
+  for (auto image : stale_images) {
+    image->destroy_texture();
+  }
+  stale_images.clear();
+}
+
 Image *ImageManager::load_image() {
 #ifdef TRACY_ENABLE
   ZoneScopedN("ImageManager::load_image");
@@ -58,8 +65,16 @@ Image *ImageManager::load_image() {
       index >= static_cast<int>(image_order.size())) {
     return nullptr;
   }
+
+  if (current_image != nullptr &&
+      current_image->filename == image_order[index].filename)
+    return current_image;
+  if (current_image != nullptr)
+    stale_images.push_back(current_image);
+
   image_order[index].load_halfres();
-  return &image_order[index];
+  current_image = &image_order[index];
+  return current_image;
 }
 
 Image *ImageManager::load_next() {

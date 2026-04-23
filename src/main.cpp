@@ -162,8 +162,8 @@ void process_pending_sessions(AppState &app_state,
       sessions.push_back(
           std::make_unique<Session>(session_path, app_state.device));
       sessions.back()->image_manager.load_folder(app_state.device);
-      sessions.back()->image_manager.load_image_thumbnails(
-          0, sessions.back()->image_manager.size);
+      sessions.back()->image_manager.load_image_thumbnails(0, 40);
+      sessions.back()->image_manager.load_image();
     } catch (const std::exception &error) {
       std::cerr << "Failed to create session for '" << session_path.string()
                 << "': " << error.what() << std::endl;

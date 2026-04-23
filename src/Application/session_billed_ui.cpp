@@ -19,7 +19,7 @@ void Session::render_billed_table() {
 
   int visible_index = 0;
   for (auto &[student_id, entry] :
-       export_manager.bill[current_image->filename]) {
+       export_manager.bill[image_manager.current_image->filename]) {
     if (entry.count < 1) {
       continue;
     }
@@ -71,13 +71,13 @@ void Session::render_billed() {
     focus_billed_on_next_frame = false;
   }
 
-  if (current_image == nullptr) {
+  if (image_manager.current_image == nullptr) {
     ImGui::TextDisabled("Image not loaded.");
     ImGui::EndChild();
     return;
   }
 
-  if (export_manager.bill[current_image->filename].empty()) {
+  if (export_manager.bill[image_manager.current_image->filename].empty()) {
     ImGui::TextDisabled("No billed entries for the current image.");
     ImGui::EndChild();
     return;

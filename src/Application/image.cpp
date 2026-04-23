@@ -12,19 +12,14 @@
 #endif
 
 Image::~Image() {
-  if (texture != nullptr && device != nullptr) {
-    SDL_ReleaseGPUTexture(device, texture);
-  }
-  if (thumbnail_texture != nullptr && device != nullptr) {
-    SDL_ReleaseGPUTexture(device, thumbnail_texture);
-  }
+  destroy_texture();
+  destroy_thumbnail();
 }
 
 void Image::load_fullres() {
 #ifdef TRACY_ENABLE
   ZoneScopedN("Image::load_fullres");
 #endif
-  destroy_texture();
   unsigned char *image_data =
       load_texture_data_from_file(filename, &width, &height, 1.0);
   if (image_data == nullptr) {
@@ -45,7 +40,6 @@ void Image::load_halfres() {
 #ifdef TRACY_ENABLE
   ZoneScopedN("Image::load_halfres");
 #endif
-  destroy_texture();
   unsigned char *image_data =
       load_texture_data_from_file(filename, &width, &height, 0.5);
   if (image_data == nullptr) {
@@ -66,7 +60,6 @@ void Image::load_thumbnail() {
 #ifdef TRACY_ENABLE
   ZoneScopedN("Image::load_thumbnail");
 #endif
-  destroy_thumbnail();
   unsigned char *src =
       load_texture_data_from_file(filename, &thumb_width, &thumb_height, 0.25);
   if (src == nullptr) {
@@ -98,12 +91,14 @@ void Image::load_thumbnail() {
 void Image::destroy_thumbnail() {
   if (thumbnail_texture != nullptr && device != nullptr) {
     SDL_ReleaseGPUTexture(device, thumbnail_texture);
+    thumbnail_texture = nullptr;
   }
 }
 
 void Image::destroy_texture() {
   if (texture != nullptr && device != nullptr) {
     SDL_ReleaseGPUTexture(device, texture);
+    texture = nullptr;
   }
 }
 

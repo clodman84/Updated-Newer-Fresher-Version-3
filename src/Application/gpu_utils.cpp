@@ -156,7 +156,7 @@ unsigned char *load_jpeg_data_from_file(const std::filesystem::path &file_name,
     ZoneScopedN("load_jpeg_from_file:Decompress JPEG");
 #endif
     if (tjDecompress2(tjInstance, file_data.data(), file_size, image_data,
-                      *width, 0, *height, TJPF_RGBA, TJFLAG_FASTDCT) < 0) {
+                      *width, 0, *height, TJPF_RGBX, TJFLAG_FASTDCT) < 0) {
       IM_FREE(image_data);
       tjDestroy(tjInstance);
       return nullptr;
@@ -170,8 +170,8 @@ unsigned char *load_jpeg_data_from_file(const std::filesystem::path &file_name,
 #ifdef TRACY_ENABLE
     ZoneScopedN("load_jpeg_from_file:rotate_image")
 #endif
-        // TODO: This can be even faster since TurboJPEG gives us autorotate in
-        // the decode step itself
+        // TODO: This can be skipped?? Rotate on the GPU (by preserving
+        // orientation info)
         if (orientation != 1 && orientation >= 1 && orientation <= 8) {
       const int w = *width;
       const int h = *height;

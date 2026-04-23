@@ -12,13 +12,14 @@
 #include <imgui.h>
 #include <set>
 #include <string>
+#include <vector>
 
 class Session {
 public:
   Session(std::filesystem::path folder_path, SDL_GPUDevice *device)
       : folder_path(folder_path), export_manager(folder_path),
         image_manager(folder_path), editor(device) {};
-  ~Session() { current_image->destroy_texture(); };
+  ~Session() = default;
 
   void handle_keyboard_nav();
 
@@ -39,6 +40,7 @@ public:
 
 private:
   enum class KeyboardNavMode { Search, Billed };
+  std::vector<Image> marked_for_destruction;
 
   void sync_search_selection_bounds();
   void sync_billed_selection_bounds();
@@ -61,8 +63,6 @@ private:
   Database database;
   ImageEditor editor;
   FaceDetector detector;
-
-  Image *current_image = nullptr;
 
   std::set<std::filesystem::path> selection_storage;
 

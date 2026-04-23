@@ -25,7 +25,7 @@ inline ImVec2 operator*=(ImVec2 &a, float scalar) {
 }
 
 void Session::reset_view_to_image() {
-  const Image *image = current_image;
+  const Image *image = image_manager.current_image;
   if (image == nullptr || !image->is_valid()) {
     zoom = 0.0f;
     pan = ImVec2(0.0f, 0.0f);
@@ -60,7 +60,7 @@ void Session::render_main_image() {
   ImGui::TableNextColumn();
   ImGui::BeginChild("ViewerChild", ImVec2(0, 0));
 
-  const Image *image = current_image;
+  const Image *image = image_manager.current_image;
   if (image == nullptr || !image->is_valid()) {
     ImGui::TextDisabled("Failed to load image.");
     ImGui::EndChild();
@@ -121,7 +121,8 @@ void Session::render_main_image() {
       ImVec2(0, 0), ImVec2(1, 1));
 
   if (with_detection) {
-    for (auto face : detector.scan_faces(current_image->filename)) {
+    for (auto face :
+         detector.scan_faces(image_manager.current_image->filename)) {
       draw_list->AddRect(face.bounds_min * zoom + image_pos,
                          face.bounds_max * zoom + image_pos,
                          ImGui::GetColorU32({0, 255, 0, 255}));
@@ -156,7 +157,7 @@ static float linked_zoom_for_target(float source_zoom, int source_width,
 }
 
 void Session::render_control_panel() {
-  const Image *image = current_image;
+  const Image *image = image_manager.current_image;
 
   ImGui::TableNextColumn();
   ImGui::BeginChild("Control Panel", ImVec2(0, 0));
@@ -210,11 +211,13 @@ void Session::render_control_panel() {
 
 void Session::render_image_panel() {
   editor.cleanup_stale_resources();
+  image_manager.cleanup_stale_images();
   bool new_preview = false;
 
-  if (with_preview && current_image != nullptr && current_image->is_valid() &&
-      (editor.image_path != current_image->filename)) {
-    editor.load_path(current_image->filename);
+  if (with_preview && image_manager.current_image != nullptr &&
+      image_manager.current_image->is_valid() &&
+      (editor.image_path != image_manager.current_image->filename)) {
+    editor.load_path(image_manager.current_image->filename);
     new_preview = true;
   }
   auto io = ImGui::GetIO();
@@ -241,18 +244,20 @@ void Session::render_image_panel() {
     render_main_image();
     if (with_preview) {
       if (link_preview_viewer) {
-        editor.set_view(linked_zoom_for_target(
-                            zoom, current_image->width, current_image->height,
-                            editor.image_width, editor.image_height),
-                        pan);
+        editor.set_view(
+            linked_zoom_for_target(zoom, image_manager.current_image->width,
+                                   image_manager.current_image->height,
+                                   editor.image_width, editor.image_height),
+            pan);
       }
       editor.render_preview();
       if (new_preview)
         editor.reset_view_to_image();
       if (link_preview_viewer) {
         zoom = linked_zoom_for_target(editor.get_zoom(), editor.image_width,
-                                      editor.image_height, current_image->width,
-                                      current_image->height);
+                                      editor.image_height,
+                                      image_manager.current_image->width,
+                                      image_manager.current_image->height);
         pan = editor.get_pan();
       }
     }
