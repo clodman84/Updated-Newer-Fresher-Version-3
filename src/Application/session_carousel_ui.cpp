@@ -1,6 +1,5 @@
 #include "include/session.h"
 #include <algorithm>
-#include <cstdio>
 #include <imgui.h>
 
 void Session::render_carousel(float carousel_height) {

@@ -3,9 +3,10 @@
 * Added Face Counting
 * Images always open the right way up now
 * Added simple image editor
-* Added multiselect and mass "Same As"
+* Added multi-select and mass "Same As"
 * Improved keyboard navigation
-* Lowered JPEG loading times to ~100ms
+* Lowered JPEG loading times to <= 100ms (24MP JPEG) on my computer
+* Greatly reduced memory consumption by loading thumbnails only when visible through background threads
 
 ## Planned For Next Release
 
