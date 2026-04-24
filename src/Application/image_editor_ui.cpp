@@ -2,6 +2,7 @@
 #include "include/image_editor.h"
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <imgui.h>
 #include <imgui_internal.h>
 
@@ -19,6 +20,7 @@ void ImageEditor::render_preview() {
   canvas_size = ImGui::GetContentRegionAvail();
 
   if (preview_texture == nullptr) {
+    printf("Preview Texture is NULL pointer!\n");
     ImGui::TextUnformatted("Bruh Moment");
     ImGui::EndChild();
     return;

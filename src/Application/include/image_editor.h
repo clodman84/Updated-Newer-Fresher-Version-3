@@ -129,7 +129,7 @@ public:
 private:
   std::vector<SDL_GPUTexture *> textures_to_release;
   SDL_GPUDevice *device;
-  SDL_GPUTexture *preview_texture;
+  SDL_GPUTexture *preview_texture = nullptr;
 
   float zoom = 1.0f;
   ImVec2 canvas_size = ImVec2(0.0f, 0.0f);
@@ -172,6 +172,5 @@ private:
   GeglNode *graph = nullptr;
   GeglNode *sink = nullptr;
   GeglNode *source = nullptr;
-  GeglNode *crop = nullptr;
   GeglNode *last_node = nullptr;
 };

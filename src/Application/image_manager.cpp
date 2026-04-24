@@ -157,4 +157,5 @@ void ImageManager::schedule_thumbnail_cleanup(int start, int end) {
                            current_generation});
     }
   }
+  thumbnail_cv.notify_all();
 }

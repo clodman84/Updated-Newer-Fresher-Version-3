@@ -1,11 +1,9 @@
 #include "include/image_editor.h"
 #include "SDL3/SDL_log.h"
 #include "imgui.h"
-#include "imgui_internal.h"
 #include "include/gpu_utils.h"
 #include "include/stb_image.h"
 #include <algorithm>
-#include <cmath>
 #include <gegl.h>
 
 #ifdef TRACY_ENABLE
@@ -66,33 +64,32 @@ bool ImageEditor::is_effect_active(EffectType type) const {
 }
 
 void ImageEditor::prepare_gegl_graph() {
-  effects.clear();
-
-  // Clean up previous graph and buffer
   if (graph != nullptr) {
-    g_object_unref(graph);
-    graph = nullptr;
-    sink = nullptr;
-    source = nullptr;
-  }
-  if (image_buffer != nullptr) {
-    g_object_unref(image_buffer);
-    image_buffer = nullptr;
+    // Only swap the buffer, touch nothing else
+    if (image_buffer != nullptr) {
+      g_object_unref(image_buffer);
+      image_buffer = nullptr;
+    }
+
+    GeglRectangle extent = {0, 0, image_width, image_height};
+    image_buffer = gegl_buffer_new(&extent, babl_format("R'G'B'A u8"));
+    gegl_buffer_set(image_buffer, &extent, 0, babl_format("R'G'B'A u8"),
+                    image_src, GEGL_AUTO_ROWSTRIDE);
+
+    gegl_node_set(source, "buffer", image_buffer, NULL);
+    return;
   }
 
+  // First-time initialization only
   GeglRectangle extent = {0, 0, image_width, image_height};
   image_buffer = gegl_buffer_new(&extent, babl_format("R'G'B'A u8"));
-
-  gegl_buffer_set(image_buffer, &extent,
-                  0, // mip level 0
-                  babl_format("R'G'B'A u8"), image_src, GEGL_AUTO_ROWSTRIDE);
+  gegl_buffer_set(image_buffer, &extent, 0, babl_format("R'G'B'A u8"),
+                  image_src, GEGL_AUTO_ROWSTRIDE);
 
   graph = gegl_node_new();
   source = gegl_node_new_child(graph, "operation", "gegl:buffer-source",
                                "buffer", image_buffer, NULL);
-
   sink = gegl_node_new_child(graph, "operation", "gegl:nop", NULL);
-
   gegl_node_link_many(source, sink, NULL);
 }
 
