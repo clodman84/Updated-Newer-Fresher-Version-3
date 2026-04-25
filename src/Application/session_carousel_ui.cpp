@@ -97,8 +97,6 @@ void Session::render_carousel(float carousel_height) {
       currently_visible_end != visible_end) {
     visible_start = currently_visible_start;
     visible_end = currently_visible_end;
-    printf("Updated Visibility: %d -> %d\n", currently_visible_start,
-           currently_visible_end);
     image_manager.load_thumbnail_range(visible_start, visible_end);
     image_manager.schedule_thumbnail_cleanup(visible_start, visible_end);
   }
