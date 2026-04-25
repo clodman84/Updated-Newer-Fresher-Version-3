@@ -17,10 +17,10 @@ void Session::render_carousel(float carousel_height) {
   for (int i = 0; i < (int)image_manager.size; i++) {
 
     const auto &image = image_manager.image_order[i];
-    const auto name = image.filename;
+    const auto current_image_filename = image.filename;
 
-    ImGui::PushID(name.c_str());
-    bool is_selected = selection_storage.contains(name);
+    ImGui::PushID(current_image_filename.c_str());
+    bool is_selected = selection_storage.contains(current_image_filename);
     bool is_context_menu_open = ImGui::IsPopupOpen("ThumbnailContextMenu");
 
     ImGui::BeginGroup();
@@ -63,16 +63,17 @@ void Session::render_carousel(float carousel_height) {
     if (ImGui::BeginPopupContextItem("ThumbnailContextMenu")) {
       if (!is_selected) {
         selection_storage.clear();
-        selection_storage.emplace(name);
+        selection_storage.emplace(current_image_filename);
       }
       if (ImGui::MenuItem("Same As")) {
-        const auto source_it = export_manager.bill.find(name);
+        const auto source_it = export_manager.bill.find(current_image_filename);
         if (selection_storage.size() == 1) {
           selection_storage.emplace(image_manager.current_image_path());
         }
-        for (auto &image : selection_storage) {
-          if (name != image) {
-            export_manager.same_as(name, image);
+        for (auto &selected_image_filenames : selection_storage) {
+          if (current_image_filename != selected_image_filenames) {
+            export_manager.same_as(current_image_filename,
+                                   selected_image_filenames);
           }
         }
         selection_storage.clear();
@@ -80,7 +81,7 @@ void Session::render_carousel(float carousel_height) {
       ImGui::EndPopup();
     }
 
-    if (name == image_manager.current_image_path() &&
+    if (current_image_filename == image_manager.current_image_path() &&
         image_manager.index != last_drawn_index) {
       ImGui::SetScrollHereX(0.5f);
     }

@@ -106,7 +106,7 @@ static bool draw_levels_bar(const char *id, double &in_low, double &gamma,
   ImGui::PushID(id);
   ImDrawList *dl = ImGui::GetWindowDrawList();
 
-  float width = ImGui::GetContentRegionAvail().x;
+  float width = ImGui::GetContentRegionAvail().x - 20;
   float height = 16.0f;
 
   bool changed = false;
@@ -194,9 +194,8 @@ static bool draw_levels_bar(const char *id, double &in_low, double &gamma,
 
   auto X = [&](float t) { return p0.x + t * width; };
 
-  auto draw_tri_up = [&](float t, ImU32 col) {
+  auto draw_tri_up = [&](float t, float y, ImU32 col) {
     float x = X(t);
-    float y = p1.y;
     dl->AddTriangleFilled(ImVec2(x - 6, y + 2), ImVec2(x + 6, y + 2),
                           ImVec2(x, y - 6), col);
   };
@@ -212,8 +211,8 @@ static bool draw_levels_bar(const char *id, double &in_low, double &gamma,
     dl->AddLine(ImVec2(x, p0.y), ImVec2(x, p1.y), IM_COL32(255, 255, 255, 80));
   };
 
-  draw_tri_up(t_low, IM_COL32(255, 255, 255, 255));
-  draw_tri_up(t_high, IM_COL32(255, 255, 255, 255));
+  draw_tri_up(t_low, p1.y, IM_COL32(255, 255, 255, 255));
+  draw_tri_up(t_high, p1.y, IM_COL32(255, 255, 255, 255));
   draw_diamond(t_gamma, IM_COL32(220, 220, 220, 255));
 
   ImGui::SetCursorScreenPos(ImVec2(p0.x, p1.y + 14));
@@ -241,15 +240,8 @@ static bool draw_levels_bar(const char *id, double &in_low, double &gamma,
     changed = true;
   }
 
-  auto draw_tri_down = [&](float t, ImU32 col) {
-    float x = p2.x + t * width;
-    float y = p2.y;
-    dl->AddTriangleFilled(ImVec2(x - 6, y - 2), ImVec2(x + 6, y - 2),
-                          ImVec2(x, y + 6), col);
-  };
-
-  draw_tri_down((float)out_low, IM_COL32(255, 255, 255, 255));
-  draw_tri_down((float)out_high, IM_COL32(255, 255, 255, 255));
+  draw_tri_up((float)out_low, p2.y + height, IM_COL32(255, 255, 255, 255));
+  draw_tri_up((float)out_high, p2.y + height, IM_COL32(255, 255, 255, 255));
   ImGui::PopID();
 
   return changed;

@@ -463,7 +463,7 @@ void ExportManager::open_export_modal() {
 void ExportManager::increment_for_id(const std::string &id,
                                      const std::string name,
                                      const std::filesystem::path image) {
-  auto entries = bill[path];
+  auto &entries = bill[image];
   BillEntry &entry = entries[id];
   entry.name = name;
   entry.count += 1;

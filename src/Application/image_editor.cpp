@@ -11,6 +11,7 @@
 #endif
 
 ImageEditor::~ImageEditor() {
+  SDL_Log("Cleaning Up Image Editor");
   if (preview_texture != nullptr) {
     SDL_ReleaseGPUTexture(device, preview_texture);
     preview_texture = nullptr;
