@@ -25,6 +25,7 @@
         "fts5"
       ]
     },
-    "tracy"
+    "tracy",
+    "curl"
   ]
 }

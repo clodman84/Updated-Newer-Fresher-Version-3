@@ -1,3 +1,4 @@
+#include "Application/include/drive_browser_ui.h"
 #include "Application/operations/gimp_levels.h"
 #include "Application/operations/my_colour_enhance.h"
 #include "include/session.h"
@@ -32,6 +33,7 @@ std::string get_folder_name(const std::filesystem::path &full_path) {
 struct AppState {
   Database *database = nullptr;
   SDL_GPUDevice *device = nullptr;
+  bool show_drive = false;
   std::mutex pending_mutex;
   std::vector<std::filesystem::path> pending_session_paths;
 };
@@ -191,6 +193,11 @@ void render_menu_bar(SDL_Window *window, Database &db, AppState &app_state,
         }
       }
       ImGui::EndMenu();
+    }
+
+    if (ImGui::MenuItem("Drive Link")) {
+      DriveBrowserUI::open();
+      app_state.show_drive = true;
     }
     ImGui::EndMenu();
   }
@@ -392,6 +399,9 @@ int main(int argc, char *argv[]) {
     if (db.show_loaded_csv) {
       db.render_loaded_csv();
     }
+
+    if (app_state.show_drive)
+      DriveBrowserUI::draw();
 
     ImGui::Render();
 
