@@ -8,6 +8,8 @@ add_library(unfv3_application STATIC
     image_editor.cpp
     image_editor_ui.cpp
     image_manager.cpp
+    google_drive.cpp
+    google_drive_browser.cpp
     session_billed_ui.cpp
     session_carousel_ui.cpp
     session_image_ui.cpp
@@ -33,6 +35,7 @@ target_link_libraries(unfv3_application PUBLIC
     PkgConfig::GOBJECT
     PkgConfig::GEGL
     PkgConfig::BABL
+    CURL::libcurl
 )
 
 target_link_libraries(unfv3_application PRIVATE $<IF:$<TARGET_EXISTS:libjpeg-turbo::turbojpeg>,libjpeg-turbo::turbojpeg,libjpeg-turbo::turbojpeg-static>)

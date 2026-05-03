@@ -77,7 +77,17 @@ Database::Database() {
           SQLITE_OK ||
       sqlite3_prepare_v2(db, id_sql, -1, &id_search, nullptr) != SQLITE_OK ||
       sqlite3_prepare_v2(db, get_info_sql, -1, &get_export_info_stmt,
-                         nullptr) != SQLITE_OK) {
+                         nullptr) != SQLITE_OK ||
+      sqlite3_prepare_v2(
+          db, "SELECT COUNT(*) FROM app_config WHERE key = 'google_creds';", -1,
+          &check_cred_stmt, nullptr) != SQLITE_OK ||
+      sqlite3_prepare_v2(db,
+                         "INSERT OR REPLACE INTO app_config (key, value) "
+                         "VALUES ('google_creds', ?);",
+                         -1, &save_cred_stmt, nullptr) != SQLITE_OK ||
+      sqlite3_prepare_v2(
+          db, "SELECT value FROM app_config WHERE key = 'google_creds';", -1,
+          &get_cred_stmt, nullptr) != SQLITE_OK) {
     const std::string error = sqlite3_errmsg(db);
     finalize_statement(fts_search);
     finalize_statement(bhawan_search);
@@ -101,6 +111,9 @@ Database::~Database() {
   finalize_statement(bhawan_search);
   finalize_statement(id_search);
   finalize_statement(get_export_info_stmt);
+  finalize_statement(check_cred_stmt);
+  finalize_statement(save_cred_stmt);
+  finalize_statement(get_cred_stmt);
   sqlite3_close(db);
   db = nullptr;
 }
@@ -338,6 +351,36 @@ ExportInfo Database::get_export_information_from_id(std::string idno) {
   sqlite3_reset(get_export_info_stmt);
   sqlite3_clear_bindings(get_export_info_stmt);
   return info;
+}
+
+bool Database::has_credentials() {
+  bool exists = false;
+  if (sqlite3_step(check_cred_stmt) == SQLITE_ROW) {
+    exists = sqlite3_column_int(check_cred_stmt, 0) > 0;
+  }
+  sqlite3_reset(check_cred_stmt);
+  return exists;
+}
+
+bool Database::save_credentials(const std::string &json_content) {
+  sqlite3_bind_text(save_cred_stmt, 1, json_content.c_str(), -1,
+                    SQLITE_TRANSIENT);
+  bool success = (sqlite3_step(save_cred_stmt) == SQLITE_DONE);
+  sqlite3_reset(save_cred_stmt);
+  sqlite3_clear_bindings(save_cred_stmt);
+  return success;
+}
+
+std::string Database::get_credentials() {
+  std::string creds = "";
+  if (sqlite3_step(get_cred_stmt) == SQLITE_ROW) {
+    const unsigned char *text = sqlite3_column_text(get_cred_stmt, 0);
+    if (text) {
+      creds = reinterpret_cast<const char *>(text);
+    }
+  }
+  sqlite3_reset(get_cred_stmt);
+  return creds;
 }
 
 void Database::clear_loaded_csv() { loaded.clear(); }

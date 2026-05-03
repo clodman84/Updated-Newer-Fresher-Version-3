@@ -34,6 +34,9 @@ public:
   ExportInfo get_export_information_from_id(std::string id);
   std::vector<std::array<std::string, 4>> evaluate(std::string search_query);
   bool show_loaded_csv = false;
+  bool has_credentials();
+  bool save_credentials(const std::string &json_content);
+  std::string get_credentials();
 
 private:
   using CsvRow = std::array<std::string, 5>;
@@ -58,4 +61,7 @@ private:
   sqlite3_stmt *bhawan_search = nullptr;
   sqlite3_stmt *id_search = nullptr;
   sqlite3_stmt *get_export_info_stmt = nullptr;
+  sqlite3_stmt *check_cred_stmt = nullptr;
+  sqlite3_stmt *save_cred_stmt = nullptr;
+  sqlite3_stmt *get_cred_stmt = nullptr;
 };
