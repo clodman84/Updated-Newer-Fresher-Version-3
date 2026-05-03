@@ -25,5 +25,5 @@
 * Move all Data folder access behind SDL_GetBasePath()
 * Fully cover the whole app with Tracy
 * Track memory growth
-* Do dumb user testing
+* Do moron testing (for idiots who use the app)
 * Fully test macOS builds
