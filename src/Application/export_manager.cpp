@@ -403,7 +403,14 @@ void ExportManager::autosave() {
   ZoneScopedN("ExportManager::autosave");
 #endif
   const std::filesystem::path filepath = path / "save.json";
-  const nlohmann::json serialised = bill;
+
+  // Manually serialize to store only filenames as keys
+  nlohmann::json serialised = nlohmann::json::object();
+  for (const auto &[image_path, entry_map] : bill) {
+    std::string filename = image_path.filename().string();
+    serialised[filename] = entry_map;
+  }
+
   std::ofstream file(filepath, std::ios::out | std::ios::trunc);
   if (!file.is_open()) {
     throw std::runtime_error("Failed to open file: " + filepath.string());
@@ -452,7 +459,14 @@ void ExportManager::load_existing_bill() {
 
   nlohmann::json json_data;
   file >> json_data;
-  bill = json_data.get<BillMap>();
+  bill.clear();
+
+  // Manually deserialize to reconstruct the full path
+  for (auto it = json_data.begin(); it != json_data.end(); ++it) {
+    // Reconstruct the full path by appending it to the directory 'path'
+    std::filesystem::path full_path = path / it.key();
+    bill[full_path] = it.value().get<std::map<std::string, BillEntry>>();
+  }
 }
 
 void ExportManager::open_export_modal() {
