@@ -1,28 +1,31 @@
 #pragma once
 
 #include "google_drive.h"
+#include "include/database.h"
 #include <SDL3/SDL.h>
 #include <atomic>
-#include <filesystem>
 #include <future>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <vector>
 
 class GoogleDriveBrowser {
 public:
-  explicit GoogleDriveBrowser(SDL_Window *window,
-                              const std::filesystem::path &credentials_path);
+  explicit GoogleDriveBrowser(SDL_Window *window);
 
   void render_window(const char *window_title);
-
+  void load_client_from_db();
   void start_download(const std::string &dest_folder);
   void cancel_download_state();
   DriveItem item_to_download_;
+  Database database;
 
 private:
   SDL_Window *window_;
-  DriveClient client_;
+  std::unique_ptr<DriveClient> client_;
+  bool show_import_modal_ = false;
+  bool init_failed_ = false;
 
   std::string current_folder_id_;
   std::vector<DriveItem> current_items_;

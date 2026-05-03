@@ -68,22 +68,12 @@ static std::string base64url_encode(const unsigned char *buffer,
 }
 
 ServiceAccountCredentials
-ServiceAccountCredentials::from_file(const std::filesystem::path &path) {
-  std::ifstream file(path);
-  if (!file.is_open())
-    throw DriveError("Could not open credentials file: " + path.string());
-
-  json j;
-  file >> j;
-
+ServiceAccountCredentials::from_json(const std::string &json_str) {
+  auto j = nlohmann::json::parse(json_str);
   ServiceAccountCredentials creds;
   creds.client_email = j.value("client_email", "");
   creds.private_key = j.value("private_key", "");
   creds.token_uri = j.value("token_uri", "https://oauth2.googleapis.com/token");
-
-  if (creds.client_email.empty() || creds.private_key.empty()) {
-    throw AuthError("Invalid credentials file format.");
-  }
   return creds;
 }
 

@@ -28,3 +28,4 @@ CREATE TRIGGER students_au AFTER UPDATE ON students BEGIN
   INSERT INTO students_fts(rowid, NAME, NICK, IDNO) VALUES (new.rowid, new.NAME, new.NICK, new.IDNO);
 END;
 
+CREATE TABLE IF NOT EXISTS app_config (key TEXT UNIQUE, value TEXT);

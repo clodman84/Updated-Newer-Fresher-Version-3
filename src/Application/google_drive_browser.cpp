@@ -2,6 +2,7 @@
 #include <chrono>
 #include <cstdio>
 #include <cstring>
+#include <fstream>
 #include <imgui.h>
 
 static void SDLCALL folder_picker_callback(void *userdata,
@@ -15,12 +16,52 @@ static void SDLCALL folder_picker_callback(void *userdata,
   }
 }
 
-GoogleDriveBrowser::GoogleDriveBrowser(
-    SDL_Window *window, const std::filesystem::path &credentials_path)
-    : window_(window),
-      client_(ServiceAccountCredentials::from_file(credentials_path)) {
+static const SDL_DialogFileFilter json_filters[] = {{"JSON files", "json"}};
+
+static void SDLCALL import_cred_callback(void *userdata,
+                                         const char *const *filelist,
+                                         int filter) {
+  if (filelist == nullptr || *filelist == nullptr)
+    return;
+
+  auto *browser = static_cast<GoogleDriveBrowser *>(userdata);
+  std::filesystem::path file_path(*filelist);
+
+  std::ifstream ifs(file_path, std::ios::in | std::ios::binary);
+  if (ifs.is_open()) {
+    std::string json_content((std::istreambuf_iterator<char>(ifs)),
+                             std::istreambuf_iterator<char>());
+
+    // Save to DB and initialize the client
+    if (browser->database.save_credentials(json_content)) {
+      browser->load_client_from_db();
+    }
+  }
+}
+
+GoogleDriveBrowser::GoogleDriveBrowser(SDL_Window *window) : window_(window) {
   current_folder_id_ = "";
   folder_id_input_[0] = '\0';
+  if (database.has_credentials()) {
+    load_client_from_db();
+  } else {
+    show_import_modal_ = true;
+  }
+}
+
+void GoogleDriveBrowser::load_client_from_db() {
+  try {
+    std::string json_data = database.get_credentials();
+    ServiceAccountCredentials creds =
+        ServiceAccountCredentials::from_json(json_data);
+    client_ = std::make_unique<DriveClient>(std::move(creds));
+    init_failed_ = false;
+    show_import_modal_ = false;
+  } catch (const std::exception &e) {
+    init_failed_ = true;
+    error_message_ = e.what();
+    show_import_modal_ = true; // Show the modal again if parsing failed
+  }
 }
 
 void GoogleDriveBrowser::load_folder_async(const std::string &folder_id) {
@@ -36,7 +77,7 @@ void GoogleDriveBrowser::load_folder_async(const std::string &folder_id) {
   folder_id_input_[sizeof(folder_id_input_) - 1] = '\0';
 
   fetch_future_ = std::async(std::launch::async, [this, folder_id]() {
-    return client_.get_folder_contents(folder_id);
+    return client_->get_folder_contents(folder_id);
   });
 }
 
@@ -60,16 +101,16 @@ void GoogleDriveBrowser::start_download(const std::string &dest_folder) {
       std::filesystem::path dest_dir(dest_dir_str);
 
       if (item_to_download_.type == FileType::File) {
-        client_.download_file(item_to_download_, dest_dir,
-                              [this](long long done, long long total) {
-                                if (total > 0) {
-                                  this->download_progress_ =
-                                      static_cast<float>(done) /
-                                      static_cast<float>(total);
-                                }
-                              });
+        client_->download_file(item_to_download_, dest_dir,
+                               [this](long long done, long long total) {
+                                 if (total > 0) {
+                                   this->download_progress_ =
+                                       static_cast<float>(done) /
+                                       static_cast<float>(total);
+                                 }
+                               });
       } else if (item_to_download_.type == FileType::Folder) {
-        client_.download_folder(
+        client_->download_folder(
             item_to_download_, dest_dir,
             [this](int done, int total, const DriveItem &curr) {
               std::lock_guard<std::mutex> lock(this->ui_mutex_);
@@ -116,15 +157,61 @@ std::string GoogleDriveBrowser::format_size(long long bytes) {
 }
 
 void GoogleDriveBrowser::render_window(const char *window_title) {
-  ImGui::Begin(window_title);
 
-  if (is_downloading_ || waiting_for_folder_picker_) {
-    render_download_ui();
-  } else {
-    render_browser_ui();
+  if (show_import_modal_) {
+    if (!ImGui::IsPopupOpen("Import Credentials")) {
+      ImGui::OpenPopup("Import Credentials");
+    }
   }
 
-  ImGui::End();
+  ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+  ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+
+  if (ImGui::BeginPopupModal("Import Credentials", NULL,
+                             ImGuiWindowFlags_AlwaysAutoResize |
+                                 ImGuiWindowFlags_NoCollapse)) {
+
+    if (!show_import_modal_) {
+      ImGui::CloseCurrentPopup();
+      ImGui::EndPopup();
+      return;
+    }
+
+    if (init_failed_) {
+      ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f),
+                         "Error loading credentials: %s",
+                         error_message_.c_str());
+      ImGui::Separator();
+    }
+
+    ImGui::Text("Service account credentials are not loaded.");
+    ImGui::Separator();
+
+    if (ImGui::Button("Import Creds", ImVec2(120, 0))) {
+      SDL_ShowOpenFileDialog(import_cred_callback, this, window_, json_filters,
+                             1, nullptr, false);
+    }
+
+    ImGui::SameLine();
+    if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+      show_import_modal_ = false;
+    }
+
+    ImGui::EndPopup();
+    return;
+  }
+
+  if (client_) {
+    ImGui::Begin(window_title);
+
+    if (is_downloading_ || waiting_for_folder_picker_) {
+      render_download_ui();
+    } else {
+      render_browser_ui();
+    }
+
+    ImGui::End();
+  }
 }
 
 void GoogleDriveBrowser::render_download_ui() {

@@ -36,7 +36,7 @@ struct ServiceAccountCredentials {
   std::string client_email;
   std::string private_key; // PEM format RSA private key
   std::string token_uri;   // usually https://oauth2.googleapis.com/token
-  static ServiceAccountCredentials from_file(const std::filesystem::path &path);
+  static ServiceAccountCredentials from_json(const std::string &json_str);
 };
 
 class DriveClient {

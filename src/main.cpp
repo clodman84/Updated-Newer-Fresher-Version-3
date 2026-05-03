@@ -124,7 +124,6 @@ private:
     if (!init_imgui(main_scale))
       return false;
 
-    prepare_database();
     return true;
   }
 
@@ -280,8 +279,7 @@ private:
           try {
             // TODO: Swap out the file loading with something that is loaded
             // from the database
-            drive_browser_ = std::make_unique<GoogleDriveBrowser>(
-                window_, "../../gdrivetests/dopy-app-9bae48f4cb09.json");
+            drive_browser_ = std::make_unique<GoogleDriveBrowser>(window_);
           } catch (const std::exception &e) {
             std::cerr << "Failed to initialize Drive Browser: " << e.what()
                       << std::endl;
@@ -424,6 +422,7 @@ private:
 };
 
 int main(int argc, char *argv[]) {
+  prepare_database();
   Application app(argc, argv);
   return app.run();
 }
