@@ -9,6 +9,7 @@ add_library(unfv3_application STATIC
     image_editor_ui.cpp
     image_manager.cpp
     google_drive.cpp
+    google_drive_browser.cpp
     session_billed_ui.cpp
     session_carousel_ui.cpp
     session_image_ui.cpp
