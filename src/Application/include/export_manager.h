@@ -3,6 +3,7 @@
 #include <atomic>
 #include <filesystem>
 #include <include/database.h>
+#include <mutex>
 #include <nlohmann/json.hpp>
 #include <thread>
 

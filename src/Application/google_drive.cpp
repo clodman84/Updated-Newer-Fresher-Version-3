@@ -1,6 +1,7 @@
 #include "include/google_drive.h"
 
 #include <chrono>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <nlohmann/json.hpp>
@@ -370,6 +371,63 @@ DriveClient::get_folder_contents(const std::string &folder_id,
   return all_items;
 }
 
+void DriveClient::generate_id_mapping_file(
+    const DriveItem &folder, const std::filesystem::path &dest_dir) {
+  if (folder.type != FileType::Folder) {
+    throw DriveError("Attempted to generate mapping for a file.");
+  }
+
+  nlohmann::json id_mapping;
+
+  std::function<void(const DriveItem &, const std::filesystem::path &)>
+      gather_metadata = [&](const DriveItem &current_folder,
+                            const std::filesystem::path &current_dest) {
+        auto items = get_folder_contents(current_folder.id);
+        for (const auto &item : items) {
+          std::string rel_path =
+              std::filesystem::relative(current_dest / item.name,
+                                        dest_dir / folder.name)
+                  .generic_string();
+          id_mapping[rel_path] = item.id;
+
+          if (item.type == FileType::Folder) {
+            gather_metadata(item, current_dest /
+                                      item.name); // Recurse for metadata only
+          }
+        }
+      };
+
+  gather_metadata(folder, dest_dir / folder.name);
+  std::filesystem::create_directories(dest_dir / folder.name);
+
+  std::ofstream map_file(dest_dir / folder.name / "drive_ids.json");
+  if (map_file.is_open()) {
+    map_file << id_mapping.dump(4);
+  } else {
+    throw DriveError("Failed to write drive_ids.json mapping file.");
+  }
+}
+
+std::map<std::string, std::string>
+DriveClient::load_id_mapping_file(const std::filesystem::path &map_file_path) {
+  std::map<std::string, std::string> mapping;
+
+  std::ifstream ifs(map_file_path);
+  if (!ifs.is_open()) {
+    return mapping; // Return empty map if file doesn't exist
+  }
+
+  try {
+    nlohmann::json id_mapping = nlohmann::json::parse(ifs);
+    for (auto &[key, value] : id_mapping.items()) {
+      mapping[key] = value.get<std::string>();
+    }
+  } catch (const nlohmann::json::parse_error &e) {
+  }
+
+  return mapping;
+}
+
 void DriveClient::download_folder(
     const DriveItem &folder, const std::filesystem::path &dest_dir,
     std::function<void(int, int, const DriveItem &)> progress_cb) {
@@ -382,14 +440,20 @@ void DriveClient::download_folder(
     std::filesystem::path dest;
   };
   std::vector<DownloadTask> tasks;
+  json id_mapping;
 
-  // 1. Pre-flight pass: Gather all files
+  // Pre-flight pass: Gather all files
   std::function<void(const DriveItem &, const std::filesystem::path &)>
       gather_tasks = [&](const DriveItem &current_folder,
                          const std::filesystem::path &current_dest) {
         std::filesystem::create_directories(current_dest);
         auto items = get_folder_contents(current_folder.id);
         for (const auto &item : items) {
+          std::string rel_path =
+              std::filesystem::relative(current_dest / item.name,
+                                        dest_dir / folder.name)
+                  .generic_string();
+          id_mapping[rel_path] = item.id;
           if (item.type == FileType::Folder) {
             gather_tasks(item, current_dest / item.name); // Recurse
           } else {
@@ -402,6 +466,12 @@ void DriveClient::download_folder(
     progress_cb(0, 0, folder);
   gather_tasks(folder, dest_dir / folder.name);
 
+  std::ofstream map_file(dest_dir / folder.name / "drive_ids.json");
+  if (map_file.is_open()) {
+    map_file << id_mapping.dump(4);
+    map_file.close();
+  }
+
   int total_files = tasks.size();
   if (total_files == 0)
     return;
@@ -409,7 +479,7 @@ void DriveClient::download_folder(
   ensure_valid_token();
   std::string current_token = access_token_;
 
-  // 2. Concurrent Download Phase using curl_multi
+  // Concurrent Download Phase using curl_multi
   CURLM *multi_handle = curl_multi_init();
   if (!multi_handle)
     throw DriveError("Failed to initialize curl_multi");

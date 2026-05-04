@@ -3,6 +3,7 @@
 #include <curl/curl.h>
 #include <filesystem>
 #include <functional>
+#include <map>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -60,6 +61,10 @@ public:
                        std::function<void(int items_done, int items_total,
                                           const DriveItem &current)>
                            progress_cb = {});
+  void generate_id_mapping_file(const DriveItem &folder,
+                                const std::filesystem::path &dest_dir);
+  std::map<std::string, std::string>
+  load_id_mapping_file(const std::filesystem::path &map_file_path);
 
 private:
   std::string build_jwt() const;
