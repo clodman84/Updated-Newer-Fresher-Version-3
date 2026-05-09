@@ -358,17 +358,17 @@ void GoogleDriveBrowser::draw_item_list() {
       ImGui::Selectable(display_label.c_str(), false,
                         ImGuiSelectableFlags_SpanAllColumns |
                             ImGuiSelectableFlags_AllowDoubleClick);
-      if (is_folder)
+      if (is_folder) {
         ImGui::PopStyleColor();
-
-      if (ImGui::BeginPopupContextItem()) {
-        if (ImGui::Selectable("Download")) {
-          item_to_download_ = item;
-          waiting_for_folder_picker_ = true;
-          SDL_ShowOpenFolderDialog(folder_picker_callback, this, window_,
-                                   nullptr, false);
+        if (ImGui::BeginPopupContextItem()) {
+          if (ImGui::Selectable("Download")) {
+            item_to_download_ = item;
+            waiting_for_folder_picker_ = true;
+            SDL_ShowOpenFolderDialog(folder_picker_callback, this, window_,
+                                     nullptr, false);
+          }
+          ImGui::EndPopup();
         }
-        ImGui::EndPopup();
       }
 
       if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0) &&

@@ -8,10 +8,12 @@
 #include "imgui_impl_sdlgpu3.h"
 
 #include <SDL3/SDL.h>
+#include <SDL3/SDL_dialog.h>
 #include <gegl.h>
 
 #include <deque>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <memory>
 #include <mutex>
@@ -30,6 +32,8 @@ static const SDL_DialogFileFilter csv_filters[] = {{"CSV files", "csv"}};
 void log_dialog_error(const char *action) {
   std::cerr << action << ": " << SDL_GetError() << std::endl;
 }
+
+static const SDL_DialogFileFilter json_filters[] = {{"JSON files", "json"}};
 } // namespace
 
 class Application {
@@ -263,6 +267,10 @@ private:
         SDL_ShowOpenFileDialog(mess_list_callback, this, window_, csv_filters,
                                1, ".", false);
       }
+      if (ImGui::MenuItem("Load Drive Credentials")) {
+        SDL_ShowOpenFileDialog(import_cred_callback, this, window_,
+                               json_filters, 1, nullptr, false);
+      }
       if (ImGui::BeginMenu("Export Roll")) {
         for (auto &session_ptr : sessions_) {
           if (ImGui::MenuItem(session_ptr->folder_path.string().c_str())) {
@@ -417,6 +425,21 @@ private:
         std::cerr << "Failed to load CSV: " << error.what() << std::endl;
       }
       ++filelist;
+    }
+  }
+
+  static void SDLCALL import_cred_callback(void *userdata,
+                                           const char *const *filelist,
+                                           int filter) {
+    if (filelist == nullptr || *filelist == nullptr)
+      return;
+    auto *app = static_cast<Application *>(userdata);
+    std::filesystem::path file_path(*filelist);
+    std::ifstream ifs(file_path, std::ios::in | std::ios::binary);
+    if (ifs.is_open()) {
+      std::string json_content((std::istreambuf_iterator<char>(ifs)),
+                               std::istreambuf_iterator<char>());
+      app->db_.save_credentials(json_content);
     }
   }
 };
