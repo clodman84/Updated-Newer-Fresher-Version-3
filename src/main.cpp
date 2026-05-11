@@ -1,3 +1,4 @@
+#include "Application//include/IconsFontAwesome6.h"
 #include "Application/operations/gimp_levels.h"
 #include "Application/operations/my_colour_enhance.h"
 #include "include/google_drive_browser.h"
@@ -9,6 +10,7 @@
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_dialog.h>
+#include <cstring>
 #include <gegl.h>
 
 #include <deque>
@@ -176,8 +178,8 @@ private:
 
     if (!ImGui_ImplSDLGPU3_Init(&init_info))
       return false;
-
-    if (!io.Fonts->AddFontFromFileTTF("./Data/Quantico-Regular.ttf")) {
+    if (!io.Fonts->AddFontFromFileTTF(
+            "./Data/HasklugNerdFontMono-Regular.otf")) {
       std::cerr
           << "Warning: Failed to load UI font: ./Data/Quantico-Regular.ttf\n";
     }
@@ -259,45 +261,53 @@ private:
 
   void render_menu_bar() {
     ImGui::BeginMainMenuBar();
-    if (ImGui::BeginMenu("Tools")) {
-      if (ImGui::MenuItem("Load Roll")) {
-        SDL_ShowOpenFolderDialog(load_roll_callback, this, window_, ".", false);
-      }
-      if (ImGui::MenuItem("Load Mess List")) {
+
+    if (ImGui::BeginMenu(ICON_FA_GEAR " Configure")) {
+      if (ImGui::MenuItem(ICON_FA_TABLE " Load Mess List"))
         SDL_ShowOpenFileDialog(mess_list_callback, this, window_, csv_filters,
                                1, ".", false);
-      }
-      if (ImGui::MenuItem("Load Drive Credentials")) {
+      if (ImGui::MenuItem(ICON_FA_KEY " Load Drive Credentials"))
         SDL_ShowOpenFileDialog(import_cred_callback, this, window_,
                                json_filters, 1, nullptr, false);
-      }
-      if (ImGui::BeginMenu("Export Roll")) {
-        for (auto &session_ptr : sessions_) {
-          if (ImGui::MenuItem(session_ptr->folder_path.string().c_str())) {
-            session_ptr->export_manager.open_export_modal();
+      ImGui::EndMenu();
+    }
+
+    if (ImGui::BeginMenu(ICON_FA_PEN_TO_SQUARE " Bill")) {
+      if (ImGui::MenuItem(ICON_FA_FOLDER_OPEN " Load Roll"))
+        SDL_ShowOpenFolderDialog(load_roll_callback, this, window_, ".", false);
+
+      if (!sessions_.empty()) {
+        ImGui::Separator();
+        ImGui::SeparatorText("Export Roll");
+        if (ImGui::BeginMenu(ICON_FA_FILE_EXPORT " Export")) {
+          for (auto &session_ptr : sessions_) {
+            if (ImGui::MenuItem(
+                    session_ptr->folder_path.filename().string().c_str()))
+              session_ptr->export_manager.open_export_modal();
           }
+          ImGui::EndMenu();
         }
-        ImGui::EndMenu();
       }
+      ImGui::EndMenu();
+    }
 
-      if (ImGui::MenuItem("Google Drive", nullptr, show_drive_browser_)) {
-        show_drive_browser_ = !show_drive_browser_;
-
+    if (ImGui::BeginMenu(ICON_FA_CLOUD " Cloud")) {
+      if (ImGui::MenuItem(ICON_FA_COMPASS " Open Browser", nullptr,
+                          &show_drive_browser_)) {
         if (show_drive_browser_ && !drive_browser_) {
           try {
-            // TODO: Swap out the file loading with something that is loaded
-            // from the database
             drive_browser_ = std::make_unique<GoogleDriveBrowser>(window_);
           } catch (const std::exception &e) {
-            std::cerr << "Failed to initialize Drive Browser: " << e.what()
-                      << std::endl;
+            std::cerr << "Drive Browser init failed: " << e.what() << "\n";
             show_drive_browser_ = false;
           }
         }
       }
-
+      ImGui::MenuItem(ICON_FA_ROTATE " Sync Roll", nullptr,
+                      &show_drive_browser_);
       ImGui::EndMenu();
     }
+
     ImGui::EndMainMenuBar();
   }
 
@@ -393,7 +403,7 @@ private:
       log_dialog_error("Folder dialog failed");
       return;
     }
-    if (!*filelist)
+    if (!*filelist || strncmp(*filelist, "", 1) == 0)
       return; // Canceled
 
     std::lock_guard lock(app->pending_mutex_);

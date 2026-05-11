@@ -328,7 +328,8 @@ DriveClient::get_folder_contents(const std::string &folder_id,
   // Added nextPageToken to the requested fields
   std::string base_url =
       "https://www.googleapis.com/drive/v3/files?q=" + std::string(encoded_q) +
-      "&fields=nextPageToken,files(id,name,mimeType,modifiedTime,size)";
+      "&fields=nextPageToken,files(id,name,mimeType,modifiedTime,size,"
+      "thumbnailLink)";
   curl_free(encoded_q);
 
   std::string page_token = "";

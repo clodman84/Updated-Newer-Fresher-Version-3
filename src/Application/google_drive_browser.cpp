@@ -1,4 +1,5 @@
 #include "include/google_drive_browser.h"
+#include "include/IconsFontAwesome6.h"
 #include <chrono>
 #include <cstdio>
 #include <cstring>
@@ -349,16 +350,25 @@ void GoogleDriveBrowser::draw_item_list() {
       ImGui::TableNextColumn();
 
       bool is_folder = (item.type == FileType::Folder);
+      auto mime_icon = [](const std::string &mime) -> const char * {
+        if (mime == "application/vnd.google-apps.folder")
+          return ICON_FA_FOLDER;
+        if (mime == "image/jpeg" || mime == "image/png")
+          return ICON_FA_IMAGE;
+        if (mime == "text/csv")
+          return ICON_FA_FILE_CSV;
+        if (mime == "text/plain")
+          return ICON_FA_FILE_LINES;
+        return ICON_FA_FILE;
+      };
 
-      if (is_folder)
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.7f, 0.2f, 1.0f));
-      std::string display_label = (is_folder ? "[DIR] " : "") + item.name;
+      std::string display_label =
+          std::string(mime_icon(item.mime_type)) + " " + item.name;
 
       ImGui::Selectable(display_label.c_str(), false,
                         ImGuiSelectableFlags_SpanAllColumns |
                             ImGuiSelectableFlags_AllowDoubleClick);
       if (is_folder) {
-        ImGui::PopStyleColor();
         if (ImGui::BeginPopupContextItem()) {
           if (ImGui::Selectable("Download")) {
             item_to_download_ = item;

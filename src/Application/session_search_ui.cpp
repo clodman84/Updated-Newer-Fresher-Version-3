@@ -1,3 +1,4 @@
+#include "include/IconsFontAwesome6.h"
 #include "include/session.h"
 #include <imgui.h>
 #include <imgui_stdlib.h>
@@ -17,7 +18,8 @@ void Session::render_searcher() {
     focus_search_on_next_frame = false;
   }
 
-  if (ImGui::InputTextWithHint("##search_query", "Search", &search_query)) {
+  if (ImGui::InputTextWithHint("##search_query", ICON_FA_MAGNIFYING_GLASS,
+                               &search_query)) {
     search_results = database.evaluate(search_query);
   }
   sync_search_selection_bounds();
@@ -32,14 +34,15 @@ void Session::render_searcher() {
   }
   ImGui::SameLine();
 
-  // Process the "Same As" request globally from the carousel right-click
-
-  if (ImGui::Button("Same As")) {
+  if (ImGui::Button(ICON_FA_COPY)) {
     if (image_manager.index > 0 && image_manager.index <= image_manager.size) {
       export_manager.same_as(
           image_manager.image_path_from_index(image_manager.index - 1),
           image_manager.image_path_from_index(image_manager.index));
     }
+  }
+  if (ImGui::IsItemHovered()) {
+    ImGui::SetTooltip("Same As");
   }
 
   render_search_results_table();
