@@ -352,8 +352,7 @@ void GoogleDriveBrowser::draw_item_list() {
 
       if (is_folder)
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.7f, 0.2f, 1.0f));
-      std::string display_label =
-          (is_folder ? "[DIR]  " : "       ") + item.name;
+      std::string display_label = (is_folder ? "[DIR] " : "") + item.name;
 
       ImGui::Selectable(display_label.c_str(), false,
                         ImGuiSelectableFlags_SpanAllColumns |

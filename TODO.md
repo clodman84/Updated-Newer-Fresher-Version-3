@@ -27,3 +27,4 @@
 * Track memory growth
 * Do moron testing (for idiots who use the app)
 * Fully test macOS builds
+* Change the face detection model back to YuNET :cry:
