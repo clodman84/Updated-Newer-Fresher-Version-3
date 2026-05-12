@@ -2,7 +2,6 @@
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_gpu.h>
-#include <cstdio>
 #include <filesystem>
 #include <functional>
 #include <imgui.h>
