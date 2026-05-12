@@ -183,7 +183,7 @@ void Session::render_control_panel() {
                        detector.scan_faces(image->filename).size());
   }
   ImGui::SameLine();
-  if (ImGui::Button(ICON_FA_ROTATE_LEFT)) {
+  if (ImGui::Button(ICON_FA_COMPRESS)) {
     reset_view_to_image();
   }
   if (ImGui::TreeNode("Edit")) {

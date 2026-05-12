@@ -259,9 +259,59 @@ unsigned char *load_jpeg_data_from_file(const std::filesystem::path &file_name,
 }
 
 unsigned char *
+load_texture_data_from_file_via_stbi(const std::filesystem::path &file_name,
+                                     int *width, int *height) {
+#ifdef TRACY_ENABLE
+  ZoneScopedN("load_texture_data_from_file_via_stbi");
+#endif
+  FILE *file = fopen(file_name.string().c_str(), "rb");
+  if (file == nullptr) {
+    std::cerr << "Failed to open image file: " << file_name.string()
+              << std::endl;
+    return nullptr;
+  }
+
+  fseek(file, 0, SEEK_END);
+  const long raw_size = ftell(file);
+  if (raw_size <= 0) {
+    fclose(file);
+    std::cerr << "Image file is empty: " << file_name.string() << std::endl;
+    return nullptr;
+  }
+  fseek(file, 0, SEEK_SET);
+
+  const size_t file_size = static_cast<size_t>(raw_size);
+  void *file_data = IM_ALLOC(file_size);
+  const size_t bytes_read = fread(file_data, 1, file_size, file);
+  if (bytes_read != file_size) {
+    fclose(file);
+    IM_FREE(file_data);
+    std::cerr << "Failed to read image file: " << file_name.string()
+              << std::endl;
+    return nullptr;
+  }
+  fclose(file);
+
+  unsigned char *image_data = stbi_load_from_memory(
+      static_cast<const unsigned char *>(file_data),
+      static_cast<int>(file_size), width, height, nullptr, 4);
+  IM_FREE(file_data);
+  if (image_data == nullptr) {
+    std::cerr << "Failed to decode image: " << file_name.string() << std::endl;
+  }
+  return image_data;
+}
+
+unsigned char *
 load_texture_data_from_file(const std::filesystem::path &file_name, int *width,
                             int *height, float scale) {
-  return load_jpeg_data_from_file(file_name, width, height, scale);
+  auto ext = file_name.extension().string();
+  std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+
+  if (ext == ".jpg" || ext == ".jpeg")
+    return load_jpeg_data_from_file(file_name, width, height, scale);
+
+  return load_texture_data_from_file_via_stbi(file_name, width, height);
 }
 
 bool upload_texture_data_to_gpu(unsigned char *image_data, int width,

@@ -2,6 +2,7 @@
 #include "Application/operations/gimp_levels.h"
 #include "Application/operations/my_colour_enhance.h"
 #include "include/google_drive_browser.h"
+#include "include/image.h"
 #include "include/session.h"
 
 #include "imgui.h"
@@ -69,6 +70,7 @@ private:
   int argc_;
   char **argv_;
 
+  std::unique_ptr<Image> background_image;
   SDL_Window *window_ = nullptr;
   SDL_GPUDevice *gpu_device_ = nullptr;
 
@@ -195,23 +197,31 @@ private:
 
     ImFontConfig icon_cfg;
     icon_cfg.MergeMode = true;
-    icon_cfg.PixelSnapH = true;
-    icon_cfg.GlyphOffset = ImVec2(0.0f, 4.0f);
-    icon_cfg.GlyphMinAdvanceX = 28.0f;
+    icon_cfg.PixelSnapH = false;
+    icon_cfg.GlyphOffset = ImVec2(0.0f, 1.0f);
+    icon_cfg.GlyphMinAdvanceX = 16.0f;
 
     ImFont *merged = io.Fonts->AddFontFromFileTTF(
-        "./Data/HasklugNerdFontMono-Regular.otf", 28.0f, &icon_cfg, fa_ranges);
+        "./Data/Font Awesome 6 Free-Regular-400.otf", 16.0f, &icon_cfg,
+        fa_ranges);
+
+    merged =
+        io.Fonts->AddFontFromFileTTF("./Data/Font Awesome 6 Free-Solid-900.otf",
+                                     16.0f, &icon_cfg, fa_ranges);
 
     if (!merged) {
       std::cerr << "Warning: Failed to load NerdFont icons\n";
     }
 
     io.Fonts->Build();
+    background_image = std::make_unique<Image>("./Data/logo.png", gpu_device_);
+    background_image->load_fullres();
     return true;
   }
 
   void cleanup() {
     gegl_exit();
+    background_image->destroy_texture();
     sessions_.clear();
     if (gpu_device_) {
       SDL_WaitForGPUIdle(gpu_device_);
@@ -263,11 +273,36 @@ private:
     }
   }
 
+  void render_background() {
+    ImGuiIO &io = ImGui::GetIO();
+    ImGui::SetNextWindowPos({0, 0});
+    ImGui::SetNextWindowSize(io.DisplaySize);
+    ImGui::SetNextWindowBgAlpha(0.0f);
+    ImGui::Begin("##background", nullptr,
+                 ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoInputs |
+                     ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove |
+                     ImGuiWindowFlags_NoBringToFrontOnFocus |
+                     ImGuiWindowFlags_NoSavedSettings);
+
+    float img_w = background_image->width;
+    float img_h = background_image->height;
+    float scale =
+        std::min(io.DisplaySize.x / img_w, io.DisplaySize.y / img_h) * 0.8;
+    ImVec2 scaled_size(img_w * scale, img_h * scale);
+    ImVec2 offset((io.DisplaySize.x - scaled_size.x) * 0.5f,
+                  (io.DisplaySize.y - scaled_size.y) * 0.5f + 20);
+    ImGui::SetCursorPos(offset);
+    ImGui::Image(background_image->texture, scaled_size);
+    ImGui::End();
+  }
+
   void render_frame() {
     ImGui_ImplSDLGPU3_NewFrame();
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
 
+    if (sessions_.empty())
+      render_background();
     render_menu_bar();
     render_sessions();
 
