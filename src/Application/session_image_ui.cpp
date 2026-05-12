@@ -163,9 +163,8 @@ void Session::render_control_panel() {
 
   ImGui::TableNextColumn();
   ImGui::BeginChild("Control Panel", ImVec2(0, 0));
-  ImGui::Text(ICON_FA_WRENCH);
+  ImGui::Text(ICON_FA_WRENCH " This is a work in progress :)");
   ImGui::Separator();
-  ImGui::TextUnformatted("This is a work in progress :)");
 
   if (image == nullptr || !image->is_valid()) {
     with_preview = false;

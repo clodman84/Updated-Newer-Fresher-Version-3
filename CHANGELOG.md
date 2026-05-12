@@ -7,6 +7,7 @@
 * Improved keyboard navigation
 * Lowered JPEG loading times to <= 100ms (24MP JPEG) on my computer
 * Greatly reduced memory consumption by loading thumbnails only when visible through background threads
+* Added icons
 
 ## Planned For Next Release
 

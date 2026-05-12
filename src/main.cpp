@@ -322,21 +322,21 @@ private:
     ImGui::BeginMainMenuBar();
 
     if (ImGui::BeginMenu(ICON_FA_GEAR)) {
-      if (ImGui::MenuItem("Load Mess List"))
+      if (ImGui::MenuItem(ICON_FA_TABLE "  Load Mess List"))
         SDL_ShowOpenFileDialog(mess_list_callback, this, window_, csv_filters,
                                1, ".", false);
-      if (ImGui::MenuItem("Load Drive Credentials"))
+      if (ImGui::MenuItem(ICON_FA_KEY "  Load Drive Credentials"))
         SDL_ShowOpenFileDialog(import_cred_callback, this, window_,
                                json_filters, 1, nullptr, false);
       ImGui::EndMenu();
     }
 
     if (ImGui::BeginMenu(ICON_FA_PEN_TO_SQUARE)) {
-      if (ImGui::MenuItem("Load Roll"))
+      if (ImGui::MenuItem(ICON_FA_FOLDER_OPEN "  Load Roll"))
         SDL_ShowOpenFolderDialog(load_roll_callback, this, window_, ".", false);
 
       if (!sessions_.empty()) {
-        if (ImGui::BeginMenu("Export")) {
+        if (ImGui::BeginMenu(ICON_FA_FILE_EXPORT "  Export")) {
           for (auto &session_ptr : sessions_) {
             if (ImGui::MenuItem(
                     session_ptr->folder_path.filename().string().c_str()))
@@ -349,7 +349,8 @@ private:
     }
 
     if (ImGui::BeginMenu(ICON_FA_CLOUD)) {
-      if (ImGui::MenuItem("Toggle Browser", nullptr, &show_drive_browser_)) {
+      if (ImGui::MenuItem(ICON_FA_COMPASS "  Toggle Browser", nullptr,
+                          &show_drive_browser_)) {
         if (show_drive_browser_ && !drive_browser_) {
           try {
             drive_browser_ = std::make_unique<GoogleDriveBrowser>(window_);
@@ -359,7 +360,7 @@ private:
           }
         }
       }
-      ImGui::MenuItem("Sync", nullptr, &show_drive_browser_);
+      ImGui::MenuItem(ICON_FA_ROTATE "  Sync", nullptr, &show_drive_browser_);
       ImGui::EndMenu();
     }
 
