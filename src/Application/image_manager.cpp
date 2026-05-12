@@ -58,18 +58,20 @@ void ImageManager::cleanup_stale_images() {
   stale_images.clear();
 }
 
-Image *ImageManager::load_image() {
+Image *ImageManager::load_image(int idx) {
 #ifdef TRACY_ENABLE
   ZoneScopedN("ImageManager::load_image");
 #endif
-  if (image_order.empty() || index < 0 ||
-      index >= static_cast<int>(image_order.size())) {
+  if (image_order.empty() || idx < 0 ||
+      idx >= static_cast<int>(image_order.size())) {
     return nullptr;
   }
+  index = idx;
 
   if (current_image != nullptr &&
       current_image->filename == image_order[index].filename)
     return current_image;
+
   if (current_image != nullptr)
     stale_images.push_back(current_image);
 
@@ -83,7 +85,7 @@ Image *ImageManager::load_next() {
     return nullptr;
   }
   index = index >= static_cast<int>(image_order.size()) - 1 ? 0 : index + 1;
-  return load_image();
+  return load_image(index);
 }
 
 Image *ImageManager::load_previous() {
@@ -91,7 +93,7 @@ Image *ImageManager::load_previous() {
     return nullptr;
   }
   index = index <= 0 ? static_cast<int>(image_order.size()) - 1 : index - 1;
-  return load_image();
+  return load_image(index);
 }
 
 void ImageManager::start_thumbnail_workers(size_t num_threads) {

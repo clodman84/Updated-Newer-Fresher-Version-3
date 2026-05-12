@@ -161,7 +161,6 @@ private:
     ImGui::CreateContext();
     ImGuiIO &io = ImGui::GetIO();
     ImGui::StyleColorsDark();
-
     ImGuiStyle &style = ImGui::GetStyle();
     style.ScaleAllSizes(main_scale);
     style.FontScaleDpi = main_scale;
@@ -178,11 +177,36 @@ private:
 
     if (!ImGui_ImplSDLGPU3_Init(&init_info))
       return false;
-    if (!io.Fonts->AddFontFromFileTTF(
-            "./Data/HasklugNerdFontMono-Regular.otf")) {
-      std::cerr
-          << "Warning: Failed to load UI font: ./Data/Quantico-Regular.ttf\n";
+
+    ImFontConfig text_cfg;
+    text_cfg.GlyphOffset = ImVec2(0.0f, 0.0f);
+
+    ImFont *combined_font = io.Fonts->AddFontFromFileTTF(
+        "./Data/Quantico-Regular.ttf", 20.0f, &text_cfg);
+    if (!combined_font) {
+      std::cerr << "Warning: Failed to load UI font: Quantico-Regular.ttf\n";
     }
+
+    static const ImWchar fa_ranges[] = {
+        ICON_MIN_FA,
+        ICON_MAX_FA,
+        0,
+    };
+
+    ImFontConfig icon_cfg;
+    icon_cfg.MergeMode = true;
+    icon_cfg.PixelSnapH = true;
+    icon_cfg.GlyphOffset = ImVec2(0.0f, 4.0f);
+    icon_cfg.GlyphMinAdvanceX = 28.0f;
+
+    ImFont *merged = io.Fonts->AddFontFromFileTTF(
+        "./Data/HasklugNerdFontMono-Regular.otf", 28.0f, &icon_cfg, fa_ranges);
+
+    if (!merged) {
+      std::cerr << "Warning: Failed to load NerdFont icons\n";
+    }
+
+    io.Fonts->Build();
     return true;
   }
 
@@ -232,7 +256,7 @@ private:
         sessions_.push_back(
             std::make_unique<Session>(session_path, gpu_device_));
         sessions_.back()->image_manager.load_folder(gpu_device_);
-        sessions_.back()->image_manager.load_image();
+        sessions_.back()->image_manager.load_image(0);
       } catch (const std::exception &error) {
         std::cerr << "Failed to create session: " << error.what() << std::endl;
       }
@@ -262,24 +286,22 @@ private:
   void render_menu_bar() {
     ImGui::BeginMainMenuBar();
 
-    if (ImGui::BeginMenu(ICON_FA_GEAR " Configure")) {
-      if (ImGui::MenuItem(ICON_FA_TABLE " Load Mess List"))
+    if (ImGui::BeginMenu(ICON_FA_GEAR)) {
+      if (ImGui::MenuItem("Load Mess List"))
         SDL_ShowOpenFileDialog(mess_list_callback, this, window_, csv_filters,
                                1, ".", false);
-      if (ImGui::MenuItem(ICON_FA_KEY " Load Drive Credentials"))
+      if (ImGui::MenuItem("Load Drive Credentials"))
         SDL_ShowOpenFileDialog(import_cred_callback, this, window_,
                                json_filters, 1, nullptr, false);
       ImGui::EndMenu();
     }
 
-    if (ImGui::BeginMenu(ICON_FA_PEN_TO_SQUARE " Bill")) {
-      if (ImGui::MenuItem(ICON_FA_FOLDER_OPEN " Load Roll"))
+    if (ImGui::BeginMenu(ICON_FA_PEN_TO_SQUARE)) {
+      if (ImGui::MenuItem("Load Roll"))
         SDL_ShowOpenFolderDialog(load_roll_callback, this, window_, ".", false);
 
       if (!sessions_.empty()) {
-        ImGui::Separator();
-        ImGui::SeparatorText("Export Roll");
-        if (ImGui::BeginMenu(ICON_FA_FILE_EXPORT " Export")) {
+        if (ImGui::BeginMenu("Export")) {
           for (auto &session_ptr : sessions_) {
             if (ImGui::MenuItem(
                     session_ptr->folder_path.filename().string().c_str()))
@@ -291,9 +313,8 @@ private:
       ImGui::EndMenu();
     }
 
-    if (ImGui::BeginMenu(ICON_FA_CLOUD " Cloud")) {
-      if (ImGui::MenuItem(ICON_FA_COMPASS " Open Browser", nullptr,
-                          &show_drive_browser_)) {
+    if (ImGui::BeginMenu(ICON_FA_CLOUD)) {
+      if (ImGui::MenuItem("Toggle Browser", nullptr, &show_drive_browser_)) {
         if (show_drive_browser_ && !drive_browser_) {
           try {
             drive_browser_ = std::make_unique<GoogleDriveBrowser>(window_);
@@ -303,8 +324,7 @@ private:
           }
         }
       }
-      ImGui::MenuItem(ICON_FA_ROTATE " Sync Roll", nullptr,
-                      &show_drive_browser_);
+      ImGui::MenuItem("Sync", nullptr, &show_drive_browser_);
       ImGui::EndMenu();
     }
 

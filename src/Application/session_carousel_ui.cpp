@@ -44,8 +44,7 @@ void Session::render_carousel(float carousel_height) {
               selection_storage.erase(n);
           } else {
             selection_storage.clear();
-            image_manager.index = i;
-            image_manager.load_image();
+            image_manager.load_image(i);
             reset_view_to_image();
           }
           last_clicked_index = i;

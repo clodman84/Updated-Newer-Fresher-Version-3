@@ -1,4 +1,6 @@
+#include "include/IconsFontAwesome6.h"
 #include "include/session.h"
+#include <imgui.h>
 
 inline ImVec2 operator+(const ImVec2 &a, const ImVec2 &b) {
   return ImVec2(a.x + b.x, a.y + b.y);
@@ -161,7 +163,7 @@ void Session::render_control_panel() {
 
   ImGui::TableNextColumn();
   ImGui::BeginChild("Control Panel", ImVec2(0, 0));
-  ImGui::Text("Control Panel");
+  ImGui::Text(ICON_FA_WRENCH);
   ImGui::Separator();
   ImGui::TextUnformatted("This is a work in progress :)");
 
@@ -180,7 +182,8 @@ void Session::render_control_panel() {
     ImGui::TextColored(ImVec4(0.93f, 0.73f, 0.24f, 1.0f), "Face Count: %ld",
                        detector.scan_faces(image->filename).size());
   }
-  if (ImGui::Button("Reset Viewer")) {
+  ImGui::SameLine();
+  if (ImGui::Button(ICON_FA_ROTATE_LEFT)) {
     reset_view_to_image();
   }
   if (ImGui::TreeNode("Edit")) {

@@ -1,3 +1,4 @@
+#include "include/IconsFontAwesome6.h"
 #include "include/image_editor.h"
 #include <algorithm>
 #include <cmath>
@@ -259,7 +260,7 @@ void ImageEditor::render_controls() {
       put_render_request();
     }
     ImGui::SameLine();
-    if (ImGui::Button("Reset##Exp")) {
+    if (ImGui::Button(ICON_FA_ROTATE_LEFT "##Exp")) {
       exposure_state = ExposureState();
       if (active) {
         Effect &e = get_or_create_effect(type);
@@ -313,7 +314,7 @@ void ImageEditor::render_controls() {
       put_render_request();
     }
     ImGui::SameLine();
-    if (ImGui::Button("Reset##Lv")) {
+    if (ImGui::Button(ICON_FA_ROTATE_LEFT "##Lv")) {
       levels_state = LevelsState();
       if (active) {
         Effect &e = get_or_create_effect(type);
@@ -427,7 +428,7 @@ void ImageEditor::render_controls() {
       put_render_request();
     }
     ImGui::SameLine();
-    if (ImGui::Button("Reset##CT")) {
+    if (ImGui::Button(ICON_FA_ROTATE_LEFT "##CT")) {
       color_temperature_state = ColorTemperatureState();
       if (active) {
         Effect &e = get_or_create_effect(type);
@@ -486,7 +487,7 @@ void ImageEditor::render_controls() {
       put_render_request();
     }
     ImGui::SameLine();
-    if (ImGui::Button("Reset##HC")) {
+    if (ImGui::Button(ICON_FA_ROTATE_LEFT "##HC")) {
       hue_chroma_state = HueChromaState();
       if (active) {
         Effect &e = get_or_create_effect(type);
@@ -573,7 +574,7 @@ void ImageEditor::render_controls() {
       put_render_request();
     }
     ImGui::SameLine();
-    if (ImGui::Button("Reset##Sat")) {
+    if (ImGui::Button(ICON_FA_ROTATE_LEFT "##Sat")) {
       saturation_state = SaturationState();
       if (active) {
         Effect &e = get_or_create_effect(type);
@@ -619,7 +620,7 @@ void ImageEditor::render_controls() {
       put_render_request();
     }
     ImGui::SameLine();
-    if (ImGui::Button("Reset##Sepia")) {
+    if (ImGui::Button(ICON_FA_ROTATE_LEFT "##Sepia")) {
       sepia_state = SepiaState();
       if (active) {
         Effect &e = get_or_create_effect(type);
@@ -661,7 +662,7 @@ void ImageEditor::render_controls() {
       put_render_request();
     }
     ImGui::SameLine();
-    if (ImGui::Button("Reset##MM")) {
+    if (ImGui::Button(ICON_FA_ROTATE_LEFT "##MM")) {
       mono_mixer_state = MonoMixerState();
       if (active) {
         Effect &e = get_or_create_effect(type);

@@ -32,7 +32,7 @@ public:
     stop_thumbnail_workers();
   };
 
-  Image *load_image();
+  Image *load_image(int index);
   Image *load_next();
   Image *load_previous();
 
@@ -51,8 +51,8 @@ public:
     return image_order[i].filename;
   };
 
-  int index = 0;
   int size = 0;
+  int index = 0;
 
   int last_thumbnail_loaded = 0;
   std::vector<Image> image_order;

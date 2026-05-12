@@ -41,9 +41,6 @@ void Session::render_searcher() {
           image_manager.image_path_from_index(image_manager.index));
     }
   }
-  if (ImGui::IsItemHovered()) {
-    ImGui::SetTooltip("Same As");
-  }
 
   render_search_results_table();
   ImGui::EndChild();
