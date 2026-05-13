@@ -29,7 +29,7 @@ void SDLCALL prepare_export_queue(void *userdata, const char *const *folderlist,
 
   size_t total_items = 0;
   for (const auto &[image_path, entries] : export_manager->bill) {
-    for (const auto &[student_id, entry] : entries) {
+    for (const auto &[student_id, entry] : entries.entries) {
       (void)student_id;
       total_items += std::max(entry.count, 0);
     }
@@ -38,7 +38,7 @@ void SDLCALL prepare_export_queue(void *userdata, const char *const *folderlist,
 
   const std::string roll = export_manager->path.filename().string();
   for (const auto &[image_path, entries] : export_manager->bill) {
-    for (const auto &[student_id, entry] : entries) {
+    for (const auto &[student_id, entry] : entries.entries) {
       if (entry.count < 1) {
         continue;
       }
@@ -435,8 +435,8 @@ void ExportManager::same_as(const std::filesystem::path &source_image,
   }
 
   auto &current_bill = bill[image_path];
-  for (const auto &[student_id, source_entry] : source_it->second) {
-    BillEntry &entry = current_bill[student_id];
+  for (const auto &[student_id, source_entry] : source_it->second.entries) {
+    BillEntry &entry = current_bill.entries[student_id];
     entry.name = source_entry.name;
     entry.count += source_entry.count;
   }
@@ -465,7 +465,7 @@ void ExportManager::load_existing_bill() {
   for (auto it = json_data.begin(); it != json_data.end(); ++it) {
     // Reconstruct the full path by appending it to the directory 'path'
     std::filesystem::path full_path = path / it.key();
-    bill[full_path] = it.value().get<std::map<std::string, BillEntry>>();
+    bill[full_path] = it.value().get<BillFile>();
   }
 }
 
@@ -477,7 +477,7 @@ void ExportManager::open_export_modal() {
 void ExportManager::increment_for_id(const std::string &id,
                                      const std::string name,
                                      const std::filesystem::path image) {
-  auto &entries = bill[image];
+  auto &entries = bill[image].entries;
   BillEntry &entry = entries[id];
   entry.name = name;
   entry.count += 1;

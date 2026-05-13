@@ -10,12 +10,23 @@
 struct BillEntry {
   std::string name;
   int count = 0;
+
   NLOHMANN_DEFINE_TYPE_INTRUSIVE(BillEntry, name, count);
 };
 
-using BillMap =
-    std::unordered_map<std::filesystem::path, std::map<std::string, BillEntry>>;
+struct FileAttributes {
+  bool bookmark = false;
+  NLOHMANN_DEFINE_TYPE_INTRUSIVE(FileAttributes, bookmark);
+};
 
+struct BillFile {
+  FileAttributes attributes;
+  std::map<std::string, BillEntry> entries;
+
+  NLOHMANN_DEFINE_TYPE_INTRUSIVE(BillFile, attributes, entries);
+};
+
+using BillMap = std::unordered_map<std::filesystem::path, BillFile>;
 struct PendingExport {
   std::filesystem::path source;
   std::filesystem::path destination;
@@ -42,7 +53,7 @@ public:
   void finish_export_if_ready();
 
   int visible_billed_entry_count(std::filesystem::path path) {
-    auto entries = bill[path];
+    auto entries = bill[path].entries;
     int count = 0;
     for (const auto &[id, entry] : entries) {
       (void)id;

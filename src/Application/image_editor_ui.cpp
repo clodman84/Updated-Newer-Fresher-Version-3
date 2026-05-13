@@ -15,6 +15,22 @@ void ImageEditor::render_preview() {
   ImGui::TableNextColumn();
   ImGui::BeginChild("PreviewChild", ImVec2(0, 0));
 
+  ImGui::Text(ICON_FA_WAND_MAGIC_SPARKLES);
+  ImGui::SameLine();
+
+  ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+  ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1, 1, 1, 0.1f));
+  ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(1, 1, 1, 0.2f));
+
+  if (ImGui::SmallButton(ICON_FA_COMPRESS))
+    reset_view_to_image();
+  if (ImGui::IsItemHovered())
+    ImGui::SetTooltip("Reset view");
+
+  ImGui::PopStyleColor(3);
+
+  ImGui::Separator();
+
   ImTextureRef texture_id = preview_texture;
   const ImVec2 canvas_pos = ImGui::GetCursorScreenPos();
   canvas_size = ImGui::GetContentRegionAvail();
@@ -312,10 +328,17 @@ static bool draw_levels_bar(const char *id, double &in_low, double &gamma,
   return changed;
 }
 static bool EnabledCheckbox(const char *label_id, bool &active) {
+  ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+  ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0, 0, 0, 0.4f));
+  ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0, 0, 0, 0.6f));
+  ImGui::PushStyleColor(ImGuiCol_Text, active ? ImVec4(1.0f, 0.84f, 0.0f, 1.0f)
+                                              : ImVec4(1.0f, 1.0f, 1.0f, 0.6f));
   const char *icon = active ? ICON_FA_TOGGLE_ON : ICON_FA_TOGGLE_OFF;
   bool clicked = ImGui::Button((std::string(icon) + label_id).c_str());
   if (clicked)
     active = !active;
+
+  ImGui::PopStyleColor(4);
   return clicked;
 }
 

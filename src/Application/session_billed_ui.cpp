@@ -19,7 +19,7 @@ void Session::render_billed_table() {
 
   int visible_index = 0;
   for (auto &[student_id, entry] :
-       export_manager.bill[image_manager.current_image->filename]) {
+       export_manager.bill[image_manager.current_image->filename].entries) {
     if (entry.count < 1) {
       continue;
     }
@@ -77,7 +77,8 @@ void Session::render_billed() {
     return;
   }
 
-  if (export_manager.bill[image_manager.current_image->filename].empty()) {
+  if (export_manager.bill[image_manager.current_image->filename]
+          .entries.empty()) {
     ImGui::TextDisabled("No billed entries for the current image.");
     ImGui::EndChild();
     return;

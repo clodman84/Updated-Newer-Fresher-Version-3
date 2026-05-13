@@ -58,10 +58,101 @@ void ImageEditor::reset_view_to_image() {
   pan = ImVec2(0.0f, 0.0f);
 }
 
+static float linked_zoom_for_target(float source_zoom, int source_width,
+                                    int source_height, int target_width,
+                                    int target_height) {
+  if (source_width <= 0 || source_height <= 0 || target_width <= 0 ||
+      target_height <= 0) {
+    return source_zoom;
+  }
+
+  const float ratio_x =
+      static_cast<float>(source_width) / static_cast<float>(target_width);
+  const float ratio_y =
+      static_cast<float>(source_height) / static_cast<float>(target_height);
+
+  if (std::fabs(ratio_x - ratio_y) < 0.0001f) {
+    return source_zoom * ratio_x;
+  }
+  return source_zoom * std::sqrt(ratio_x * ratio_y);
+}
+
 void Session::render_main_image() {
   ImGui::TableNextColumn();
   ImGui::BeginChild("ViewerChild", ImVec2(0, 0));
 
+  ImGui::Text("Frame %d", image_manager.index + 1);
+  ImGui::SameLine();
+
+  ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+  ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1, 1, 1, 0.1f));
+  ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(1, 1, 1, 0.2f));
+
+  if (ImGui::SmallButton(ICON_FA_COMPRESS))
+    reset_view_to_image();
+  if (ImGui::IsItemHovered())
+    ImGui::SetTooltip("Reset view");
+
+  ImGui::SameLine();
+
+  bool det = with_detection;
+  if (det)
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.93f, 0.73f, 0.24f, 1.0f));
+  const char *icon = det ? ICON_FA_USER_CHECK : ICON_FA_USER_SLASH;
+  if (ImGui::SmallButton(icon))
+    with_detection = !with_detection;
+  if (det)
+    ImGui::PopStyleColor();
+  if (ImGui::IsItemHovered())
+    ImGui::SetTooltip(det ? "Detection ON" : "Detection OFF");
+
+  ImGui::SameLine();
+
+  det = with_preview;
+  if (det)
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.93f, 0.73f, 0.24f, 1.0f));
+  if (ImGui::SmallButton(ICON_FA_WAND_MAGIC_SPARKLES))
+    with_preview = !with_preview;
+  if (det)
+    ImGui::PopStyleColor();
+
+  if (with_preview) {
+    ImGui::SameLine();
+    const bool linked = link_preview_viewer;
+    if (linked)
+      ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.93f, 0.73f, 0.24f, 1.0f));
+    if (ImGui::SmallButton(linked ? ICON_FA_LINK "##link_viewers"
+                                  : ICON_FA_LINK_SLASH "##link_viewers")) {
+      link_preview_viewer = !link_preview_viewer;
+      if (link_preview_viewer) {
+        editor.set_view(
+            linked_zoom_for_target(zoom, image_manager.current_image->width,
+                                   image_manager.current_image->height,
+                                   editor.image_width, editor.image_height),
+            pan);
+      }
+    }
+    if (linked)
+      ImGui::PopStyleColor();
+  }
+
+  ImGui::PopStyleColor(3);
+
+  if (with_detection && image_manager.current_image != nullptr) {
+    size_t count =
+        detector.scan_faces(image_manager.current_image->filename).size();
+    char label[64];
+    snprintf(label, sizeof(label), ICON_FA_USERS "  %zu face%s", count,
+             count == 1 ? "" : "s");
+
+    float label_width = ImGui::CalcTextSize(label).x;
+    float available = ImGui::GetContentRegionAvail().x;
+    ImGui::SameLine(available - label_width);
+    ImGui::TextColored(ImVec4(0.93f, 0.73f, 0.24f, 1.0f), "%s", label);
+  }
+
+  ImGui::Separator();
+  // --- End header bar ---
   const Image *image = image_manager.current_image;
   if (image == nullptr || !image->is_valid()) {
     ImGui::TextDisabled("Failed to load image.");
@@ -139,25 +230,6 @@ void Session::render_main_image() {
   ImGui::EndChild();
 }
 
-static float linked_zoom_for_target(float source_zoom, int source_width,
-                                    int source_height, int target_width,
-                                    int target_height) {
-  if (source_width <= 0 || source_height <= 0 || target_width <= 0 ||
-      target_height <= 0) {
-    return source_zoom;
-  }
-
-  const float ratio_x =
-      static_cast<float>(source_width) / static_cast<float>(target_width);
-  const float ratio_y =
-      static_cast<float>(source_height) / static_cast<float>(target_height);
-
-  if (std::fabs(ratio_x - ratio_y) < 0.0001f) {
-    return source_zoom * ratio_x;
-  }
-  return source_zoom * std::sqrt(ratio_x * ratio_y);
-}
-
 void Session::render_control_panel() {
   const Image *image = image_manager.current_image;
 
@@ -165,7 +237,6 @@ void Session::render_control_panel() {
   ImGui::BeginChild("Control Panel", ImVec2(0, 0));
   ImGui::Text(ICON_FA_WRENCH " This is a work in progress :)");
   ImGui::Separator();
-
   if (image == nullptr || !image->is_valid()) {
     with_preview = false;
     with_detection = false;
@@ -173,61 +244,7 @@ void Session::render_control_panel() {
     ImGui::EndChild();
     return;
   }
-
-  ImGui::Checkbox("Scan Faces", &with_detection);
-
-  if (with_detection && image != nullptr) {
-    ImGui::SameLine();
-    ImGui::TextColored(ImVec4(0.93f, 0.73f, 0.24f, 1.0f), "Face Count: %ld",
-                       detector.scan_faces(image->filename).size());
-  }
-  ImGui::SameLine();
-  if (ImGui::Button(ICON_FA_COMPRESS)) {
-    reset_view_to_image();
-  }
-  if (ImGui::TreeNode("Edit")) {
-    with_preview = true;
-    // ImGui::Text("Preview Image Dimensions: %d x %d", editor->image_width,
-    //             editor->image_height);
-    // ImGui::Text("ROI: %d, %d, %d, %d", editor->roi.x, editor->roi.y,
-    //             editor->roi.width, editor->roi.height);
-    // ImGui::Text("Zoom: %f", zoom);
-    // ImGui::Text("Current Texture: %d, %d, %d, %d",
-    //             editor->current_texture_width,
-    //             editor->current_texture_height,
-    //             editor->current_texture_offset_x,
-    //             editor->current_texture_offset_y);
-    {
-      const bool linked = link_preview_viewer;
-
-      ImGui::PushStyleColor(
-          ImGuiCol_Button, linked
-                               ? ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive)
-                               : ImGui::GetStyleColorVec4(ImGuiCol_Button));
-      ImGui::PushStyleColor(
-          ImGuiCol_ButtonHovered,
-          linked ? ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive)
-                 : ImGui::GetStyleColorVec4(ImGuiCol_ButtonHovered));
-
-      if (ImGui::Button(linked ? ICON_FA_LINK "##link_viewers"
-                               : ICON_FA_LINK_SLASH "##link_viewers")) {
-        link_preview_viewer = !link_preview_viewer;
-        if (link_preview_viewer) {
-          editor.set_view(
-              linked_zoom_for_target(zoom, image->width, image->height,
-                                     editor.image_width, editor.image_height),
-              pan);
-        }
-      }
-
-      ImGui::PopStyleColor(2);
-      ImGui::SameLine();
-      ImGui::Text(link_preview_viewer ? "Unlink Viewers" : "Link Viewers");
-    }
-    editor.render_controls();
-    ImGui::TreePop();
-  } else
-    with_preview = false;
+  editor.render_controls();
   ImGui::EndChild();
 }
 
@@ -251,17 +268,19 @@ void Session::render_image_panel() {
   ImGui::BeginChild("TopRegion", ImVec2(0, top_height),
                     ImGuiChildFlags_Borders);
 
-  int column_count = with_preview ? 3 : 2;
+  int column_count = with_preview ? 3 : 1;
 
   if (ImGui::BeginTable("MainLayout", column_count,
                         ImGuiTableFlags_Resizable |
                             ImGuiTableFlags_SizingStretchProp,
                         ImVec2(0, 0))) {
     ImGui::TableSetupColumn("Viewer", ImGuiTableColumnFlags_WidthStretch, 3.0f);
-    if (with_preview)
+    if (with_preview) {
       ImGui::TableSetupColumn("Preview", ImGuiTableColumnFlags_WidthStretch,
                               3.0f);
-    ImGui::TableSetupColumn("Editor", ImGuiTableColumnFlags_WidthStretch, 1.0f);
+      ImGui::TableSetupColumn("Editor", ImGuiTableColumnFlags_WidthStretch,
+                              1.0f);
+    }
     ImGui::TableNextRow();
     render_main_image();
     if (with_preview) {
@@ -282,8 +301,8 @@ void Session::render_image_panel() {
                                       image_manager.current_image->height);
         pan = editor.get_pan();
       }
+      render_control_panel();
     }
-    render_control_panel();
     ImGui::EndTable();
   }
 

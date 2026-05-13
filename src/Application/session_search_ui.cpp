@@ -34,7 +34,7 @@ void Session::render_searcher() {
   }
   ImGui::SameLine();
 
-  if (ImGui::Button(ICON_FA_COPY)) {
+  if (ImGui::Button(ICON_FA_PAINT_ROLLER)) {
     if (image_manager.index > 0 && image_manager.index <= image_manager.size) {
       export_manager.same_as(
           image_manager.image_path_from_index(image_manager.index - 1),

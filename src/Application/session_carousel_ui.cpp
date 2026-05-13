@@ -1,3 +1,4 @@
+#include "include/IconsFontAwesome6.h"
 #include "include/session.h"
 #include <algorithm>
 #include <imgui.h>
@@ -24,7 +25,7 @@ void Session::render_carousel(float carousel_height) {
     bool is_context_menu_open = ImGui::IsPopupOpen("ThumbnailContextMenu");
 
     ImGui::BeginGroup();
-    ImGui::Text("Frame: %d", i + 1);
+    ImGui::Text("Frame %d", i + 1);
     image.render_thumbnail(
         200,
         [this, i](const std::string &n) {
@@ -50,21 +51,48 @@ void Session::render_carousel(float carousel_height) {
           last_clicked_index = i;
         },
         is_selected, (i == last_drawn_index), is_context_menu_open);
+
+    {
+      // Bookmark
+      ImVec2 thumb_min = ImGui::GetItemRectMin();
+      ImVec2 thumb_max = ImGui::GetItemRectMax();
+
+      const float pad = 4.0f;
+      const float spacing = 4.0f;
+      ImVec2 bookmark_size = ImGui::CalcTextSize(ICON_FA_BOOKMARK);
+      ImVec2 paint_roller_size = ImGui::CalcTextSize(ICON_FA_PAINT_ROLLER);
+      ImVec2 btn_size =
+          ImVec2(bookmark_size.x + pad * 2, bookmark_size.y + pad * 2);
+
+      bool bookmarked =
+          export_manager.bill[current_image_filename].attributes.bookmark;
+      ImGui::SetCursorScreenPos(
+          ImVec2(thumb_max.x - btn_size.x + 6, thumb_min.y - btn_size.y));
+      ImGui::SetNextItemAllowOverlap();
+      ImGui::PushID("bookmark");
+      ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+      ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0, 0, 0, 0.4f));
+      ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0, 0, 0, 0.6f));
+      ImGui::PushStyleColor(ImGuiCol_Text,
+                            bookmarked ? ImVec4(1.0f, 0.84f, 0.0f, 1.0f)
+                                       : ImVec4(1.0f, 1.0f, 1.0f, 0.6f));
+      if (ImGui::Button(ICON_FA_BOOKMARK, btn_size)) {
+        export_manager.bill[current_image_filename].attributes.bookmark =
+            !bookmarked;
+        export_manager.autosave();
+      }
+      ImGui::PopStyleColor(4);
+      ImGui::PopID();
+    }
+
     ImGui::EndGroup();
-
-    if (ImGui::IsItemVisible()) {
-      if (currently_visible_start == -1)
-        currently_visible_start = i;
-      currently_visible_end = i;
-    };
-
     // Right-click context menu for Same As
     if (ImGui::BeginPopupContextItem("ThumbnailContextMenu")) {
       if (!is_selected) {
         selection_storage.clear();
         selection_storage.emplace(current_image_filename);
       }
-      if (ImGui::MenuItem("Same As")) {
+      if (ImGui::MenuItem(ICON_FA_PAINT_ROLLER "  Same As")) {
         const auto source_it = export_manager.bill.find(current_image_filename);
         if (selection_storage.size() == 1) {
           selection_storage.emplace(image_manager.current_image_path());
@@ -79,6 +107,12 @@ void Session::render_carousel(float carousel_height) {
       }
       ImGui::EndPopup();
     }
+
+    if (ImGui::IsItemVisible()) {
+      if (currently_visible_start == -1)
+        currently_visible_start = i;
+      currently_visible_end = i;
+    };
 
     if (current_image_filename == image_manager.current_image_path() &&
         image_manager.index != last_drawn_index) {

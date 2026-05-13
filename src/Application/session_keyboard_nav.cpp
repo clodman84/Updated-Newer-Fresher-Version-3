@@ -34,7 +34,8 @@ void Session::handle_search_keyboard_nav() {
   if (image_manager.current_image == nullptr) {
     return;
   }
-  auto entries = export_manager.bill[image_manager.current_image->filename];
+  auto entries =
+      export_manager.bill[image_manager.current_image->filename].entries;
   if (ImGui::IsKeyPressed(ImGuiKey_Tab) && !entries.empty()) {
     keyboard_nav_mode = KeyboardNavMode::Billed;
     focus_billed_on_next_frame = true;
@@ -67,7 +68,8 @@ void Session::handle_billed_keyboard_nav() {
     return;
   }
 
-  auto entries = export_manager.bill[image_manager.current_image->filename];
+  auto entries =
+      export_manager.bill[image_manager.current_image->filename].entries;
   if (export_manager.visible_billed_entry_count(
           image_manager.current_image->filename) == 0) {
     return;
