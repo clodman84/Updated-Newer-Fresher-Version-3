@@ -197,12 +197,32 @@ void Session::render_control_panel() {
     //             editor->current_texture_height,
     //             editor->current_texture_offset_x,
     //             editor->current_texture_offset_y);
-    if (ImGui::Checkbox("Link Viewers", &link_preview_viewer) &&
-        link_preview_viewer) {
-      editor.set_view(linked_zoom_for_target(zoom, image->width, image->height,
-                                             editor.image_width,
-                                             editor.image_height),
-                      pan);
+    {
+      const bool linked = link_preview_viewer;
+
+      ImGui::PushStyleColor(
+          ImGuiCol_Button, linked
+                               ? ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive)
+                               : ImGui::GetStyleColorVec4(ImGuiCol_Button));
+      ImGui::PushStyleColor(
+          ImGuiCol_ButtonHovered,
+          linked ? ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive)
+                 : ImGui::GetStyleColorVec4(ImGuiCol_ButtonHovered));
+
+      if (ImGui::Button(linked ? ICON_FA_LINK "##link_viewers"
+                               : ICON_FA_LINK_SLASH "##link_viewers")) {
+        link_preview_viewer = !link_preview_viewer;
+        if (link_preview_viewer) {
+          editor.set_view(
+              linked_zoom_for_target(zoom, image->width, image->height,
+                                     editor.image_width, editor.image_height),
+              pan);
+        }
+      }
+
+      ImGui::PopStyleColor(2);
+      ImGui::SameLine();
+      ImGui::Text(link_preview_viewer ? "Unlink Viewers" : "Link Viewers");
     }
     editor.render_controls();
     ImGui::TreePop();

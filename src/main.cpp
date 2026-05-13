@@ -1,4 +1,5 @@
 #include "Application//include/IconsFontAwesome6.h"
+#include "Application/include/IconsFontAwesome6Brands.h"
 #include "Application/operations/gimp_levels.h"
 #include "Application/operations/my_colour_enhance.h"
 #include "include/google_drive_browser.h"
@@ -201,17 +202,14 @@ private:
     icon_cfg.GlyphOffset = ImVec2(0.0f, 1.0f);
     icon_cfg.GlyphMinAdvanceX = 16.0f;
 
-    ImFont *merged = io.Fonts->AddFontFromFileTTF(
-        "./Data/Font Awesome 6 Free-Regular-400.otf", 16.0f, &icon_cfg,
-        fa_ranges);
+    io.Fonts->AddFontFromFileTTF("./Data/Font Awesome 6 Free-Regular-400.otf",
+                                 16.0f, &icon_cfg, fa_ranges);
 
-    merged =
-        io.Fonts->AddFontFromFileTTF("./Data/Font Awesome 6 Free-Solid-900.otf",
-                                     16.0f, &icon_cfg, fa_ranges);
+    io.Fonts->AddFontFromFileTTF("./Data/Font Awesome 6 Free-Solid-900.otf",
+                                 16.0f, &icon_cfg, fa_ranges);
 
-    if (!merged) {
-      std::cerr << "Warning: Failed to load NerdFont icons\n";
-    }
+    io.Fonts->AddFontFromFileTTF("./Data/Font Awesome 6 Brands-Regular-400.otf",
+                                 16.0f, &icon_cfg, fa_ranges);
 
     io.Fonts->Build();
     background_image = std::make_unique<Image>("./Data/logo.png", gpu_device_);
@@ -311,7 +309,7 @@ private:
     }
 
     if (show_drive_browser_ && drive_browser_) {
-      drive_browser_->render_window("Google Drive Browser");
+      drive_browser_->render_window(ICON_FA_GOOGLE_DRIVE "  Drive Browser");
     }
 
     ImGui::Render();
@@ -349,7 +347,7 @@ private:
     }
 
     if (ImGui::BeginMenu(ICON_FA_CLOUD)) {
-      if (ImGui::MenuItem(ICON_FA_COMPASS "  Toggle Browser", nullptr,
+      if (ImGui::MenuItem(ICON_FA_GOOGLE_DRIVE "  Toggle Browser", nullptr,
                           &show_drive_browser_)) {
         if (show_drive_browser_ && !drive_browser_) {
           try {

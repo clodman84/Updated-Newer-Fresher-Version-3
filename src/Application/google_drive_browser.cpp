@@ -297,7 +297,7 @@ void GoogleDriveBrowser::render_browser_ui() {
 
 void GoogleDriveBrowser::draw_navigation_bar() {
   ImGui::BeginDisabled(history_.empty());
-  if (ImGui::Button(" < ")) {
+  if (ImGui::Button(ICON_FA_BACKWARD)) {
     std::string prev_id = history_.back();
     history_.pop_back();
     load_folder_async(prev_id);
@@ -305,22 +305,18 @@ void GoogleDriveBrowser::draw_navigation_bar() {
   ImGui::EndDisabled();
 
   ImGui::SameLine();
-  if (ImGui::Button(" Refresh ")) {
+  if (ImGui::Button(ICON_FA_ROTATE)) {
     load_folder_async(current_folder_id_);
   }
-
   ImGui::SameLine();
-  ImGui::Text("  ID: ");
-  ImGui::SameLine();
-
   ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x - 60.0f);
-  bool enter_pressed = ImGui::InputText("##FolderIDInput", folder_id_input_,
-                                        sizeof(folder_id_input_),
-                                        ImGuiInputTextFlags_EnterReturnsTrue);
+  bool enter_pressed = ImGui::InputTextWithHint(
+      "##FolderIDInput", ICON_FA_FOLDER_CLOSED "  Folder ID", folder_id_input_,
+      sizeof(folder_id_input_), ImGuiInputTextFlags_EnterReturnsTrue);
   ImGui::PopItemWidth();
 
   ImGui::SameLine();
-  if (ImGui::Button(" Go ") || enter_pressed) {
+  if (ImGui::Button(ICON_FA_SATELLITE_DISH) || enter_pressed) {
     std::string target_id(folder_id_input_);
     if (!target_id.empty() && target_id != current_folder_id_) {
       if (!current_folder_id_.empty())

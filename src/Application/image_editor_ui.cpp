@@ -99,6 +99,65 @@ void ImageEditor::render_preview() {
   draw_list->PopClipRect();
   ImGui::EndChild();
 }
+static bool AccentSliderDouble(const char *label, double &v, double v_min,
+                               double v_max, const char *fmt,
+                               ImU32 accent = IM_COL32(82, 130, 255, 255)) {
+  ImGui::PushID(label);
+  ImDrawList *dl = ImGui::GetWindowDrawList();
+  float W = ImGui::GetContentRegionAvail().x;
+  float H = 20.0f;
+  float rounding = 3.0f;
+
+  ImVec2 p = ImGui::GetCursorScreenPos();
+  ImGui::InvisibleButton("##sl", ImVec2(W, H));
+  bool hovered = ImGui::IsItemHovered();
+  bool active = ImGui::IsItemActive();
+
+  if (active && ImGui::IsMouseDragging(0)) {
+    double delta = (double)ImGui::GetIO().MouseDelta.x / W * (v_max - v_min);
+    v = std::clamp(v + delta, v_min, v_max);
+  }
+
+  float t = (float)((v - v_min) / (v_max - v_min));
+
+  // Extract RGB from accent for vivid fills
+  float ar = ((accent >> 0) & 0xFF) / 255.0f;
+  float ag = ((accent >> 8) & 0xFF) / 255.0f;
+  float ab = ((accent >> 16) & 0xFF) / 255.0f;
+
+  ImU32 fill_dim = IM_COL32((int)(ar * 255 * 0.9f), (int)(ag * 255 * 0.9f),
+                            (int)(ab * 255 * 0.9f), 180);
+  ImU32 fill_subtle = IM_COL32((int)(ar * 255 * 0.7f), (int)(ag * 255 * 0.7f),
+                               (int)(ab * 255 * 0.7f), 100);
+
+  // track bg
+  dl->AddRectFilled(p, ImVec2(p.x + W, p.y + H), IM_COL32(35, 35, 35, 255),
+                    rounding);
+  // colored fill
+  ImU32 fill = active ? fill_dim : fill_subtle;
+  if (t > 0.0f)
+    dl->AddRectFilled(p, ImVec2(p.x + t * W, p.y + H), fill, rounding);
+  // thumb
+  float tx = p.x + t * W;
+  dl->AddLine(ImVec2(tx, p.y + 2), ImVec2(tx, p.y + H - 2),
+              active ? IM_COL32(255, 255, 255, 255)
+                     : IM_COL32(210, 210, 210, 180),
+              2.0f);
+
+  // label + value
+  char val_buf[32];
+  snprintf(val_buf, sizeof(val_buf), fmt, v);
+  float text_y = p.y + (H - ImGui::GetTextLineHeight()) * 0.5f;
+  dl->AddText(ImVec2(p.x + 7, text_y), IM_COL32(220, 220, 220, 240), label);
+  ImVec2 vsz = ImGui::CalcTextSize(val_buf);
+  dl->AddText(ImVec2(p.x + W - vsz.x - 7, text_y),
+              active ? IM_COL32(255, 255, 255, 255)
+                     : IM_COL32(200, 200, 200, 220),
+              val_buf);
+
+  ImGui::PopID();
+  return active && ImGui::IsMouseDragging(0);
+}
 
 static bool draw_levels_bar(const char *id, double &in_low, double &gamma,
                             double &in_high, double &out_low, double &out_high,
@@ -107,44 +166,31 @@ static bool draw_levels_bar(const char *id, double &in_low, double &gamma,
   ImDrawList *dl = ImGui::GetWindowDrawList();
 
   float width = ImGui::GetContentRegionAvail().x - 20;
-  float height = 16.0f;
-
+  float height = 20.0f;
   bool changed = false;
 
   ImVec2 p0 = ImGui::GetCursorScreenPos();
   ImVec2 p1 = ImVec2(p0.x + width, p0.y + height);
 
+  // ── Input gradient ────────────────────────────────────────
+  auto remap = [&](float t) -> float {
+    if (t <= in_low)
+      return 0.0f;
+    if (t >= in_high)
+      return 1.0f;
+    float x = (float)((t - in_low) / (in_high - in_low));
+    x = powf(x, (float)(1.0 / gamma));
+    return (float)(out_low + x * (out_high - out_low));
+  };
+
   const int STEPS = 64;
   for (int i = 0; i < STEPS; i++) {
     float t0 = (float)i / STEPS;
     float t1 = (float)(i + 1) / STEPS;
-
-    // apply input levels
-    auto remap = [&](float t) {
-      if (t <= in_low)
-        return 0.0f;
-      if (t >= in_high)
-        return 1.0f;
-
-      float x = (t - in_low) / (in_high - in_low);
-
-      // gamma curve
-      float g = (float)(1.0 / gamma);
-      x = powf(x, g);
-
-      // output levels
-      return (float)(out_low + x * (out_high - out_low));
-    };
-
-    float r0 = remap(t0);
-    float r1 = remap(t1);
-
-    ImVec4 c0 = ImLerp(color_left, color_right, r0);
-    ImVec4 c1 = ImLerp(color_left, color_right, r1);
-
+    ImVec4 c0 = ImLerp(color_left, color_right, remap(t0));
+    ImVec4 c1 = ImLerp(color_left, color_right, remap(t1));
     float x0 = p0.x + t0 * width;
     float x1 = p0.x + t1 * width;
-
     dl->AddRectFilledMultiColor(
         ImVec2(x0, p0.y), ImVec2(x1, p1.y), ImGui::ColorConvertFloat4ToU32(c0),
         ImGui::ColorConvertFloat4ToU32(c1), ImGui::ColorConvertFloat4ToU32(c1),
@@ -154,7 +200,6 @@ static bool draw_levels_bar(const char *id, double &in_low, double &gamma,
   auto gamma_to_t = [&](double g) {
     return (float)((log(g) - log(0.1)) / (log(10.0) - log(0.1)));
   };
-
   auto t_to_gamma = [&](float t) {
     return exp(log(0.1) + t * (log(10.0) - log(0.1)));
   };
@@ -163,11 +208,11 @@ static bool draw_levels_bar(const char *id, double &in_low, double &gamma,
   float t_high = (float)in_high;
   float t_gamma = gamma_to_t(gamma);
 
-  ImGui::InvisibleButton("input_bar", ImVec2(width, height + 12));
+  ImGui::InvisibleButton("input_bar", ImVec2(width, height + 16));
   bool active = ImGui::IsItemActive();
 
-  float mouse_t = (ImGui::GetIO().MousePos.x - p0.x) / width;
-  mouse_t = std::clamp(mouse_t, 0.0f, 1.0f);
+  float mouse_t =
+      std::clamp((ImGui::GetIO().MousePos.x - p0.x) / width, 0.0f, 1.0f);
 
   float d_low = fabsf(mouse_t - t_low);
   float d_mid = fabsf(mouse_t - t_gamma);
@@ -175,47 +220,54 @@ static bool draw_levels_bar(const char *id, double &in_low, double &gamma,
 
   enum Handle { LOW, MID, HIGH };
   Handle target = LOW;
-
   if (d_mid < d_low && d_mid < d_high)
     target = MID;
   else if (d_high < d_low)
     target = HIGH;
 
   if (active && ImGui::IsMouseDragging(0)) {
-    if (target == LOW) {
+    if (target == LOW)
       in_low = std::min((double)mouse_t, in_high - 0.001);
-    } else if (target == HIGH) {
+    else if (target == HIGH)
       in_high = std::max((double)mouse_t, in_low + 0.001);
-    } else {
+    else
       gamma = std::clamp(t_to_gamma(mouse_t), 0.1, 10.0);
-    }
     changed = true;
   }
 
   auto X = [&](float t) { return p0.x + t * width; };
 
-  auto draw_tri_up = [&](float t, float y, ImU32 col) {
+  auto draw_tri = [&](float t, bool hovered) {
     float x = X(t);
-    dl->AddTriangleFilled(ImVec2(x - 6, y + 2), ImVec2(x + 6, y + 2),
-                          ImVec2(x, y - 6), col);
+    float by = p1.y;
+    ImU32 col =
+        hovered ? IM_COL32(255, 255, 255, 255) : IM_COL32(200, 200, 200, 220);
+    dl->AddTriangleFilled(ImVec2(x - 6, by + 2), ImVec2(x + 6, by + 2),
+                          ImVec2(x, by - 6), IM_COL32(0, 0, 0, 120));
+    dl->AddTriangleFilled(ImVec2(x - 5, by + 1), ImVec2(x + 5, by + 1),
+                          ImVec2(x, by - 5), col);
   };
 
-  auto draw_diamond = [&](float t, ImU32 col) {
+  auto draw_diamond = [&](float t, bool hovered) {
     float x = X(t);
-    float y = (p0.y + p1.y) * 0.5f;
-
-    dl->AddQuadFilled(ImVec2(x, y - 6), ImVec2(x + 6, y), ImVec2(x, y + 6),
-                      ImVec2(x - 6, y), col);
-
-    // guide line
-    dl->AddLine(ImVec2(x, p0.y), ImVec2(x, p1.y), IM_COL32(255, 255, 255, 80));
+    float cy = (p0.y + p1.y) * 0.5f;
+    ImU32 col =
+        hovered ? IM_COL32(100, 180, 255, 255) : IM_COL32(180, 180, 180, 220);
+    dl->AddLine(ImVec2(x, p0.y), ImVec2(x, p1.y), IM_COL32(255, 255, 255, 40),
+                1.0f);
+    dl->AddQuadFilled(ImVec2(x, -6 + cy), ImVec2(x + 6, cy), ImVec2(x, 6 + cy),
+                      ImVec2(x - 6, cy), IM_COL32(0, 0, 0, 100));
+    dl->AddQuadFilled(ImVec2(x, -5 + cy), ImVec2(x + 5, cy), ImVec2(x, 5 + cy),
+                      ImVec2(x - 5, cy), col);
   };
 
-  draw_tri_up(t_low, p1.y, IM_COL32(255, 255, 255, 255));
-  draw_tri_up(t_high, p1.y, IM_COL32(255, 255, 255, 255));
-  draw_diamond(t_gamma, IM_COL32(220, 220, 220, 255));
+  draw_tri(t_low, active && target == LOW);
+  draw_tri(t_high, active && target == HIGH);
+  draw_diamond(t_gamma, active && target == MID);
 
   ImGui::SetCursorScreenPos(ImVec2(p0.x, p1.y + 14));
+
+  // ── Output bar ────────────────────────────────────────────
   ImVec2 p2 = ImGui::GetCursorScreenPos();
   ImVec2 p3 = ImVec2(p2.x + width, p2.y + height);
 
@@ -223,36 +275,60 @@ static bool draw_levels_bar(const char *id, double &in_low, double &gamma,
       p2, p3, IM_COL32(0, 0, 0, 255), IM_COL32(255, 255, 255, 255),
       IM_COL32(255, 255, 255, 255), IM_COL32(0, 0, 0, 255));
 
-  ImGui::InvisibleButton("output_bar", ImVec2(width, height + 12));
+  ImGui::InvisibleButton("output_bar", ImVec2(width, height + 14));
   active = ImGui::IsItemActive();
 
-  mouse_t = (ImGui::GetIO().MousePos.x - p2.x) / width;
-  mouse_t = std::clamp(mouse_t, 0.0f, 1.0f);
-
+  mouse_t = std::clamp((ImGui::GetIO().MousePos.x - p2.x) / width, 0.0f, 1.0f);
   float d_ol = fabsf(mouse_t - (float)out_low);
   float d_oh = fabsf(mouse_t - (float)out_high);
+  bool out_low_target = d_ol < d_oh;
 
   if (active && ImGui::IsMouseDragging(0)) {
-    if (d_ol < d_oh)
+    if (out_low_target)
       out_low = std::min((double)mouse_t, out_high - 0.001);
     else
       out_high = std::max((double)mouse_t, out_low + 0.001);
     changed = true;
   }
 
-  draw_tri_up((float)out_low, p2.y + height, IM_COL32(255, 255, 255, 255));
-  draw_tri_up((float)out_high, p2.y + height, IM_COL32(255, 255, 255, 255));
-  ImGui::PopID();
+  auto draw_tri_out = [&](float t, bool hovered) {
+    float x = p2.x + t * width;
+    float by = p3.y;
+    ImU32 col =
+        hovered ? IM_COL32(255, 255, 255, 255) : IM_COL32(200, 200, 200, 220);
+    dl->AddTriangleFilled(ImVec2(x - 6, by + 2), ImVec2(x + 6, by + 2),
+                          ImVec2(x, by - 6), IM_COL32(0, 0, 0, 120));
+    dl->AddTriangleFilled(ImVec2(x - 5, by + 1), ImVec2(x + 5, by + 1),
+                          ImVec2(x, by - 5), col);
+  };
 
+  draw_tri_out((float)out_low, active && out_low_target);
+  draw_tri_out((float)out_high, active && !out_low_target);
+
+  ImGui::SetCursorScreenPos(ImVec2(p2.x, p3.y + 12));
+  ImGui::Dummy(ImVec2(0, 4));
+
+  ImGui::PopID();
   return changed;
+}
+static bool EnabledCheckbox(const char *label_id, bool &active) {
+  const char *icon = active ? ICON_FA_TOGGLE_ON : ICON_FA_TOGGLE_OFF;
+  bool clicked = ImGui::Button((std::string(icon) + label_id).c_str());
+  if (clicked)
+    active = !active;
+  return clicked;
 }
 
 void ImageEditor::render_controls() {
-  ImGui::SeparatorText("Tone & Exposure");
+  ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(6, 6));
+
+  // ── Tone & Exposure ───────────────────────────────────────
+  ImGui::SeparatorText(ICON_FA_SUN "  Tone & Exposure");
+
   if (gegl_has_operation("gegl:exposure") && ImGui::TreeNode("Exposure")) {
     const EffectType type = EffectType::Exposure;
     bool active = is_effect_active(type);
-    if (ImGui::Checkbox("Enabled##Exp", &active)) {
+    if (EnabledCheckbox("##Exp", active)) {
       if (active)
         get_or_create_effect(type);
       else
@@ -270,29 +346,25 @@ void ImageEditor::render_controls() {
         put_render_request();
       }
     }
-
+    if (ImGui::IsItemHovered())
+      ImGui::SetTooltip("Reset");
     ImGui::SameLine();
-    ImGui::TextDisabled("(?)");
+    ImGui::TextDisabled(ICON_FA_CIRCLE_QUESTION);
     if (ImGui::BeginItemTooltip()) {
       ImGui::PushTextWrapPos(300.0f);
       ImGui::TextUnformatted(
           "Exposure adjustment in the linear light domain — applies a "
-          "black-level offset and an exposure value in stops, matching what "
-          "you would adjust on a camera before a shot.");
+          "black-level offset and an exposure value in stops.");
       ImGui::PopTextWrapPos();
       ImGui::EndTooltip();
     }
+    ImGui::Spacing();
 
     bool changed = false;
-    static const double black_min = -0.1, black_max = 0.1;
-    static const double exp_min = -10.0, exp_max = 10.0;
-    changed |= ImGui::SliderScalar("Black Level", ImGuiDataType_Double,
-                                   &exposure_state.black_level, &black_min,
-                                   &black_max, "%.3f");
-    changed |= ImGui::SliderScalar("Exposure (EV)", ImGuiDataType_Double,
-                                   &exposure_state.exposure, &exp_min, &exp_max,
-                                   "%.2f");
-
+    changed |= AccentSliderDouble("Black Level", exposure_state.black_level,
+                                  -0.1, 0.1, "%.3f");
+    changed |= AccentSliderDouble("Exposure (EV)", exposure_state.exposure,
+                                  -10.0, 10.0, "%.2f");
     if (changed && active) {
       Effect &e = get_or_create_effect(type);
       gegl_node_set(e.node, "black-level", (gdouble)exposure_state.black_level,
@@ -305,8 +377,7 @@ void ImageEditor::render_controls() {
   if (ImGui::TreeNode("Levels")) {
     const EffectType type = EffectType::Levels;
     bool active = is_effect_active(type);
-
-    if (ImGui::Checkbox("Enabled##Lv", &active)) {
+    if (EnabledCheckbox("##Lv", active)) {
       if (active)
         get_or_create_effect(type);
       else
@@ -346,9 +417,10 @@ void ImageEditor::render_controls() {
         put_render_request();
       }
     }
-
+    if (ImGui::IsItemHovered())
+      ImGui::SetTooltip("Reset");
     ImGui::SameLine();
-    ImGui::TextDisabled("(?)");
+    ImGui::TextDisabled(ICON_FA_CIRCLE_QUESTION);
     if (ImGui::BeginItemTooltip()) {
       ImGui::PushTextWrapPos(300.0f);
       ImGui::TextUnformatted(
@@ -356,6 +428,7 @@ void ImageEditor::render_controls() {
       ImGui::PopTextWrapPos();
       ImGui::EndTooltip();
     }
+    ImGui::Spacing();
 
     bool changed = false;
 
@@ -365,19 +438,25 @@ void ImageEditor::render_controls() {
                                levels_state.out_high, ImVec4(0, 0, 0, 1),
                                ImVec4(1, 1, 1, 1));
 
-    ImGui::SeparatorText("Red Channel");
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.5f, 0.5f, 1.0f));
+    ImGui::SeparatorText("Red");
+    ImGui::PopStyleColor();
     changed |= draw_levels_bar("R", levels_state.in_low_r, levels_state.gamma_r,
                                levels_state.in_high_r, levels_state.out_low_r,
                                levels_state.out_high_r, ImVec4(0, 0, 0, 1),
                                ImVec4(1, 0, 0, 1));
 
-    ImGui::SeparatorText("Green Channel");
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.5f, 1.0f, 0.5f, 1.0f));
+    ImGui::SeparatorText("Green");
+    ImGui::PopStyleColor();
     changed |= draw_levels_bar("G", levels_state.in_low_g, levels_state.gamma_g,
                                levels_state.in_high_g, levels_state.out_low_g,
                                levels_state.out_high_g, ImVec4(0, 0, 0, 1),
                                ImVec4(0, 1, 0, 1));
 
-    ImGui::SeparatorText("Blue Channel");
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.5f, 0.7f, 1.0f, 1.0f));
+    ImGui::SeparatorText("Blue");
+    ImGui::PopStyleColor();
     changed |= draw_levels_bar("B", levels_state.in_low_b, levels_state.gamma_b,
                                levels_state.in_high_b, levels_state.out_low_b,
                                levels_state.out_high_b, ImVec4(0, 0, 0, 1),
@@ -415,12 +494,14 @@ void ImageEditor::render_controls() {
     ImGui::TreePop();
   }
 
-  ImGui::SeparatorText("Colour");
+  // ── Colour ────────────────────────────────────────────────
+  ImGui::SeparatorText(ICON_FA_DROPLET "  Colour");
+
   if (gegl_has_operation("gegl:color-temperature") &&
       ImGui::TreeNode("Color Temperature")) {
     const EffectType type = EffectType::ColorTemperature;
     bool active = is_effect_active(type);
-    if (ImGui::Checkbox("Enabled##CT", &active)) {
+    if (EnabledCheckbox("##CT", active)) {
       if (active)
         get_or_create_effect(type);
       else
@@ -440,30 +521,27 @@ void ImageEditor::render_controls() {
         put_render_request();
       }
     }
-
+    if (ImGui::IsItemHovered())
+      ImGui::SetTooltip("Reset");
     ImGui::SameLine();
-    ImGui::TextDisabled("(?)");
+    ImGui::TextDisabled(ICON_FA_CIRCLE_QUESTION);
     if (ImGui::BeginItemTooltip()) {
       ImGui::PushTextWrapPos(300.0f);
       ImGui::TextUnformatted(
-          "Changes the colour temperature of the image, from an assumed "
-          "original colour temperature to an intended one. Both values are in "
-          "Kelvin — lower is warmer (orange), higher is cooler (blue).");
+          "Changes colour temperature. Both values in Kelvin — "
+          "lower is warmer (orange), higher is cooler (blue).");
       ImGui::PopTextWrapPos();
       ImGui::EndTooltip();
     }
+    ImGui::Spacing();
 
     bool changed = false;
-    static const double t_min = 1000.0, t_max = 12000.0;
-    changed |=
-        ImGui::SliderScalar("Original", ImGuiDataType_Double,
-                            &color_temperature_state.original_temperature,
-                            &t_min, &t_max, "%.0f K");
-    changed |=
-        ImGui::SliderScalar("Intended", ImGuiDataType_Double,
-                            &color_temperature_state.intended_temperature,
-                            &t_min, &t_max, "%.0f K");
-
+    changed |= AccentSliderDouble(
+        "Original", color_temperature_state.original_temperature, 1000.0,
+        12000.0, "%.0f K", IM_COL32(255, 160, 80, 255));
+    changed |= AccentSliderDouble(
+        "Intended", color_temperature_state.intended_temperature, 1000.0,
+        12000.0, "%.0f K", IM_COL32(80, 160, 255, 255));
     if (changed && active) {
       Effect &e = get_or_create_effect(type);
       gegl_node_set(e.node, "original-temperature",
@@ -479,7 +557,7 @@ void ImageEditor::render_controls() {
   if (gegl_has_operation("gegl:hue-chroma") && ImGui::TreeNode("Hue-Chroma")) {
     const EffectType type = EffectType::HueChroma;
     bool active = is_effect_active(type);
-    if (ImGui::Checkbox("Enabled##HC", &active)) {
+    if (EnabledCheckbox("##HC", active)) {
       if (active)
         get_or_create_effect(type);
       else
@@ -497,33 +575,28 @@ void ImageEditor::render_controls() {
         put_render_request();
       }
     }
-
+    if (ImGui::IsItemHovered())
+      ImGui::SetTooltip("Reset");
     ImGui::SameLine();
-    ImGui::TextDisabled("(?)");
+    ImGui::TextDisabled(ICON_FA_CIRCLE_QUESTION);
     if (ImGui::BeginItemTooltip()) {
       ImGui::PushTextWrapPos(300.0f);
       ImGui::TextUnformatted(
           "Adjusts hue, chroma (saturation), and lightness in a perceptually "
-          "uniform colour space. Produces cleaner results than naive HSL "
-          "adjustment, especially when pushing chroma.");
+          "uniform colour space. Cleaner than naive HSL, especially when "
+          "pushing chroma.");
       ImGui::PopTextWrapPos();
       ImGui::EndTooltip();
     }
+    ImGui::Spacing();
 
     bool changed = false;
-    static const double hue_min = -180.0, hue_max = 180.0;
-    static const double chroma_min = -100.0, chroma_max = 100.0;
-    static const double lightness_min = -100.0, lightness_max = 100.0;
     changed |=
-        ImGui::SliderScalar("Hue", ImGuiDataType_Double, &hue_chroma_state.hue,
-                            &hue_min, &hue_max, "%.1f");
-    changed |= ImGui::SliderScalar("Chroma", ImGuiDataType_Double,
-                                   &hue_chroma_state.chroma, &chroma_min,
-                                   &chroma_max, "%.1f");
-    changed |= ImGui::SliderScalar("Lightness", ImGuiDataType_Double,
-                                   &hue_chroma_state.lightness, &lightness_min,
-                                   &lightness_max, "%.1f");
-
+        AccentSliderDouble("Hue", hue_chroma_state.hue, -180.0, 180.0, "%.1f°");
+    changed |= AccentSliderDouble("Chroma", hue_chroma_state.chroma, -100.0,
+                                  100.0, "%.1f");
+    changed |= AccentSliderDouble("Lightness", hue_chroma_state.lightness,
+                                  -100.0, 100.0, "%.1f");
     if (changed && active) {
       Effect &e = get_or_create_effect(type);
       gegl_node_set(e.node, "hue", (gdouble)hue_chroma_state.hue, "chroma",
@@ -538,7 +611,7 @@ void ImageEditor::render_controls() {
       ImGui::TreeNode("Color Enhance")) {
     const EffectType type = EffectType::ColorEnhance;
     bool active = is_effect_active(type);
-    if (ImGui::Checkbox("Enabled##CE", &active)) {
+    if (EnabledCheckbox("##CE", active)) {
       if (active) {
         get_or_create_effect(type);
         color_enhance_state.enabled = true;
@@ -548,15 +621,13 @@ void ImageEditor::render_controls() {
       }
       put_render_request();
     }
-
     ImGui::SameLine();
-    ImGui::TextDisabled("(?)");
+    ImGui::TextDisabled(ICON_FA_CIRCLE_QUESTION);
     if (ImGui::BeginItemTooltip()) {
       ImGui::PushTextWrapPos(300.0f);
       ImGui::TextUnformatted(
-          "Stretches the colour chroma to cover the maximum possible range, "
-          "keeping hue and lightness untouched. Useful for images that look "
-          "dull without being over or under exposed.");
+          "Stretches chroma to cover the maximum possible range, "
+          "keeping hue and lightness untouched.");
       ImGui::PopTextWrapPos();
       ImGui::EndTooltip();
     }
@@ -566,7 +637,7 @@ void ImageEditor::render_controls() {
   if (gegl_has_operation("gegl:saturation") && ImGui::TreeNode("Saturation")) {
     const EffectType type = EffectType::Saturation;
     bool active = is_effect_active(type);
-    if (ImGui::Checkbox("Enabled##Sat", &active)) {
+    if (EnabledCheckbox("##Sat", active)) {
       if (active)
         get_or_create_effect(type);
       else
@@ -582,25 +653,22 @@ void ImageEditor::render_controls() {
         put_render_request();
       }
     }
-
+    if (ImGui::IsItemHovered())
+      ImGui::SetTooltip("Reset");
     ImGui::SameLine();
-    ImGui::TextDisabled("(?)");
+    ImGui::TextDisabled(ICON_FA_CIRCLE_QUESTION);
     if (ImGui::BeginItemTooltip()) {
       ImGui::PushTextWrapPos(300.0f);
-      ImGui::TextUnformatted(
-          "Changes the saturation of the image. Scale is a multiplier on the "
-          "existing saturation — 1.0 is unchanged, 0.0 is fully desaturated, "
-          "2.0 doubles saturation.");
+      ImGui::TextUnformatted("Scale multiplier on saturation. 1.0 = unchanged, "
+                             "0.0 = desaturated, 2.0 = doubled.");
       ImGui::PopTextWrapPos();
       ImGui::EndTooltip();
     }
+    ImGui::Spacing();
 
     bool changed = false;
-    static const double s_min = 0.0, s_max = 2.0;
     changed |=
-        ImGui::SliderScalar("Scale", ImGuiDataType_Double,
-                            &saturation_state.scale, &s_min, &s_max, "%.2f");
-
+        AccentSliderDouble("Scale", saturation_state.scale, 0.0, 2.0, "%.2f");
     if (changed && active) {
       Effect &e = get_or_create_effect(type);
       gegl_node_set(e.node, "scale", (gdouble)saturation_state.scale, NULL);
@@ -612,7 +680,7 @@ void ImageEditor::render_controls() {
   if (gegl_has_operation("gegl:sepia") && ImGui::TreeNode("Sepia")) {
     const EffectType type = EffectType::Sepia;
     bool active = is_effect_active(type);
-    if (ImGui::Checkbox("Enabled##Sepia", &active)) {
+    if (EnabledCheckbox("##Sepia", active)) {
       if (active)
         get_or_create_effect(type);
       else
@@ -628,21 +696,21 @@ void ImageEditor::render_controls() {
         put_render_request();
       }
     }
-
+    if (ImGui::IsItemHovered())
+      ImGui::SetTooltip("Reset");
     ImGui::SameLine();
-    ImGui::TextDisabled("(?)");
+    ImGui::TextDisabled(ICON_FA_CIRCLE_QUESTION);
     if (ImGui::BeginItemTooltip()) {
       ImGui::PushTextWrapPos(300.0f);
       ImGui::TextUnformatted("Apply a sepia tone to the input image.");
       ImGui::PopTextWrapPos();
       ImGui::EndTooltip();
     }
+    ImGui::Spacing();
 
     bool changed = false;
-    static const double s_min = 0.0, s_max = 1.0;
-    changed |= ImGui::SliderScalar("Effect Strength", ImGuiDataType_Double,
-                                   &sepia_state.scale, &s_min, &s_max, "%.2f");
-
+    changed |= AccentSliderDouble("Effect Strength", sepia_state.scale, 0.0,
+                                  1.0, "%.2f", IM_COL32(180, 130, 80, 255));
     if (changed && active) {
       Effect &e = get_or_create_effect(type);
       gegl_node_set(e.node, "scale", (gdouble)sepia_state.scale, NULL);
@@ -654,7 +722,7 @@ void ImageEditor::render_controls() {
   if (gegl_has_operation("gegl:mono-mixer") && ImGui::TreeNode("Mono Mixer")) {
     const EffectType type = EffectType::MonoMixer;
     bool active = is_effect_active(type);
-    if (ImGui::Checkbox("Enabled##MM", &active)) {
+    if (EnabledCheckbox("##MM", active)) {
       if (active)
         get_or_create_effect(type);
       else
@@ -673,27 +741,25 @@ void ImageEditor::render_controls() {
         put_render_request();
       }
     }
-
+    if (ImGui::IsItemHovered())
+      ImGui::SetTooltip("Reset");
     ImGui::SameLine();
-    ImGui::TextDisabled("(?)");
+    ImGui::TextDisabled(ICON_FA_CIRCLE_QUESTION);
     if (ImGui::BeginItemTooltip()) {
       ImGui::PushTextWrapPos(300.0f);
       ImGui::TextUnformatted("Monochrome channel mixer.");
       ImGui::PopTextWrapPos();
       ImGui::EndTooltip();
     }
+    ImGui::Spacing();
 
     bool changed = false;
-    static const double mm_min = -2.0, mm_max = 2.0;
-    changed |=
-        ImGui::SliderScalar("Red", ImGuiDataType_Double, &mono_mixer_state.red,
-                            &mm_min, &mm_max, "%.3f");
-    changed |=
-        ImGui::SliderScalar("Green", ImGuiDataType_Double,
-                            &mono_mixer_state.green, &mm_min, &mm_max, "%.3f");
-    changed |=
-        ImGui::SliderScalar("Blue", ImGuiDataType_Double,
-                            &mono_mixer_state.blue, &mm_min, &mm_max, "%.3f");
+    changed |= AccentSliderDouble("Red", mono_mixer_state.red, -2.0, 2.0,
+                                  "%.3f", IM_COL32(200, 70, 70, 255));
+    changed |= AccentSliderDouble("Green", mono_mixer_state.green, -2.0, 2.0,
+                                  "%.3f", IM_COL32(70, 180, 80, 255));
+    changed |= AccentSliderDouble("Blue", mono_mixer_state.blue, -2.0, 2.0,
+                                  "%.3f", IM_COL32(70, 120, 210, 255));
     changed |= ImGui::Checkbox("Preserve Luminosity",
                                &mono_mixer_state.preserve_luminosity);
 
@@ -707,4 +773,6 @@ void ImageEditor::render_controls() {
     }
     ImGui::TreePop();
   }
+
+  ImGui::PopStyleVar();
 }
