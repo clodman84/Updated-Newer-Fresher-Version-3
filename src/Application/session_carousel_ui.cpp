@@ -72,19 +72,29 @@ void Session::render_carousel(float carousel_height) {
       ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
       ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0, 0, 0, 0.4f));
       ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0, 0, 0, 0.6f));
-      ImGui::PushStyleColor(ImGuiCol_Text,
-                            bookmarked ? ImVec4(1.0f, 0.84f, 0.0f, 1.0f)
-                                       : ImVec4(1.0f, 1.0f, 1.0f, 0.6f));
+      ImVec4 text_colour;
+      if (export_manager.bill[current_image_filename].attributes.finalised)
+        text_colour = {0, 1, 0, 1};
+      else
+        text_colour = bookmarked ? ImVec4(1.0f, 0.84f, 0.0f, 1.0f)
+                                 : ImVec4(1.0f, 1.0f, 1.0f, 0.6f);
+      ImGui::PushStyleColor(ImGuiCol_Text, text_colour);
       if (ImGui::Button(ICON_FA_BOOKMARK, btn_size)) {
         export_manager.bill[current_image_filename].attributes.bookmark =
             !bookmarked;
+        export_manager.bill[current_image_filename].attributes.finalised =
+            false;
         export_manager.autosave();
       }
       bool has_entries =
           !export_manager.bill[current_image_filename].entries.empty();
       ImGui::SetCursorScreenPos(
           ImVec2(bookmark_pos.x - circle_size.x, bookmark_pos.y + 4));
-      ImGui::Text(has_entries ? ICON_FA_CIRCLE_DOT : ICON_FA_CIRCLE);
+      if (!export_manager.bill[current_image_filename].attributes.finalised)
+        ImGui::Text(has_entries ? ICON_FA_CIRCLE_DOT : ICON_FA_CIRCLE);
+      else {
+        ImGui::Text(ICON_FA_CIRCLE_CHECK);
+      }
       ImGui::PopStyleColor(4);
       ImGui::PopID();
     }

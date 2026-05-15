@@ -402,6 +402,7 @@ void ImageEditor::render_controls() {
         open)) {
     case EffectHeaderAction::Toggled:
       toggle_effect(type, active);
+      break;
     case EffectHeaderAction::Reset:
       exposure_state = ExposureState();
       if (active) {
@@ -475,6 +476,7 @@ void ImageEditor::render_controls() {
         open)) {
     case EffectHeaderAction::Toggled:
       toggle_effect(type, active);
+      break;
     case EffectHeaderAction::Reset:
       levels_state = LevelsState();
       if (active)
@@ -536,6 +538,7 @@ void ImageEditor::render_controls() {
         open)) {
     case EffectHeaderAction::Toggled:
       toggle_effect(type, active);
+      break;
     case EffectHeaderAction::Reset:
       color_temperature_state = ColorTemperatureState();
       if (active) {
@@ -584,6 +587,7 @@ void ImageEditor::render_controls() {
         open)) {
     case EffectHeaderAction::Toggled:
       toggle_effect(type, active);
+      break;
     case EffectHeaderAction::Reset:
       hue_chroma_state = HueChromaState();
       if (active) {
@@ -627,6 +631,7 @@ void ImageEditor::render_controls() {
         open)) {
     case EffectHeaderAction::Toggled:
       toggle_effect(type, active);
+      break;
     case EffectHeaderAction::Reset:
       color_enhance_state = ColorEnhanceState();
       break;
@@ -648,6 +653,7 @@ void ImageEditor::render_controls() {
         open)) {
     case EffectHeaderAction::Toggled:
       toggle_effect(type, active);
+      break;
     case EffectHeaderAction::Reset:
       saturation_state = SaturationState();
       if (active) {
@@ -679,6 +685,7 @@ void ImageEditor::render_controls() {
         active, "Sepia", "Apply a sepia tone to the input image.", open)) {
     case EffectHeaderAction::Toggled:
       toggle_effect(type, active);
+      break;
     case EffectHeaderAction::Reset:
       sepia_state = SepiaState();
       if (active) {
@@ -711,6 +718,7 @@ void ImageEditor::render_controls() {
                                "Monochrome channel mixer.", open)) {
     case EffectHeaderAction::Toggled:
       toggle_effect(type, active);
+      break;
     case EffectHeaderAction::Reset:
       mono_mixer_state = MonoMixerState();
       if (active) {

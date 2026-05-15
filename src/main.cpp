@@ -347,7 +347,7 @@ private:
     }
 
     if (ImGui::BeginMenu(ICON_FA_CLOUD)) {
-      if (ImGui::MenuItem(ICON_FA_GOOGLE_DRIVE "  Toggle Browser", nullptr,
+      if (ImGui::MenuItem(ICON_FA_GOOGLE_DRIVE "  Show Browser", nullptr,
                           &show_drive_browser_)) {
         if (show_drive_browser_ && !drive_browser_) {
           try {

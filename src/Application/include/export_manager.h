@@ -16,6 +16,7 @@ struct BillEntry {
 
 struct FileAttributes {
   bool bookmark = false;
+  bool finalised = false;
   NLOHMANN_DEFINE_TYPE_INTRUSIVE(FileAttributes, bookmark);
 };
 
