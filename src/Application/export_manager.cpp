@@ -1,5 +1,7 @@
 #include "include/export_manager.h"
+#include "include/IconsFontAwesome6.h"
 #include "include/random_civ_6_quote.h"
+#include <filesystem>
 #include <utility>
 
 #define STB_TRUETYPE_IMPLEMENTATION
@@ -26,7 +28,9 @@ void SDLCALL prepare_export_queue(void *userdata, const char *const *folderlist,
   auto *export_manager = static_cast<ExportManager *>(userdata);
   export_manager->pending.clear();
   export_manager->export_font_data.clear();
-  export_manager->export_output_directory = *folderlist;
+  const std::string roll = export_manager->path.filename().string();
+  export_manager->export_output_directory =
+      std::filesystem::path(*folderlist) / roll;
 
   size_t total_items = 0;
   for (const auto &[image_path, entries] : export_manager->bill) {
@@ -37,7 +41,6 @@ void SDLCALL prepare_export_queue(void *userdata, const char *const *folderlist,
   }
   export_manager->pending.reserve(total_items);
 
-  const std::string roll = export_manager->path.filename().string();
   for (const auto &[image_path, entries] : export_manager->bill) {
     for (const auto &[student_id, entry] : entries.entries) {
       if (entry.count < 1) {
@@ -53,9 +56,7 @@ void SDLCALL prepare_export_queue(void *userdata, const char *const *folderlist,
                                      "_" + student_id + "_" +
                                      std::to_string(copy_index) + ".jpg";
         export_manager->pending.push_back(
-            {image_path,
-             std::filesystem::path(export_manager->export_output_directory) /
-                 filename,
+            {image_path, export_manager->export_output_directory / filename,
              watermark, image_path.filename().string()});
       }
     }
@@ -299,9 +300,9 @@ void ExportManager::render_export_modal(SDL_Window *window) {
   const ImVec2 center = ImGui::GetMainViewport()->GetCenter();
   ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
   ImGui::SetNextWindowSize(ImVec2(560, 0), ImGuiCond_Appearing);
-  ImGui::OpenPopup("Export Roll");
+  ImGui::OpenPopup(ICON_FA_FILE_EXPORT "  Export Roll");
 
-  if (!ImGui::BeginPopupModal("Export Roll", nullptr,
+  if (!ImGui::BeginPopupModal(ICON_FA_FILE_EXPORT "  Export Roll", nullptr,
                               ImGuiWindowFlags_NoResize |
                                   ImGuiWindowFlags_NoMove |
                                   ImGuiWindowFlags_AlwaysAutoResize)) {
@@ -325,11 +326,13 @@ void ExportManager::render_export_modal(SDL_Window *window) {
   ImGui::Text("Destination");
   ImGui::SameLine(150.0f);
   ImGui::SetNextItemWidth(340.0f);
+  const std::string folder_label =
+      export_output_directory.empty()
+          ? ICON_FA_FOLDER_OPEN "  Browse"
+          : ICON_FA_FOLDER_CLOSED "  " +
+                export_output_directory.parent_path().string();
 
-  if (ImGui::SmallButton(export_output_directory.empty()
-                             ? "Browse..."
-                             : export_output_directory.c_str()) &&
-      !exporting) {
+  if (ImGui::SmallButton(folder_label.c_str()) && !exporting) {
     SDL_ShowOpenFolderDialog(prepare_export_queue, this, window, ".", false);
   }
 

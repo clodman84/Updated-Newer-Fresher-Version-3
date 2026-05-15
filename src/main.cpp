@@ -339,6 +339,7 @@ private:
             if (ImGui::MenuItem(
                     session_ptr->folder_path.filename().string().c_str()))
               session_ptr->export_manager.open_export_modal();
+            ImGui::OpenPopup("Export Roll");
           }
           ImGui::EndMenu();
         }

@@ -81,7 +81,8 @@ void Session::render_billed_table() {
   ImGui::Spacing();
 
   float available = ImGui::GetContentRegionAvail().x;
-  ImGui::Text("%d people billed", sum);
+  ImGui::AlignTextToFramePadding();
+  ImGui::Text("%d %s billed", sum, (sum == 1) ? "person" : "people");
   ImGui::SameLine();
 
   bool is_finalised = export_manager.bill[image_manager.current_image->filename]
@@ -105,6 +106,7 @@ void Session::render_billed_table() {
         export_manager.bill[image_manager.current_image->filename].attributes;
     attrs.finalised = true;
     attrs.bookmark = false;
+    export_manager.request_autosave = true;
   }
 
   ImGui::PopStyleColor(3);

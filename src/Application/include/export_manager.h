@@ -17,7 +17,7 @@ struct BillEntry {
 struct FileAttributes {
   bool bookmark = false;
   bool finalised = false;
-  NLOHMANN_DEFINE_TYPE_INTRUSIVE(FileAttributes, bookmark);
+  NLOHMANN_DEFINE_TYPE_INTRUSIVE(FileAttributes, bookmark, finalised);
 };
 
 struct BillFile {
@@ -69,7 +69,7 @@ public:
   std::vector<PendingExport> pending;
   std::vector<unsigned char> export_font_data;
   std::string export_status_message = "Ready to export";
-  std::string export_output_directory;
+  std::filesystem::path export_output_directory;
   int export_total = 0;
   bool exporting = false;
   bool export_completed = false;
