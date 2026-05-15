@@ -95,8 +95,6 @@ struct RenderRequest {
   float zoom;
 };
 
-Effect &get_or_create_effect(EffectType type);
-
 class ImageEditor {
 public:
   ImageEditor(SDL_GPUDevice *device) : device(device) {
@@ -149,7 +147,9 @@ private:
   RenderRequest latest_request;
   bool has_request{false};
 
+  Effect &get_or_create_effect(EffectType type);
   void remove_effect(EffectType type);
+  void toggle_effect(EffectType type, bool now_active);
   bool is_effect_active(EffectType type) const;
 
   ExposureState exposure_state;
@@ -166,7 +166,6 @@ private:
   void *image_src = nullptr;
 
   std::vector<Effect> effects;
-  Effect &get_or_create_effect(EffectType type);
 
   GeglBuffer *image_buffer = nullptr;
   GeglNode *graph = nullptr;

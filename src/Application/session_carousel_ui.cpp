@@ -53,21 +53,20 @@ void Session::render_carousel(float carousel_height) {
         is_selected, (i == last_drawn_index), is_context_menu_open);
 
     {
-      // Bookmark
       ImVec2 thumb_min = ImGui::GetItemRectMin();
       ImVec2 thumb_max = ImGui::GetItemRectMax();
 
       const float pad = 4.0f;
       const float spacing = 4.0f;
       ImVec2 bookmark_size = ImGui::CalcTextSize(ICON_FA_BOOKMARK);
-      ImVec2 paint_roller_size = ImGui::CalcTextSize(ICON_FA_PAINT_ROLLER);
+      ImVec2 circle_size = ImGui::CalcTextSize(ICON_FA_CIRCLE);
       ImVec2 btn_size =
           ImVec2(bookmark_size.x + pad * 2, bookmark_size.y + pad * 2);
-
+      ImVec2 bookmark_pos(thumb_max.x - btn_size.x + 6,
+                          thumb_min.y - btn_size.y);
       bool bookmarked =
           export_manager.bill[current_image_filename].attributes.bookmark;
-      ImGui::SetCursorScreenPos(
-          ImVec2(thumb_max.x - btn_size.x + 6, thumb_min.y - btn_size.y));
+      ImGui::SetCursorScreenPos(bookmark_pos);
       ImGui::SetNextItemAllowOverlap();
       ImGui::PushID("bookmark");
       ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
@@ -81,6 +80,11 @@ void Session::render_carousel(float carousel_height) {
             !bookmarked;
         export_manager.autosave();
       }
+      bool has_entries =
+          !export_manager.bill[current_image_filename].entries.empty();
+      ImGui::SetCursorScreenPos(
+          ImVec2(bookmark_pos.x - circle_size.x, bookmark_pos.y + 4));
+      ImGui::Text(has_entries ? ICON_FA_CIRCLE_DOT : ICON_FA_CIRCLE);
       ImGui::PopStyleColor(4);
       ImGui::PopID();
     }

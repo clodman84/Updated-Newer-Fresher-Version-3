@@ -6,6 +6,8 @@
 #endif
 
 void Session::render_billed_table() {
+  if (export_manager.request_autosave)
+    export_manager.autosave();
   if (!ImGui::BeginTable("##billed_results", 3,
                          ImGuiTableFlags_RowBg |
                              ImGuiTableFlags_SizingFixedFit)) {
@@ -51,7 +53,7 @@ void Session::render_billed_table() {
     ImGui::PushItemWidth(100.0f);
     if (ImGui::InputInt("##count", &count)) {
       entry.count = std::max(count, 0);
-      export_manager.autosave();
+      export_manager.request_autosave = true;
     }
     ImGui::PopItemWidth();
     ImGui::PopID();

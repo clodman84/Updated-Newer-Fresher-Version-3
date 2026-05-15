@@ -42,6 +42,7 @@ public:
   ~ExportManager() = default;
   std::filesystem::path path;
   BillMap bill;
+  bool request_autosave = false;
 
   void export_images();
   void open_export_modal();

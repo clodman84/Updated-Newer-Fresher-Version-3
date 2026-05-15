@@ -24,8 +24,6 @@ void ImageEditor::render_preview() {
 
   if (ImGui::SmallButton(ICON_FA_COMPRESS))
     reset_view_to_image();
-  if (ImGui::IsItemHovered())
-    ImGui::SetTooltip("Reset view");
 
   ImGui::PopStyleColor(3);
 
@@ -188,7 +186,6 @@ static bool draw_levels_bar(const char *id, double &in_low, double &gamma,
   ImVec2 p0 = ImGui::GetCursorScreenPos();
   ImVec2 p1 = ImVec2(p0.x + width, p0.y + height);
 
-  // ── Input gradient ────────────────────────────────────────
   auto remap = [&](float t) -> float {
     if (t <= in_low)
       return 0.0f;
@@ -283,7 +280,6 @@ static bool draw_levels_bar(const char *id, double &in_low, double &gamma,
 
   ImGui::SetCursorScreenPos(ImVec2(p0.x, p1.y + 14));
 
-  // ── Output bar ────────────────────────────────────────────
   ImVec2 p2 = ImGui::GetCursorScreenPos();
   ImVec2 p3 = ImVec2(p2.x + width, p2.y + height);
 
@@ -327,19 +323,66 @@ static bool draw_levels_bar(const char *id, double &in_low, double &gamma,
   ImGui::PopID();
   return changed;
 }
-static bool EnabledCheckbox(const char *label_id, bool &active) {
-  ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
-  ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0, 0, 0, 0.4f));
-  ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0, 0, 0, 0.6f));
-  ImGui::PushStyleColor(ImGuiCol_Text, active ? ImVec4(1.0f, 0.84f, 0.0f, 1.0f)
-                                              : ImVec4(1.0f, 1.0f, 1.0f, 0.6f));
-  const char *icon = active ? ICON_FA_TOGGLE_ON : ICON_FA_TOGGLE_OFF;
-  bool clicked = ImGui::Button((std::string(icon) + label_id).c_str());
-  if (clicked)
-    active = !active;
 
+enum class EffectHeaderAction {
+  None,
+  Toggled,
+  Reset,
+};
+
+static EffectHeaderAction draw_effect_header(bool &active, const char *label,
+                                             const char *tooltip,
+                                             bool &out_open) {
+  ImGuiTreeNodeFlags flags =
+      ImGuiTreeNodeFlags_AllowOverlap | ImGuiTreeNodeFlags_SpanAvailWidth;
+  out_open = ImGui::TreeNodeEx(label, flags);
+
+  const ImGuiStyle &style = ImGui::GetStyle();
+  float w_eye = ImGui::CalcTextSize(ICON_FA_EYE).x + style.FramePadding.x * 2;
+  float w_reset =
+      ImGui::CalcTextSize(ICON_FA_ROTATE_LEFT).x + style.FramePadding.x * 2;
+  float w_question = ImGui::CalcTextSize(ICON_FA_CIRCLE_QUESTION).x;
+  float total = w_eye + w_reset + w_question + style.ItemSpacing.x * 2;
+  float offset = ImGui::GetWindowWidth() - total - style.WindowPadding.x -
+                 (ImGui::GetScrollMaxY() > 0 ? style.ScrollbarSize : 0.0f);
+
+  ImGui::SameLine(offset);
+
+  ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+  ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.2f, 0.2f, 0.2f, .5f));
+  ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.2f, 0.2f, 0.2f, .8f));
+  ImGui::PushStyleColor(ImGuiCol_Text, active ? ImVec4(1.f, 0.84f, 0.f, 1.f)
+                                              : ImVec4(1.f, 1.f, 1.f, 0.6f));
+
+  EffectHeaderAction action = EffectHeaderAction::None;
+  ImGui::PushID(label);
+  if (ImGui::SmallButton(active ? ICON_FA_TOGGLE_ON : ICON_FA_TOGGLE_OFF)) {
+    active = !active;
+    action = EffectHeaderAction::Toggled;
+  }
+  ImGui::SameLine();
+  if (ImGui::SmallButton(ICON_FA_ROTATE_LEFT))
+    action = EffectHeaderAction::Reset;
+
+  ImGui::SameLine();
+  ImGui::TextDisabled(ICON_FA_CIRCLE_QUESTION);
+  if (ImGui::BeginItemTooltip()) {
+    ImGui::PushTextWrapPos(300.f);
+    ImGui::TextUnformatted(tooltip);
+    ImGui::PopTextWrapPos();
+    ImGui::EndTooltip();
+  }
+  ImGui::PopID();
   ImGui::PopStyleColor(4);
-  return clicked;
+  return action;
+}
+
+void ImageEditor::toggle_effect(EffectType type, bool now_active) {
+  if (now_active)
+    get_or_create_effect(type);
+  else
+    remove_effect(type);
+  put_render_request();
 }
 
 void ImageEditor::render_controls() {
@@ -348,18 +391,18 @@ void ImageEditor::render_controls() {
   // ── Tone & Exposure ───────────────────────────────────────
   ImGui::SeparatorText(ICON_FA_SUN "  Tone & Exposure");
 
-  if (gegl_has_operation("gegl:exposure") && ImGui::TreeNode("Exposure")) {
+  if (gegl_has_operation("gegl:exposure")) {
     const EffectType type = EffectType::Exposure;
     bool active = is_effect_active(type);
-    if (EnabledCheckbox("##Exp", active)) {
-      if (active)
-        get_or_create_effect(type);
-      else
-        remove_effect(type);
-      put_render_request();
-    }
-    ImGui::SameLine();
-    if (ImGui::Button(ICON_FA_ROTATE_LEFT "##Exp")) {
+    bool open = false;
+    switch (draw_effect_header(
+        active, "Exposure",
+        "Exposure adjustment in the linear light domain — applies a "
+        "black-level offset and an exposure value in stops.",
+        open)) {
+    case EffectHeaderAction::Toggled:
+      toggle_effect(type, active);
+    case EffectHeaderAction::Reset:
       exposure_state = ExposureState();
       if (active) {
         Effect &e = get_or_create_effect(type);
@@ -368,124 +411,35 @@ void ImageEditor::render_controls() {
                       (gdouble)exposure_state.exposure, NULL);
         put_render_request();
       }
+      break;
+    case EffectHeaderAction::None:
+      break;
     }
-    if (ImGui::IsItemHovered())
-      ImGui::SetTooltip("Reset");
-    ImGui::SameLine();
-    ImGui::TextDisabled(ICON_FA_CIRCLE_QUESTION);
-    if (ImGui::BeginItemTooltip()) {
-      ImGui::PushTextWrapPos(300.0f);
-      ImGui::TextUnformatted(
-          "Exposure adjustment in the linear light domain — applies a "
-          "black-level offset and an exposure value in stops.");
-      ImGui::PopTextWrapPos();
-      ImGui::EndTooltip();
-    }
-    ImGui::Spacing();
-
-    bool changed = false;
-    changed |= AccentSliderDouble("Black Level", exposure_state.black_level,
-                                  -0.1, 0.1, "%.3f");
-    changed |= AccentSliderDouble("Exposure (EV)", exposure_state.exposure,
-                                  -10.0, 10.0, "%.2f");
-    if (changed && active) {
-      Effect &e = get_or_create_effect(type);
-      gegl_node_set(e.node, "black-level", (gdouble)exposure_state.black_level,
-                    "exposure", (gdouble)exposure_state.exposure, NULL);
-      put_render_request();
-    }
-    ImGui::TreePop();
-  }
-
-  if (ImGui::TreeNode("Levels")) {
-    const EffectType type = EffectType::Levels;
-    bool active = is_effect_active(type);
-    if (EnabledCheckbox("##Lv", active)) {
-      if (active)
-        get_or_create_effect(type);
-      else
-        remove_effect(type);
-      put_render_request();
-    }
-    ImGui::SameLine();
-    if (ImGui::Button(ICON_FA_ROTATE_LEFT "##Lv")) {
-      levels_state = LevelsState();
-      if (active) {
+    if (open) {
+      bool changed = false;
+      changed |= AccentSliderDouble("Black Level", exposure_state.black_level,
+                                    -0.1, 0.1, "%.3f");
+      changed |= AccentSliderDouble("Exposure (EV)", exposure_state.exposure,
+                                    -10.0, 10.0, "%.2f");
+      if (changed && active) {
         Effect &e = get_or_create_effect(type);
-        gegl_node_set(e.node, "in-low", (gdouble)levels_state.in_low, "in-high",
-                      (gdouble)levels_state.in_high, "gamma",
-                      (gdouble)levels_state.gamma, "out-low",
-                      (gdouble)levels_state.out_low, "out-high",
-                      (gdouble)levels_state.out_high, "in-low-r",
-                      (gdouble)levels_state.in_low_r, "in-high-r",
-                      (gdouble)levels_state.in_high_r, "gamma-r",
-                      (gdouble)levels_state.gamma_r, "out-low-r",
-                      (gdouble)levels_state.out_low_r, "out-high-r",
-                      (gdouble)levels_state.out_high_r, "in-low-g",
-                      (gdouble)levels_state.in_low_g, "in-high-g",
-                      (gdouble)levels_state.in_high_g, "gamma-g",
-                      (gdouble)levels_state.gamma_g, "out-low-g",
-                      (gdouble)levels_state.out_low_g, "out-high-g",
-                      (gdouble)levels_state.out_high_g, "in-low-b",
-                      (gdouble)levels_state.in_low_b, "in-high-b",
-                      (gdouble)levels_state.in_high_b, "gamma-b",
-                      (gdouble)levels_state.gamma_b, "out-low-b",
-                      (gdouble)levels_state.out_low_b, "out-high-b",
-                      (gdouble)levels_state.out_high_b, "in-low-a",
-                      (gdouble)levels_state.in_low_a, "in-high-a",
-                      (gdouble)levels_state.in_high_a, "gamma-a",
-                      (gdouble)levels_state.gamma_a, "out-low-a",
-                      (gdouble)levels_state.out_low_a, "out-high-a",
-                      (gdouble)levels_state.out_high_a, NULL);
+        gegl_node_set(e.node, "black-level",
+                      (gdouble)exposure_state.black_level, "exposure",
+                      (gdouble)exposure_state.exposure, NULL);
         put_render_request();
       }
+      ImGui::TreePop();
     }
-    if (ImGui::IsItemHovered())
-      ImGui::SetTooltip("Reset");
-    ImGui::SameLine();
-    ImGui::TextDisabled(ICON_FA_CIRCLE_QUESTION);
-    if (ImGui::BeginItemTooltip()) {
-      ImGui::PushTextWrapPos(300.0f);
-      ImGui::TextUnformatted(
-          "Per-channel input/output levels with gamma midtone adjustment.");
-      ImGui::PopTextWrapPos();
-      ImGui::EndTooltip();
-    }
-    ImGui::Spacing();
+  }
 
-    bool changed = false;
+  {
+    const EffectType type = EffectType::Levels;
+    bool active = is_effect_active(type);
+    bool open = false;
 
-    ImGui::SeparatorText("Composite");
-    changed |= draw_levels_bar("C", levels_state.in_low, levels_state.gamma,
-                               levels_state.in_high, levels_state.out_low,
-                               levels_state.out_high, ImVec4(0, 0, 0, 1),
-                               ImVec4(1, 1, 1, 1));
-
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.5f, 0.5f, 1.0f));
-    ImGui::SeparatorText("Red");
-    ImGui::PopStyleColor();
-    changed |= draw_levels_bar("R", levels_state.in_low_r, levels_state.gamma_r,
-                               levels_state.in_high_r, levels_state.out_low_r,
-                               levels_state.out_high_r, ImVec4(0, 0, 0, 1),
-                               ImVec4(1, 0, 0, 1));
-
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.5f, 1.0f, 0.5f, 1.0f));
-    ImGui::SeparatorText("Green");
-    ImGui::PopStyleColor();
-    changed |= draw_levels_bar("G", levels_state.in_low_g, levels_state.gamma_g,
-                               levels_state.in_high_g, levels_state.out_low_g,
-                               levels_state.out_high_g, ImVec4(0, 0, 0, 1),
-                               ImVec4(0, 1, 0, 1));
-
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.5f, 0.7f, 1.0f, 1.0f));
-    ImGui::SeparatorText("Blue");
-    ImGui::PopStyleColor();
-    changed |= draw_levels_bar("B", levels_state.in_low_b, levels_state.gamma_b,
-                               levels_state.in_high_b, levels_state.out_low_b,
-                               levels_state.out_high_b, ImVec4(0, 0, 0, 1),
-                               ImVec4(0, 0, 1, 1));
-
-    if (changed && active) {
+    // Pushes the full levels state to the gegl node — used on both reset and
+    // slider change.
+    auto apply_levels = [&] {
       Effect &e = get_or_create_effect(type);
       gegl_node_set(e.node, "in-low", (gdouble)levels_state.in_low, "in-high",
                     (gdouble)levels_state.in_high, "gamma",
@@ -513,26 +467,76 @@ void ImageEditor::render_controls() {
                     (gdouble)levels_state.out_low_a, "out-high-a",
                     (gdouble)levels_state.out_high_a, NULL);
       put_render_request();
+    };
+
+    switch (draw_effect_header(
+        active, "Levels",
+        "Per-channel input/output levels with gamma midtone adjustment.",
+        open)) {
+    case EffectHeaderAction::Toggled:
+      toggle_effect(type, active);
+    case EffectHeaderAction::Reset:
+      levels_state = LevelsState();
+      if (active)
+        apply_levels();
+      break;
+    case EffectHeaderAction::None:
+      break;
     }
-    ImGui::TreePop();
+    if (open) {
+      bool changed = false;
+
+      ImGui::SeparatorText("Composite");
+      changed |= draw_levels_bar("C", levels_state.in_low, levels_state.gamma,
+                                 levels_state.in_high, levels_state.out_low,
+                                 levels_state.out_high, ImVec4(0, 0, 0, 1),
+                                 ImVec4(1, 1, 1, 1));
+
+      ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.5f, 0.5f, 1.0f));
+      ImGui::SeparatorText("Red");
+      ImGui::PopStyleColor();
+      changed |= draw_levels_bar(
+          "R", levels_state.in_low_r, levels_state.gamma_r,
+          levels_state.in_high_r, levels_state.out_low_r,
+          levels_state.out_high_r, ImVec4(0, 0, 0, 1), ImVec4(1, 0, 0, 1));
+
+      ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.5f, 1.0f, 0.5f, 1.0f));
+      ImGui::SeparatorText("Green");
+      ImGui::PopStyleColor();
+      changed |= draw_levels_bar(
+          "G", levels_state.in_low_g, levels_state.gamma_g,
+          levels_state.in_high_g, levels_state.out_low_g,
+          levels_state.out_high_g, ImVec4(0, 0, 0, 1), ImVec4(0, 1, 0, 1));
+
+      ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.5f, 0.7f, 1.0f, 1.0f));
+      ImGui::SeparatorText("Blue");
+      ImGui::PopStyleColor();
+      changed |= draw_levels_bar(
+          "B", levels_state.in_low_b, levels_state.gamma_b,
+          levels_state.in_high_b, levels_state.out_low_b,
+          levels_state.out_high_b, ImVec4(0, 0, 0, 1), ImVec4(0, 0, 1, 1));
+
+      if (changed && active)
+        apply_levels();
+      ImGui::TreePop();
+    }
   }
 
   // ── Colour ────────────────────────────────────────────────
   ImGui::SeparatorText(ICON_FA_DROPLET "  Colour");
 
-  if (gegl_has_operation("gegl:color-temperature") &&
-      ImGui::TreeNode("Color Temperature")) {
+  if (gegl_has_operation("gegl:color-temperature")) {
     const EffectType type = EffectType::ColorTemperature;
     bool active = is_effect_active(type);
-    if (EnabledCheckbox("##CT", active)) {
-      if (active)
-        get_or_create_effect(type);
-      else
-        remove_effect(type);
-      put_render_request();
-    }
-    ImGui::SameLine();
-    if (ImGui::Button(ICON_FA_ROTATE_LEFT "##CT")) {
+    bool open = false;
+    switch (draw_effect_header(
+        active, "Color Temperature",
+        "Changes colour temperature. Both values in Kelvin — "
+        "lower is warmer (orange), higher is cooler (blue).",
+        open)) {
+    case EffectHeaderAction::Toggled:
+      toggle_effect(type, active);
+    case EffectHeaderAction::Reset:
       color_temperature_state = ColorTemperatureState();
       if (active) {
         Effect &e = get_or_create_effect(type);
@@ -543,52 +547,44 @@ void ImageEditor::render_controls() {
                       NULL);
         put_render_request();
       }
+      break;
+    case EffectHeaderAction::None:
+      break;
     }
-    if (ImGui::IsItemHovered())
-      ImGui::SetTooltip("Reset");
-    ImGui::SameLine();
-    ImGui::TextDisabled(ICON_FA_CIRCLE_QUESTION);
-    if (ImGui::BeginItemTooltip()) {
-      ImGui::PushTextWrapPos(300.0f);
-      ImGui::TextUnformatted(
-          "Changes colour temperature. Both values in Kelvin — "
-          "lower is warmer (orange), higher is cooler (blue).");
-      ImGui::PopTextWrapPos();
-      ImGui::EndTooltip();
+    if (open) {
+      bool changed = false;
+      changed |= AccentSliderDouble(
+          "Original", color_temperature_state.original_temperature, 1000.0,
+          12000.0, "%.0f K", IM_COL32(255, 160, 80, 255));
+      changed |= AccentSliderDouble(
+          "Intended", color_temperature_state.intended_temperature, 1000.0,
+          12000.0, "%.0f K", IM_COL32(80, 160, 255, 255));
+      if (changed && active) {
+        Effect &e = get_or_create_effect(type);
+        gegl_node_set(e.node, "original-temperature",
+                      (gdouble)color_temperature_state.original_temperature,
+                      "intended-temperature",
+                      (gdouble)color_temperature_state.intended_temperature,
+                      NULL);
+        put_render_request();
+      }
+      ImGui::TreePop();
     }
-    ImGui::Spacing();
-
-    bool changed = false;
-    changed |= AccentSliderDouble(
-        "Original", color_temperature_state.original_temperature, 1000.0,
-        12000.0, "%.0f K", IM_COL32(255, 160, 80, 255));
-    changed |= AccentSliderDouble(
-        "Intended", color_temperature_state.intended_temperature, 1000.0,
-        12000.0, "%.0f K", IM_COL32(80, 160, 255, 255));
-    if (changed && active) {
-      Effect &e = get_or_create_effect(type);
-      gegl_node_set(e.node, "original-temperature",
-                    (gdouble)color_temperature_state.original_temperature,
-                    "intended-temperature",
-                    (gdouble)color_temperature_state.intended_temperature,
-                    NULL);
-      put_render_request();
-    }
-    ImGui::TreePop();
   }
 
-  if (gegl_has_operation("gegl:hue-chroma") && ImGui::TreeNode("Hue-Chroma")) {
+  if (gegl_has_operation("gegl:hue-chroma")) {
     const EffectType type = EffectType::HueChroma;
     bool active = is_effect_active(type);
-    if (EnabledCheckbox("##HC", active)) {
-      if (active)
-        get_or_create_effect(type);
-      else
-        remove_effect(type);
-      put_render_request();
-    }
-    ImGui::SameLine();
-    if (ImGui::Button(ICON_FA_ROTATE_LEFT "##HC")) {
+    bool open = false;
+    switch (draw_effect_header(
+        active, "Hue-Chroma",
+        "Adjusts hue, chroma (saturation), and lightness in a perceptually "
+        "uniform colour space. Cleaner than naive HSL, especially when "
+        "pushing chroma.",
+        open)) {
+    case EffectHeaderAction::Toggled:
+      toggle_effect(type, active);
+    case EffectHeaderAction::Reset:
       hue_chroma_state = HueChromaState();
       if (active) {
         Effect &e = get_or_create_effect(type);
@@ -597,163 +593,125 @@ void ImageEditor::render_controls() {
                       (gdouble)hue_chroma_state.lightness, NULL);
         put_render_request();
       }
+      break;
+    case EffectHeaderAction::None:
+      break;
     }
-    if (ImGui::IsItemHovered())
-      ImGui::SetTooltip("Reset");
-    ImGui::SameLine();
-    ImGui::TextDisabled(ICON_FA_CIRCLE_QUESTION);
-    if (ImGui::BeginItemTooltip()) {
-      ImGui::PushTextWrapPos(300.0f);
-      ImGui::TextUnformatted(
-          "Adjusts hue, chroma (saturation), and lightness in a perceptually "
-          "uniform colour space. Cleaner than naive HSL, especially when "
-          "pushing chroma.");
-      ImGui::PopTextWrapPos();
-      ImGui::EndTooltip();
+    if (open) {
+      bool changed = false;
+      changed |= AccentSliderDouble("Hue", hue_chroma_state.hue, -180.0, 180.0,
+                                    "%.1f°");
+      changed |= AccentSliderDouble("Chroma", hue_chroma_state.chroma, -100.0,
+                                    100.0, "%.1f");
+      changed |= AccentSliderDouble("Lightness", hue_chroma_state.lightness,
+                                    -100.0, 100.0, "%.1f");
+      if (changed && active) {
+        Effect &e = get_or_create_effect(type);
+        gegl_node_set(e.node, "hue", (gdouble)hue_chroma_state.hue, "chroma",
+                      (gdouble)hue_chroma_state.chroma, "lightness",
+                      (gdouble)hue_chroma_state.lightness, NULL);
+        put_render_request();
+      }
+      ImGui::TreePop();
     }
-    ImGui::Spacing();
-
-    bool changed = false;
-    changed |=
-        AccentSliderDouble("Hue", hue_chroma_state.hue, -180.0, 180.0, "%.1f°");
-    changed |= AccentSliderDouble("Chroma", hue_chroma_state.chroma, -100.0,
-                                  100.0, "%.1f");
-    changed |= AccentSliderDouble("Lightness", hue_chroma_state.lightness,
-                                  -100.0, 100.0, "%.1f");
-    if (changed && active) {
-      Effect &e = get_or_create_effect(type);
-      gegl_node_set(e.node, "hue", (gdouble)hue_chroma_state.hue, "chroma",
-                    (gdouble)hue_chroma_state.chroma, "lightness",
-                    (gdouble)hue_chroma_state.lightness, NULL);
-      put_render_request();
-    }
-    ImGui::TreePop();
   }
 
-  if (gegl_has_operation("gegl:color-enhance") &&
-      ImGui::TreeNode("Color Enhance")) {
+  if (gegl_has_operation("gegl:color-enhance")) {
     const EffectType type = EffectType::ColorEnhance;
     bool active = is_effect_active(type);
-    if (EnabledCheckbox("##CE", active)) {
-      if (active) {
-        get_or_create_effect(type);
-        color_enhance_state.enabled = true;
-      } else {
-        remove_effect(type);
-        color_enhance_state.enabled = false;
-      }
-      put_render_request();
+    bool open = false;
+    switch (draw_effect_header(
+        active, "Color Enhance",
+        "Stretches chroma to cover the maximum possible range, "
+        "keeping hue and lightness untouched.",
+        open)) {
+    case EffectHeaderAction::Toggled:
+      toggle_effect(type, active);
+    case EffectHeaderAction::Reset:
+      color_enhance_state = ColorEnhanceState();
+      break;
+    case EffectHeaderAction::None:
+      break;
     }
-    ImGui::SameLine();
-    ImGui::TextDisabled(ICON_FA_CIRCLE_QUESTION);
-    if (ImGui::BeginItemTooltip()) {
-      ImGui::PushTextWrapPos(300.0f);
-      ImGui::TextUnformatted(
-          "Stretches chroma to cover the maximum possible range, "
-          "keeping hue and lightness untouched.");
-      ImGui::PopTextWrapPos();
-      ImGui::EndTooltip();
-    }
-    ImGui::TreePop();
+    if (open)
+      ImGui::TreePop();
   }
 
-  if (gegl_has_operation("gegl:saturation") && ImGui::TreeNode("Saturation")) {
+  if (gegl_has_operation("gegl:saturation")) {
     const EffectType type = EffectType::Saturation;
     bool active = is_effect_active(type);
-    if (EnabledCheckbox("##Sat", active)) {
-      if (active)
-        get_or_create_effect(type);
-      else
-        remove_effect(type);
-      put_render_request();
-    }
-    ImGui::SameLine();
-    if (ImGui::Button(ICON_FA_ROTATE_LEFT "##Sat")) {
+    bool open = false;
+    switch (draw_effect_header(
+        active, "Saturation",
+        "Scale multiplier on saturation. 1.0 = unchanged, 0.0 = "
+        "desaturated, 2.0 = doubled.",
+        open)) {
+    case EffectHeaderAction::Toggled:
+      toggle_effect(type, active);
+    case EffectHeaderAction::Reset:
       saturation_state = SaturationState();
       if (active) {
         Effect &e = get_or_create_effect(type);
         gegl_node_set(e.node, "scale", (gdouble)saturation_state.scale, NULL);
         put_render_request();
       }
+      break;
+    case EffectHeaderAction::None:
+      break;
     }
-    if (ImGui::IsItemHovered())
-      ImGui::SetTooltip("Reset");
-    ImGui::SameLine();
-    ImGui::TextDisabled(ICON_FA_CIRCLE_QUESTION);
-    if (ImGui::BeginItemTooltip()) {
-      ImGui::PushTextWrapPos(300.0f);
-      ImGui::TextUnformatted("Scale multiplier on saturation. 1.0 = unchanged, "
-                             "0.0 = desaturated, 2.0 = doubled.");
-      ImGui::PopTextWrapPos();
-      ImGui::EndTooltip();
+    if (open) {
+      bool changed =
+          AccentSliderDouble("Scale", saturation_state.scale, 0.0, 2.0, "%.2f");
+      if (changed && active) {
+        Effect &e = get_or_create_effect(type);
+        gegl_node_set(e.node, "scale", (gdouble)saturation_state.scale, NULL);
+        put_render_request();
+      }
+      ImGui::TreePop();
     }
-    ImGui::Spacing();
-
-    bool changed = false;
-    changed |=
-        AccentSliderDouble("Scale", saturation_state.scale, 0.0, 2.0, "%.2f");
-    if (changed && active) {
-      Effect &e = get_or_create_effect(type);
-      gegl_node_set(e.node, "scale", (gdouble)saturation_state.scale, NULL);
-      put_render_request();
-    }
-    ImGui::TreePop();
   }
 
-  if (gegl_has_operation("gegl:sepia") && ImGui::TreeNode("Sepia")) {
+  if (gegl_has_operation("gegl:sepia")) {
     const EffectType type = EffectType::Sepia;
     bool active = is_effect_active(type);
-    if (EnabledCheckbox("##Sepia", active)) {
-      if (active)
-        get_or_create_effect(type);
-      else
-        remove_effect(type);
-      put_render_request();
-    }
-    ImGui::SameLine();
-    if (ImGui::Button(ICON_FA_ROTATE_LEFT "##Sepia")) {
+    bool open = false;
+    switch (draw_effect_header(
+        active, "Sepia", "Apply a sepia tone to the input image.", open)) {
+    case EffectHeaderAction::Toggled:
+      toggle_effect(type, active);
+    case EffectHeaderAction::Reset:
       sepia_state = SepiaState();
       if (active) {
         Effect &e = get_or_create_effect(type);
         gegl_node_set(e.node, "scale", (gdouble)sepia_state.scale, NULL);
         put_render_request();
       }
+      break;
+    case EffectHeaderAction::None:
+      break;
     }
-    if (ImGui::IsItemHovered())
-      ImGui::SetTooltip("Reset");
-    ImGui::SameLine();
-    ImGui::TextDisabled(ICON_FA_CIRCLE_QUESTION);
-    if (ImGui::BeginItemTooltip()) {
-      ImGui::PushTextWrapPos(300.0f);
-      ImGui::TextUnformatted("Apply a sepia tone to the input image.");
-      ImGui::PopTextWrapPos();
-      ImGui::EndTooltip();
+    if (open) {
+      bool changed =
+          AccentSliderDouble("Effect Strength", sepia_state.scale, 0.0, 1.0,
+                             "%.2f", IM_COL32(180, 130, 80, 255));
+      if (changed && active) {
+        Effect &e = get_or_create_effect(type);
+        gegl_node_set(e.node, "scale", (gdouble)sepia_state.scale, NULL);
+        put_render_request();
+      }
+      ImGui::TreePop();
     }
-    ImGui::Spacing();
-
-    bool changed = false;
-    changed |= AccentSliderDouble("Effect Strength", sepia_state.scale, 0.0,
-                                  1.0, "%.2f", IM_COL32(180, 130, 80, 255));
-    if (changed && active) {
-      Effect &e = get_or_create_effect(type);
-      gegl_node_set(e.node, "scale", (gdouble)sepia_state.scale, NULL);
-      put_render_request();
-    }
-    ImGui::TreePop();
   }
 
-  if (gegl_has_operation("gegl:mono-mixer") && ImGui::TreeNode("Mono Mixer")) {
+  if (gegl_has_operation("gegl:mono-mixer")) {
     const EffectType type = EffectType::MonoMixer;
     bool active = is_effect_active(type);
-    if (EnabledCheckbox("##MM", active)) {
-      if (active)
-        get_or_create_effect(type);
-      else
-        remove_effect(type);
-      put_render_request();
-    }
-    ImGui::SameLine();
-    if (ImGui::Button(ICON_FA_ROTATE_LEFT "##MM")) {
+    bool open = false;
+    switch (draw_effect_header(active, "Mono Mixer",
+                               "Monochrome channel mixer.", open)) {
+    case EffectHeaderAction::Toggled:
+      toggle_effect(type, active);
+    case EffectHeaderAction::Reset:
       mono_mixer_state = MonoMixerState();
       if (active) {
         Effect &e = get_or_create_effect(type);
@@ -763,38 +721,30 @@ void ImageEditor::render_controls() {
                       (gboolean)mono_mixer_state.preserve_luminosity, NULL);
         put_render_request();
       }
+      break;
+    case EffectHeaderAction::None:
+      break;
     }
-    if (ImGui::IsItemHovered())
-      ImGui::SetTooltip("Reset");
-    ImGui::SameLine();
-    ImGui::TextDisabled(ICON_FA_CIRCLE_QUESTION);
-    if (ImGui::BeginItemTooltip()) {
-      ImGui::PushTextWrapPos(300.0f);
-      ImGui::TextUnformatted("Monochrome channel mixer.");
-      ImGui::PopTextWrapPos();
-      ImGui::EndTooltip();
+    if (open) {
+      bool changed = false;
+      changed |= AccentSliderDouble("Red", mono_mixer_state.red, -2.0, 2.0,
+                                    "%.3f", IM_COL32(200, 70, 70, 255));
+      changed |= AccentSliderDouble("Green", mono_mixer_state.green, -2.0, 2.0,
+                                    "%.3f", IM_COL32(70, 180, 80, 255));
+      changed |= AccentSliderDouble("Blue", mono_mixer_state.blue, -2.0, 2.0,
+                                    "%.3f", IM_COL32(70, 120, 210, 255));
+      changed |= ImGui::Checkbox("Preserve Luminosity",
+                                 &mono_mixer_state.preserve_luminosity);
+      if (changed && active) {
+        Effect &e = get_or_create_effect(type);
+        gegl_node_set(e.node, "red", (gdouble)mono_mixer_state.red, "green",
+                      (gdouble)mono_mixer_state.green, "blue",
+                      (gdouble)mono_mixer_state.blue, "preserve-luminosity",
+                      (gboolean)mono_mixer_state.preserve_luminosity, NULL);
+        put_render_request();
+      }
+      ImGui::TreePop();
     }
-    ImGui::Spacing();
-
-    bool changed = false;
-    changed |= AccentSliderDouble("Red", mono_mixer_state.red, -2.0, 2.0,
-                                  "%.3f", IM_COL32(200, 70, 70, 255));
-    changed |= AccentSliderDouble("Green", mono_mixer_state.green, -2.0, 2.0,
-                                  "%.3f", IM_COL32(70, 180, 80, 255));
-    changed |= AccentSliderDouble("Blue", mono_mixer_state.blue, -2.0, 2.0,
-                                  "%.3f", IM_COL32(70, 120, 210, 255));
-    changed |= ImGui::Checkbox("Preserve Luminosity",
-                               &mono_mixer_state.preserve_luminosity);
-
-    if (changed && active) {
-      Effect &e = get_or_create_effect(type);
-      gegl_node_set(e.node, "red", (gdouble)mono_mixer_state.red, "green",
-                    (gdouble)mono_mixer_state.green, "blue",
-                    (gdouble)mono_mixer_state.blue, "preserve-luminosity",
-                    (gboolean)mono_mixer_state.preserve_luminosity, NULL);
-      put_render_request();
-    }
-    ImGui::TreePop();
   }
 
   ImGui::PopStyleVar();

@@ -1,5 +1,6 @@
 #include "include/export_manager.h"
 #include "include/random_civ_6_quote.h"
+#include <utility>
 
 #define STB_TRUETYPE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -403,10 +404,20 @@ void ExportManager::autosave() {
   ZoneScopedN("ExportManager::autosave");
 #endif
   const std::filesystem::path filepath = path / "save.json";
-
-  // Manually serialize to store only filenames as keys
   nlohmann::json serialised = nlohmann::json::object();
-  for (const auto &[image_path, entry_map] : bill) {
+
+  auto clean_bill = bill;
+  for (auto &[image_path, file_data] : clean_bill) {
+    std::erase_if(file_data.entries,
+                  [](const auto &pair) { return pair.second.count < 1; });
+    if (file_data.entries.empty())
+      continue;
+
+    std::string filename = image_path.filename().string();
+    serialised[filename] = file_data;
+  }
+
+  for (const auto &[image_path, entry_map] : clean_bill) {
     std::string filename = image_path.filename().string();
     serialised[filename] = entry_map;
   }
@@ -420,6 +431,8 @@ void ExportManager::autosave() {
   if (!file.good()) {
     throw std::runtime_error("Error writing to file: " + filepath.string());
   }
+  bill = std::move(clean_bill);
+  request_autosave = false;
 }
 
 void ExportManager::same_as(const std::filesystem::path &source_image,

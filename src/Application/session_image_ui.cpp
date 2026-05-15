@@ -90,9 +90,6 @@ void Session::render_main_image() {
 
   if (ImGui::SmallButton(ICON_FA_COMPRESS))
     reset_view_to_image();
-  if (ImGui::IsItemHovered())
-    ImGui::SetTooltip("Reset view");
-
   ImGui::SameLine();
 
   bool det = with_detection;
@@ -103,9 +100,6 @@ void Session::render_main_image() {
     with_detection = !with_detection;
   if (det)
     ImGui::PopStyleColor();
-  if (ImGui::IsItemHovered())
-    ImGui::SetTooltip(det ? "Detection ON" : "Detection OFF");
-
   ImGui::SameLine();
 
   det = with_preview;
