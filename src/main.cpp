@@ -394,6 +394,10 @@ private:
           session.export_manager.render_export_modal(window_);
         }
 
+        bool reset_view = false;
+        if (session.last_drawn_index == -1)
+          reset_view = true;
+
         bool open = true;
         if (ImGui::BeginTabItem(get_folder_name(session.folder_path).c_str(),
                                 &open)) {
@@ -408,6 +412,8 @@ private:
 
           ImGui::SameLine();
           session.render_image_panel();
+          if (reset_view)
+            session.reset_view_to_image();
           ImGui::EndTabItem();
         }
 

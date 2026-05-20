@@ -112,11 +112,9 @@ void Session::handle_keyboard_nav() {
   if (!ImGui::GetIO().WantTextInput) {
     if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow)) {
       image_manager.load_previous();
-      reset_view_to_image();
     }
     if (ImGui::IsKeyPressed(ImGuiKey_RightArrow)) {
       image_manager.load_next();
-      reset_view_to_image();
     }
   }
 

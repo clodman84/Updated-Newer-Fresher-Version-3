@@ -33,10 +33,12 @@ public:
 
   void render_carousel(float carousel_height);
   void render_control_panel();
+  void reset_view_to_image();
 
   std::filesystem::path folder_path;
   ExportManager export_manager;
   ImageManager image_manager;
+  int last_drawn_index = -1;
 
 private:
   enum class KeyboardNavMode { Search, Billed };
@@ -49,7 +51,6 @@ private:
   void evaluate();
 
   void render_main_image();
-  void reset_view_to_image();
   ImVec2 canvas_size;
   ImVec2 pan;
   float zoom;
@@ -57,8 +58,6 @@ private:
 
   bool with_preview = false;
   bool link_preview_viewer = false;
-
-  bool draw_with_preview = false;
 
   Database database;
   ImageEditor editor;
@@ -74,7 +73,6 @@ private:
   int selected_billed_index = 0;
   bool focus_search_on_next_frame = false;
   bool focus_billed_on_next_frame = false;
-  int last_drawn_index = -1;
   int last_clicked_index = -1;
 
   int visible_start = -1;

@@ -146,7 +146,6 @@ void Session::render_main_image() {
   }
 
   ImGui::Separator();
-  // --- End header bar ---
   const Image *image = image_manager.current_image;
   if (image == nullptr || !image->is_valid()) {
     ImGui::TextDisabled("Failed to load image.");
@@ -157,11 +156,6 @@ void Session::render_main_image() {
   ImTextureRef texture_id = image->texture;
   const ImVec2 canvas_pos = ImGui::GetCursorScreenPos();
   canvas_size = ImGui::GetContentRegionAvail();
-
-  if (zoom <= 0.0f) {
-    reset_view_to_image();
-  }
-
   ImGui::InvisibleButton("canvas", canvas_size,
                          ImGuiButtonFlags_MouseButtonLeft);
   const bool hovered = ImGui::IsItemHovered();
@@ -229,7 +223,7 @@ void Session::render_control_panel() {
 
   ImGui::TableNextColumn();
   ImGui::BeginChild("Control Panel", ImVec2(0, 0));
-  ImGui::Text(ICON_FA_WRENCH " This is a work in progress :)");
+  ImGui::Text(ICON_FA_WRENCH "  This is a work in progress :)");
   ImGui::Separator();
   if (image == nullptr || !image->is_valid()) {
     with_preview = false;
@@ -245,13 +239,11 @@ void Session::render_control_panel() {
 void Session::render_image_panel() {
   editor.cleanup_stale_resources();
   image_manager.cleanup_stale_images();
-  bool new_preview = false;
 
   if (with_preview && image_manager.current_image != nullptr &&
       image_manager.current_image->is_valid() &&
       (editor.image_path != image_manager.current_image->filename)) {
     editor.load_path(image_manager.current_image->filename);
-    new_preview = true;
   }
   auto io = ImGui::GetIO();
 
@@ -286,8 +278,6 @@ void Session::render_image_panel() {
             pan);
       }
       editor.render_preview();
-      if (new_preview)
-        editor.reset_view_to_image();
       if (link_preview_viewer) {
         zoom = linked_zoom_for_target(editor.get_zoom(), editor.image_width,
                                       editor.image_height,
