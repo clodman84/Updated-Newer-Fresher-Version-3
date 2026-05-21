@@ -10,7 +10,7 @@ static void SDLCALL folder_picker_callback(void *userdata,
                                            const char *const *filelist,
                                            int filter) {
   auto *browser = static_cast<GoogleDriveBrowser *>(userdata);
-  if (filelist != nullptr && *filelist != nullptr) {
+  if (filelist != nullptr && strncmp(*filelist, "", 1) != 0) {
     browser->start_download(*filelist); // Start download at the picked path
   } else {
     browser->cancel_download_state();
@@ -22,7 +22,7 @@ static const SDL_DialogFileFilter json_filters[] = {{"JSON files", "json"}};
 static void SDLCALL import_cred_callback(void *userdata,
                                          const char *const *filelist,
                                          int filter) {
-  if (filelist == nullptr || *filelist == nullptr)
+  if (filelist == nullptr || strncmp(*filelist, "", 1) == 0)
     return;
 
   auto *browser = static_cast<GoogleDriveBrowser *>(userdata);
@@ -364,16 +364,14 @@ void GoogleDriveBrowser::draw_item_list() {
       ImGui::Selectable(display_label.c_str(), false,
                         ImGuiSelectableFlags_SpanAllColumns |
                             ImGuiSelectableFlags_AllowDoubleClick);
-      if (is_folder) {
-        if (ImGui::BeginPopupContextItem()) {
-          if (ImGui::Selectable("Download")) {
-            item_to_download_ = item;
-            waiting_for_folder_picker_ = true;
-            SDL_ShowOpenFolderDialog(folder_picker_callback, this, window_,
-                                     nullptr, false);
-          }
-          ImGui::EndPopup();
+      if (ImGui::BeginPopupContextItem()) {
+        if (ImGui::Selectable(ICON_FA_DOWNLOAD "  Download")) {
+          item_to_download_ = item;
+          waiting_for_folder_picker_ = true;
+          SDL_ShowOpenFolderDialog(folder_picker_callback, this, window_,
+                                   nullptr, false);
         }
+        ImGui::EndPopup();
       }
 
       if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0) &&
