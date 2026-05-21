@@ -1,17 +1,17 @@
 #pragma once
 
+#include "include/gpu_utils.h"
 #include <SDL3/SDL.h>
-#include <SDL3/SDL_gpu.h>
 #include <filesystem>
 #include <functional>
 #include <imgui.h>
 
 class Image {
 public:
-  Image(std::filesystem::path filename, SDL_GPUDevice *device)
-      : filename(filename), device(device) {};
+  Image(std::filesystem::path filename,
+        std::shared_ptr<TextureManager> texture_manager)
+      : filename(filename), texture_manager(texture_manager) {};
   ~Image();
-
   bool is_valid() const;
 
   void load_thumbnail();
@@ -79,5 +79,5 @@ public:
   }
 
 private:
-  SDL_GPUDevice *device;
+  std::shared_ptr<TextureManager> texture_manager;
 };

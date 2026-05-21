@@ -1,6 +1,4 @@
 #include "include/image.h"
-
-#include "SDL3/SDL_gpu.h"
 #include "include/gpu_utils.h"
 #include "include/stb_image.h"
 
@@ -26,8 +24,8 @@ void Image::load_fullres() {
     return;
   }
 
-  if (!upload_texture_data_to_gpu(image_data, width, height, device,
-                                  &texture)) {
+  if (!texture_manager->upload_texture_data_to_gpu(image_data, width, height,
+                                                   &texture)) {
     texture = nullptr;
     width = 0;
     height = 0;
@@ -46,8 +44,8 @@ void Image::load_halfres() {
     return;
   }
 
-  if (!upload_texture_data_to_gpu(image_data, width, height, device,
-                                  &texture)) {
+  if (!texture_manager->upload_texture_data_to_gpu(image_data, width, height,
+                                                   &texture)) {
     texture = nullptr;
     width = 0;
     height = 0;
@@ -80,8 +78,9 @@ void Image::load_thumbnail() {
   w = dst_w;
   h = dst_h;
 
-  if (!upload_texture_data_to_gpu(dst, w, h, device, &thumbnail_texture)) {
-    texture = nullptr;
+  if (!texture_manager->upload_texture_data_to_gpu(dst, w, h,
+                                                   &thumbnail_texture)) {
+    thumbnail_texture = nullptr;
     thumb_width = 0;
     thumb_height = 0;
   } else {
@@ -92,15 +91,15 @@ void Image::load_thumbnail() {
 }
 
 void Image::destroy_thumbnail() {
-  if (thumbnail_texture != nullptr && device != nullptr) {
-    SDL_ReleaseGPUTexture(device, thumbnail_texture);
+  if (thumbnail_texture != nullptr) {
+    texture_manager->queue_destruction(thumbnail_texture);
     thumbnail_texture = nullptr;
   }
 }
 
 void Image::destroy_texture() {
-  if (texture != nullptr && device != nullptr) {
-    SDL_ReleaseGPUTexture(device, texture);
+  if (texture != nullptr) {
+    texture_manager->queue_destruction(texture);
     texture = nullptr;
   }
 }

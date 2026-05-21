@@ -3,6 +3,7 @@
 #include "Application/operations/gimp_levels.h"
 #include "Application/operations/my_colour_enhance.h"
 #include "include/google_drive_browser.h"
+#include "include/gpu_utils.h"
 #include "include/image.h"
 #include "include/session.h"
 
@@ -12,7 +13,9 @@
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_dialog.h>
+#include <SDL3/SDL_log.h>
 #include <cstring>
+#include <gegl-init.h>
 #include <gegl.h>
 
 #include <deque>
@@ -83,6 +86,7 @@ private:
 
   bool show_drive_browser_ = false;
   std::unique_ptr<GoogleDriveBrowser> drive_browser_;
+  std::shared_ptr<TextureManager> texture_manager;
 
   bool init() {
     setup_environment();
@@ -91,6 +95,10 @@ private:
     gimp_levels_op_register();
     colour_enhance_op_register();
     g_object_set(gegl_config(), "mipmap-rendering", TRUE, nullptr);
+    guint64 tile_cache_size = 0;
+    // g_object_set(gegl_config(), "tile-cache-size", 100 * 1024 * 1024, NULL);
+    g_object_get(gegl_config(), "tile-cache-size", &tile_cache_size, NULL);
+    SDL_Log("GEGL tile cache size: %lu MB", tile_cache_size / (1024 * 1024));
     srand(static_cast<unsigned int>(time(nullptr)));
 
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD)) {
@@ -119,6 +127,9 @@ private:
         SDL_GPU_SHADERFORMAT_SPIRV | SDL_GPU_SHADERFORMAT_DXIL |
             SDL_GPU_SHADERFORMAT_MSL | SDL_GPU_SHADERFORMAT_METALLIB,
         true, nullptr);
+
+    texture_manager =
+        std::make_shared<TextureManager>(TextureManager{gpu_device_});
 
     if (!gpu_device_ || !SDL_ClaimWindowForGPUDevice(gpu_device_, window_)) {
       std::cerr << "GPU Device creation/claim failed: " << SDL_GetError()
@@ -212,15 +223,16 @@ private:
                                  16.0f, &icon_cfg, fa_ranges);
 
     io.Fonts->Build();
-    background_image = std::make_unique<Image>("./Data/logo.png", gpu_device_);
+    background_image =
+        std::make_unique<Image>("./Data/logo.png", texture_manager);
     background_image->load_fullres();
     return true;
   }
 
   void cleanup() {
-    gegl_exit();
     background_image->destroy_texture();
     sessions_.clear();
+    texture_manager->release_textures();
     if (gpu_device_) {
       SDL_WaitForGPUIdle(gpu_device_);
       ImGui_ImplSDL3_Shutdown();
@@ -233,6 +245,7 @@ private:
     if (window_)
       SDL_DestroyWindow(window_);
     SDL_Quit();
+    gegl_exit();
   }
 
   void process_events(bool &done) {
@@ -262,7 +275,7 @@ private:
     for (const auto &session_path : pending_paths) {
       try {
         sessions_.push_back(
-            std::make_unique<Session>(session_path, gpu_device_));
+            std::make_unique<Session>(session_path, texture_manager));
         sessions_.back()->image_manager.load_folder(gpu_device_);
         sessions_.back()->image_manager.load_image(0);
       } catch (const std::exception &error) {
@@ -295,6 +308,7 @@ private:
   }
 
   void render_frame() {
+    texture_manager->release_textures();
     ImGui_ImplSDLGPU3_NewFrame();
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();

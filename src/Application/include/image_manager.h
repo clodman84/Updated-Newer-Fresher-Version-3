@@ -1,8 +1,9 @@
 #pragma once
+#include "include/gpu_utils.h"
 #include "include/image.h"
-#include <SDL3/SDL_gpu.h>
 #include <condition_variable>
 #include <filesystem>
+#include <memory>
 #include <queue>
 #include <thread>
 #include <vector>
@@ -23,13 +24,14 @@ struct Task {
 
 class ImageManager {
 public:
-  ImageManager(const std::filesystem::path image_folder)
-      : image_folder_(image_folder) {
+  ImageManager(const std::filesystem::path image_folder,
+               std::shared_ptr<TextureManager> texture_manager)
+      : image_folder_(image_folder), texture_manager(texture_manager) {
     start_thumbnail_workers(4);
   };
   ~ImageManager() {
-    printf("Image Manager Destroyed\n");
     stop_thumbnail_workers();
+    printf("Image Manager Destroyed\n");
   };
 
   Image *load_image(int index);
@@ -37,7 +39,6 @@ public:
   Image *load_previous();
 
   void load_folder(SDL_GPUDevice *device);
-  void cleanup_stale_images();
 
   void start_thumbnail_workers(size_t num_threads);
   void load_thumbnail_range(int start, int end);
@@ -60,9 +61,8 @@ public:
 
 private:
   std::filesystem::path image_folder_;
-  std::vector<Image *> stale_images;
+  std::shared_ptr<TextureManager> texture_manager;
 
-  // THUMBNAIL SHENANIGANS
   std::atomic<uint64_t> current_generation{0};
   void stop_thumbnail_workers();
 

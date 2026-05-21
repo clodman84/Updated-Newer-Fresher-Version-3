@@ -5,6 +5,7 @@
 #include "include/stb_image.h"
 #include <algorithm>
 #include <gegl.h>
+#include <mutex>
 
 #ifdef TRACY_ENABLE
 #include <tracy/Tracy.hpp>
@@ -13,10 +14,8 @@
 ImageEditor::~ImageEditor() {
   SDL_Log("Cleaning Up Image Editor");
   if (preview_texture != nullptr) {
-    SDL_ReleaseGPUTexture(device, preview_texture);
-    preview_texture = nullptr;
+    texture_manager->queue_destruction(preview_texture);
   }
-  cleanup_stale_resources();
   stop_render_thread();
 
   if (graph != nullptr) {
@@ -33,13 +32,6 @@ ImageEditor::~ImageEditor() {
   }
 }
 
-void ImageEditor::cleanup_stale_resources() {
-  for (auto *tex : textures_to_release) {
-    SDL_ReleaseGPUTexture(device, tex);
-  }
-  textures_to_release.clear();
-}
-
 void ImageEditor::remove_effect(EffectType type) {
   auto it = std::find_if(effects.begin(), effects.end(),
                          [type](const Effect &e) { return e.type == type; });
@@ -54,8 +46,12 @@ void ImageEditor::remove_effect(EffectType type) {
   GeglNode *next =
       (index == effects.size() - 1) ? sink : effects[index + 1].node;
 
-  gegl_node_link(prev, next);
-  gegl_node_remove_child(graph, to_remove);
+  {
+    std::lock_guard lock(graph_mutex);
+    gegl_node_link(prev, next);
+    gegl_node_remove_child(graph, to_remove);
+  }
+
   effects.erase(it);
 }
 
@@ -65,8 +61,23 @@ bool ImageEditor::is_effect_active(EffectType type) const {
 }
 
 void ImageEditor::prepare_gegl_graph() {
-  if (graph != nullptr) {
-    // Only swap the buffer, touch nothing else
+  // Snapshot effect types before destroying everything
+
+  std::vector<EffectType> active_effects;
+  {
+    std::lock_guard lock(graph_mutex);
+    for (auto &effect : effects) {
+      active_effects.push_back(effect.type);
+    }
+    effects.clear();
+
+    if (graph != nullptr) {
+      g_object_unref(graph);
+      graph = nullptr;
+      source = nullptr;
+      sink = nullptr;
+    }
+
     if (image_buffer != nullptr) {
       g_object_unref(image_buffer);
       image_buffer = nullptr;
@@ -77,21 +88,16 @@ void ImageEditor::prepare_gegl_graph() {
     gegl_buffer_set(image_buffer, &extent, 0, babl_format("R'G'B'A u8"),
                     image_src, GEGL_AUTO_ROWSTRIDE);
 
-    gegl_node_set(source, "buffer", image_buffer, NULL);
-    return;
+    graph = gegl_node_new();
+    source = gegl_node_new_child(graph, "operation", "gegl:buffer-source",
+                                 "buffer", image_buffer, NULL);
+    sink = gegl_node_new_child(graph, "operation", "gegl:nop", NULL);
+    gegl_node_link_many(source, sink, NULL);
   }
 
-  // First-time initialization only
-  GeglRectangle extent = {0, 0, image_width, image_height};
-  image_buffer = gegl_buffer_new(&extent, babl_format("R'G'B'A u8"));
-  gegl_buffer_set(image_buffer, &extent, 0, babl_format("R'G'B'A u8"),
-                  image_src, GEGL_AUTO_ROWSTRIDE);
-
-  graph = gegl_node_new();
-  source = gegl_node_new_child(graph, "operation", "gegl:buffer-source",
-                               "buffer", image_buffer, NULL);
-  sink = gegl_node_new_child(graph, "operation", "gegl:nop", NULL);
-  gegl_node_link_many(source, sink, NULL);
+  for (EffectType type : active_effects) {
+    get_or_create_effect(type);
+  }
 }
 
 void ImageEditor::start_render_thread() {
@@ -115,7 +121,7 @@ void ImageEditor::start_render_thread() {
       }
       apply_gegl_texture(req);
     }
-    SDL_Log("Bye Bye!");
+    SDL_Log("Image Editor Thread Exited");
   });
 }
 
@@ -124,9 +130,7 @@ void ImageEditor::stop_render_thread() {
   if (running) {
     running = false;
     request_cv.notify_one();
-    if (render_thread.joinable()) {
-      render_thread.join();
-    }
+    render_thread.join();
   }
 }
 
@@ -182,6 +186,7 @@ void ImageEditor::apply_gegl_texture(RenderRequest req) {
 #ifdef TRACY_ENABLE
   ZoneScopedN("apply_gegl_texture");
 #endif
+  std::lock_guard lock(graph_mutex);
   if (req.roi.width <= 0 || req.roi.height <= 0) {
     SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "CRITICAL: GEGL ROI is empty!.");
     return;
@@ -191,7 +196,7 @@ void ImageEditor::apply_gegl_texture(RenderRequest req) {
   double scale = std::min(zoom, 1.0f);
 
   GeglRectangle roi = req.roi;
-  float zoom = req.zoom;
+  zoom = req.zoom;
 
   int out_w = roi.width * scale;
   int out_h = roi.height * scale;
@@ -206,9 +211,10 @@ void ImageEditor::apply_gegl_texture(RenderRequest req) {
                  GEGL_AUTO_ROWSTRIDE, GEGL_BLIT_DEFAULT);
 
   SDL_GPUTexture *texture = nullptr;
-  if (upload_texture_data_to_gpu(pixels, out_w, out_h, device, &texture)) {
+  if (texture_manager->upload_texture_data_to_gpu(pixels, out_w, out_h,
+                                                  &texture)) {
     if (preview_texture != nullptr) {
-      textures_to_release.push_back(preview_texture);
+      texture_manager->queue_destruction(preview_texture);
     }
     preview_texture = texture;
   } else {
@@ -229,9 +235,9 @@ Effect &ImageEditor::get_or_create_effect(EffectType type) {
 
   Effect e;
   e.type = type;
+  std::lock_guard lock(graph_mutex);
 
   switch (type) {
-    // TODO: Add gimp's colour balance tool
   case EffectType::Exposure:
     e.node =
         gegl_node_new_child(graph, "operation", "gegl:exposure", "black-level",

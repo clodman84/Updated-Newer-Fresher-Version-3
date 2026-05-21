@@ -237,9 +237,6 @@ void Session::render_control_panel() {
 }
 
 void Session::render_image_panel() {
-  editor.cleanup_stale_resources();
-  image_manager.cleanup_stale_images();
-
   if (with_preview && image_manager.current_image != nullptr &&
       image_manager.current_image->is_valid() &&
       (editor.image_path != image_manager.current_image->filename)) {

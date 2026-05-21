@@ -1,6 +1,7 @@
 # What's Changed 
 
 * Added Face Counting
+* Added bookmarks for unrolled frames
 * Images always open the right way up now
 * Added simple image editor
 * Added multi-select and mass "Same As"
@@ -8,29 +9,7 @@
 * Lowered JPEG loading times to <= 100ms (24MP JPEG) on my computer
 * Greatly reduced memory consumption by loading thumbnails only when visible through background threads
 * Added icons
-
-## Planned For Next Release
-
-* Add clipboard integration, copy paste into the search bar straight from WhatsApp
-* Add helper to show what bhawan codes are available
-* Add nickname feature
-* Add bookmarks for unrolled frames
-* Add lua based scripting engine for control desk
-* Add documentation
-* Add tutorials
-* Add wrong messlist detection
-* Add DOOM
-* Double-Click to centre editor settings
-* Add a little dot for what effects are enabled
-* Add NEF, CR3, CR2, RAW, Tagging Feature
-* Add metadata tagging
-* Aspect ratio crop
-* Auto Angle
-* Add help hover to the thing
-* Preset making
-* Add bookmark feature in the carousel to show what images have been billed and what haven't
-* Test the whole application in valgrind
-* Move all Data folder access behind SDL_GetBasePath()
+* Added Google Drive connection to the app
 
 # v0.5.1-beta
 

@@ -1,5 +1,6 @@
 #include "include/gpu_utils.h"
 #include "imgui.h"
+#include <cstdio>
 
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_RESIZE_IMPLEMENTATION
@@ -314,9 +315,9 @@ load_texture_data_from_file(const std::filesystem::path &file_name, int *width,
   return load_texture_data_from_file_via_stbi(file_name, width, height);
 }
 
-bool upload_texture_data_to_gpu(unsigned char *image_data, int width,
-                                int height, SDL_GPUDevice *device,
-                                SDL_GPUTexture **out_texture) {
+bool TextureManager::upload_texture_data_to_gpu(unsigned char *image_data,
+                                                int width, int height,
+                                                SDL_GPUTexture **out_texture) {
 #ifdef TRACY_ENABLE
   ZoneScopedN("upload_texture_data_to_gpu");
 #endif
@@ -382,6 +383,11 @@ bool upload_texture_data_to_gpu(unsigned char *image_data, int width,
   SDL_EndGPUCopyPass(copy_pass);
   SDL_SubmitGPUCommandBuffer(cmd);
   SDL_ReleaseGPUTransferBuffer(device, transfer_buffer);
+
+  {
+    std::lock_guard lock(blingus_mutexus_biggus_problemus);
+    textures_in_use.insert(texture);
+  }
 
   *out_texture = texture;
   return true;

@@ -40,7 +40,7 @@ void ImageManager::load_folder(SDL_GPUDevice *device) {
 
     const auto &path = entry.path();
     if (is_image_file(path)) {
-      image_order.emplace_back(path, device);
+      image_order.emplace_back(path, texture_manager);
     }
   }
 
@@ -49,13 +49,6 @@ void ImageManager::load_folder(SDL_GPUDevice *device) {
       [](const Image &a, const Image &b) { return a.filename < b.filename; });
 
   size = image_order.size();
-}
-
-void ImageManager::cleanup_stale_images() {
-  for (auto image : stale_images) {
-    image->destroy_texture();
-  }
-  stale_images.clear();
 }
 
 Image *ImageManager::load_image(int idx) {
@@ -73,7 +66,7 @@ Image *ImageManager::load_image(int idx) {
     return current_image;
 
   if (current_image != nullptr)
-    stale_images.push_back(current_image);
+    texture_manager->queue_destruction(current_image->texture);
 
   image_order[index].load_halfres();
   current_image = &image_order[index];
@@ -117,14 +110,17 @@ void ImageManager::start_thumbnail_workers(size_t num_threads) {
         if (task.generation != current_generation.load())
           continue;
 
-        if (task.type == TaskType::Create) {
+        switch (task.type) {
+        case TaskType::Create:
           if (task.generation != current_generation.load())
             continue;
           image_order[task.index].load_thumbnail();
-        } else {
+          break;
+        case TaskType::Destroy:
           if (task.generation != current_generation.load())
             continue;
           image_order[task.index].destroy_thumbnail();
+          break;
         }
       }
     });
@@ -152,7 +148,7 @@ void ImageManager::load_thumbnail_range(int start, int end) {
 
 void ImageManager::schedule_thumbnail_cleanup(int start, int end) {
   std::lock_guard<std::mutex> lock(thumbnail_mutex);
-  for (size_t i = 0; i < image_order.size(); ++i) {
+  for (size_t i = 0; i < image_order.size(); i++) {
     if (i < start || i > end) {
       task_queue.push(Task{TaskType::Destroy, i,
                            10000, // very low priority

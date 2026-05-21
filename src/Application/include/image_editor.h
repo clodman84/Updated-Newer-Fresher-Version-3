@@ -1,12 +1,12 @@
 #pragma once
 
-#include <SDL3/SDL.h>
-#include <SDL3/SDL_gpu.h>
+#include "include/gpu_utils.h"
 #include <atomic>
 #include <condition_variable>
 #include <filesystem>
 #include <gegl.h>
 #include <imgui.h>
+#include <memory>
 #include <thread>
 #include <vector>
 
@@ -97,7 +97,8 @@ struct RenderRequest {
 
 class ImageEditor {
 public:
-  ImageEditor(SDL_GPUDevice *device) : device(device) {
+  ImageEditor(std::shared_ptr<TextureManager> texture_manager)
+      : texture_manager(texture_manager) {
     start_render_thread();
   };
   ~ImageEditor();
@@ -120,13 +121,11 @@ public:
   }
   void render_controls();
   void reset_view_to_image();
-  void cleanup_stale_resources();
 
   GeglRectangle roi;
 
 private:
-  std::vector<SDL_GPUTexture *> textures_to_release;
-  SDL_GPUDevice *device;
+  std::shared_ptr<TextureManager> texture_manager;
   SDL_GPUTexture *preview_texture = nullptr;
 
   float zoom = 1.0f;
@@ -146,6 +145,8 @@ private:
   std::condition_variable request_cv;
   RenderRequest latest_request;
   bool has_request{false};
+
+  std::mutex graph_mutex;
 
   Effect &get_or_create_effect(EffectType type);
   void remove_effect(EffectType type);

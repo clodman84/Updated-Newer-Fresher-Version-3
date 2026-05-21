@@ -3,22 +3,24 @@
 #include "include/database.h"
 #include "include/detection.h"
 #include "include/export_manager.h"
-#include "include/image.h"
+#include "include/gpu_utils.h"
 #include "include/image_editor.h"
 #include "include/image_manager.h"
 
-#include <SDL3/SDL_gpu.h>
 #include <filesystem>
 #include <imgui.h>
+#include <memory>
 #include <set>
 #include <string>
 #include <vector>
 
 class Session {
 public:
-  Session(std::filesystem::path folder_path, SDL_GPUDevice *device)
+  Session(std::filesystem::path folder_path,
+          std::shared_ptr<TextureManager> texture_manager)
       : folder_path(folder_path), export_manager(folder_path),
-        image_manager(folder_path), editor(device) {};
+        image_manager(folder_path, texture_manager), editor(texture_manager),
+        texture_manager(texture_manager) {};
   ~Session() = default;
 
   void handle_keyboard_nav();
@@ -42,7 +44,7 @@ public:
 
 private:
   enum class KeyboardNavMode { Search, Billed };
-  std::vector<Image> marked_for_destruction;
+  std::shared_ptr<TextureManager> texture_manager;
 
   void sync_search_selection_bounds();
   void sync_billed_selection_bounds();
