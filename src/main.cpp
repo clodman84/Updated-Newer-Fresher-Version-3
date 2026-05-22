@@ -2,6 +2,7 @@
 #include "Application/include/IconsFontAwesome6Brands.h"
 #include "Application/operations/gimp_levels.h"
 #include "Application/operations/my_colour_enhance.h"
+#include "include/google_drive.h"
 #include "include/google_drive_browser.h"
 #include "include/gpu_utils.h"
 #include "include/image.h"
@@ -84,8 +85,9 @@ private:
   std::mutex pending_mutex_;
   std::vector<std::filesystem::path> pending_session_paths_;
 
-  bool show_drive_browser_ = false;
-  std::unique_ptr<GoogleDriveBrowser> drive_browser_;
+  bool show_drive_browser = false;
+  std::shared_ptr<DriveClient> drive_client;
+  std::unique_ptr<GoogleDriveBrowser> google_drive_browser;
   std::shared_ptr<TextureManager> texture_manager;
 
   bool init() {
@@ -318,12 +320,14 @@ private:
     render_menu_bar();
     render_sessions();
 
-    if (db_.show_loaded_csv) {
-      db_.render_loaded_csv();
+    if (show_drive_browser && google_drive_browser) {
+      ImGui::Begin(ICON_FA_GOOGLE_DRIVE "  Drive Browser");
+      google_drive_browser->render();
+      ImGui::End();
     }
 
-    if (show_drive_browser_ && drive_browser_) {
-      drive_browser_->render_window(ICON_FA_GOOGLE_DRIVE "  Drive Browser");
+    if (db_.show_loaded_csv) {
+      db_.render_loaded_csv();
     }
 
     ImGui::Render();
@@ -363,17 +367,29 @@ private:
 
     if (ImGui::BeginMenu(ICON_FA_CLOUD)) {
       if (ImGui::MenuItem(ICON_FA_GOOGLE_DRIVE "  Show Browser", nullptr,
-                          &show_drive_browser_)) {
-        if (show_drive_browser_ && !drive_browser_) {
+                          &show_drive_browser)) {
+        if (!drive_client) {
           try {
-            drive_browser_ = std::make_unique<GoogleDriveBrowser>(window_);
+            if (!db_.has_credentials())
+              SDL_ShowOpenFileDialog(import_cred_callback, this, window_,
+                                     json_filters, 1, nullptr, false);
+            std::string json_data = db_.get_credentials();
+            ServiceAccountCredentials creds =
+                ServiceAccountCredentials::from_json(json_data);
+            drive_client = std::make_shared<DriveClient>(std::move(creds));
           } catch (const std::exception &e) {
-            std::cerr << "Drive Browser init failed: " << e.what() << "\n";
-            show_drive_browser_ = false;
+            std::cerr << "Drive Client init failed: " << e.what() << "\n";
+          }
+        }
+        if (!google_drive_browser) {
+          try {
+            google_drive_browser =
+                std::make_unique<GoogleDriveBrowser>(drive_client, window_);
+          } catch (const std::exception &e) {
+            std::cerr << "Drive Client init failed: " << e.what() << "\n";
           }
         }
       }
-      ImGui::MenuItem(ICON_FA_ROTATE "  Sync", nullptr, &show_drive_browser_);
       ImGui::EndMenu();
     }
 

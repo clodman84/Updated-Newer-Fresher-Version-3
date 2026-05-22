@@ -42,7 +42,7 @@ struct ServiceAccountCredentials {
 
 class DriveClient {
 public:
-  explicit DriveClient(ServiceAccountCredentials credentials);
+  DriveClient(ServiceAccountCredentials credentials);
   DriveClient(const DriveClient &) = delete;
   DriveClient &operator=(const DriveClient &) = delete;
   DriveClient(DriveClient &&) noexcept;
@@ -66,6 +66,18 @@ public:
   std::map<std::string, std::string>
   load_id_mapping_file(const std::filesystem::path &map_file_path);
 
+  DriveItem
+  upload_file(const std::filesystem::path &local_path,
+              const std::string &parent_folder_id,
+              std::function<void(long long bytes_done, long long bytes_total)>
+                  progress_cb = {});
+
+  DriveItem
+  update_file(const DriveItem &drive_item,
+              const std::filesystem::path &local_path,
+              std::function<void(long long bytes_done, long long bytes_total)>
+                  progress_cb = {});
+
 private:
   std::string build_jwt() const;
   void exchange_jwt_for_token(const std::string &jwt);
@@ -75,6 +87,11 @@ private:
   http_get_to_file(const std::string &url, const std::filesystem::path &dest,
                    std::function<void(long long, long long)> progress_cb = {});
   std::string http_post_form(const std::string &url, const std::string &body);
+
+  DriveItem http_resumable_upload(
+      const std::string &file_id, const std::filesystem::path &local_path,
+      const std::string &parent_folder_id, // ignored when file_id is set
+      std::function<void(long long, long long)> progress_cb);
   static std::vector<DriveItem> parse_file_list(const std::string &json);
   curl_slist *build_auth_headers() const;
   ServiceAccountCredentials credentials_;

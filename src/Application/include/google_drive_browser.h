@@ -1,7 +1,6 @@
 #pragma once
 
 #include "google_drive.h"
-#include "include/database.h"
 #include <SDL3/SDL.h>
 #include <atomic>
 #include <future>
@@ -10,44 +9,61 @@
 #include <string>
 #include <vector>
 
+// A self-contained ImGui panel for browsing a Google Drive.
+// The caller owns the DriveClient; this class holds only a non-owning pointer.
 class GoogleDriveBrowser {
 public:
-  explicit GoogleDriveBrowser(SDL_Window *window);
+  // window is used for native file dialogs (SDL3).
+  GoogleDriveBrowser(std::shared_ptr<DriveClient> client, SDL_Window *window);
 
-  void render_window(const char *window_title);
-  void load_client_from_db();
-  void start_download(const std::string &dest_folder);
-  void cancel_download_state();
-  DriveItem item_to_download_;
-  Database database;
+  // Call once per frame inside an ImGui::Begin/End block.
+  // The panel draws itself into whatever window is currently open.
+  void render();
+
+  // True while an async download is in progress.
+  bool is_busy() const;
 
 private:
+  // ── State ────────────────────────────────────────────────────────────────
+  std::shared_ptr<DriveClient> client_;
   SDL_Window *window_;
-  std::unique_ptr<DriveClient> client_;
-  bool show_import_modal_ = false;
-  bool init_failed_ = false;
 
   std::string current_folder_id_;
   std::vector<DriveItem> current_items_;
-  std::vector<std::string> history_;
-  char folder_id_input_[256] = "";
+  std::vector<std::string> nav_history_; // back-stack of folder IDs
+  char id_buf_[256];
+  std::string error_;
 
-  bool is_loading_ = false;
-  std::string error_message_;
+  // ── Async fetch ──────────────────────────────────────────────────────────
+  bool fetching_ = false;
   std::future<std::vector<DriveItem>> fetch_future_;
 
-  std::future<void> download_future_;
-  std::atomic<bool> is_downloading_{false};
-  std::atomic<bool> waiting_for_folder_picker_{false};
-  std::atomic<float> download_progress_{0.0f};
-  std::mutex ui_mutex_;
-  std::string download_message_;
+  // ── Async download ───────────────────────────────────────────────────────
+  enum class DownloadState { Idle, WaitingForPath, Active, Done };
+  DownloadState dl_state_ = DownloadState::Idle;
+  DriveItem dl_item_;
+  std::future<void> dl_future_;
+  std::atomic<float> dl_progress_{0.f};
+  std::mutex dl_msg_mutex_;
+  std::string dl_message_;
 
-  void load_folder_async(const std::string &folder_id);
+  // ── Rendering helpers ────────────────────────────────────────────────────
+  void draw_toolbar();
+  void draw_file_table();
+  void draw_download_overlay();
+  void draw_error_bar();
 
-  void render_browser_ui();
-  void render_download_ui();
-  void draw_navigation_bar();
-  void draw_item_list();
-  static std::string format_size(long long bytes);
+  // ── Logic helpers ────────────────────────────────────────────────────────
+  void navigate_to(const std::string &folder_id, bool push_history = true);
+  void poll_fetch();
+  void begin_download(const DriveItem &item, const std::string &dest_path);
+  void set_message(const std::string &msg);
+
+  static const char *icon_for(const DriveItem &item);
+  static std::string friendly_size(long long bytes);
+  static std::string friendly_time(const std::string &rfc3339);
+
+  // SDL dialog callbacks (must be static; use userdata pointer)
+  static void SDLCALL on_folder_picked(void *userdata,
+                                       const char *const *filelist, int filter);
 };

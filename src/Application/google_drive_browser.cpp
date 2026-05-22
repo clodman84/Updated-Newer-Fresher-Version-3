@@ -1,394 +1,336 @@
 #include "include/google_drive_browser.h"
 #include "include/IconsFontAwesome6.h"
+#include "include/imgui_custom.h"
 #include <chrono>
 #include <cstdio>
 #include <cstring>
-#include <fstream>
 #include <imgui.h>
+#include <memory>
 
-static void SDLCALL folder_picker_callback(void *userdata,
-                                           const char *const *filelist,
-                                           int filter) {
-  auto *browser = static_cast<GoogleDriveBrowser *>(userdata);
-  if (filelist != nullptr && strncmp(*filelist, "", 1) != 0) {
-    browser->start_download(*filelist); // Start download at the picked path
-  } else {
-    browser->cancel_download_state();
-  }
+GoogleDriveBrowser::GoogleDriveBrowser(std::shared_ptr<DriveClient> client,
+                                       SDL_Window *window)
+    : client_(client), window_(window) {
+  id_buf_[0] = '\0';
 }
 
-static const SDL_DialogFileFilter json_filters[] = {{"JSON files", "json"}};
+void GoogleDriveBrowser::render() {
+  poll_fetch();
 
-static void SDLCALL import_cred_callback(void *userdata,
-                                         const char *const *filelist,
-                                         int filter) {
-  if (filelist == nullptr || strncmp(*filelist, "", 1) == 0)
+  if (dl_state_ != DownloadState::Idle) {
+    draw_download_overlay();
     return;
+  }
 
-  auto *browser = static_cast<GoogleDriveBrowser *>(userdata);
-  std::filesystem::path file_path(*filelist);
+  draw_toolbar();
+  draw_error_bar();
+  draw_file_table();
+}
 
-  std::ifstream ifs(file_path, std::ios::in | std::ios::binary);
-  if (ifs.is_open()) {
-    std::string json_content((std::istreambuf_iterator<char>(ifs)),
-                             std::istreambuf_iterator<char>());
+bool GoogleDriveBrowser::is_busy() const {
+  return fetching_ || dl_state_ == DownloadState::Active;
+}
 
-    // Save to DB and initialize the client
-    if (browser->database.save_credentials(json_content)) {
-      browser->load_client_from_db();
+void GoogleDriveBrowser::draw_toolbar() {
+  // Back button
+  ImGui::BeginDisabled(nav_history_.empty());
+  if (ImGui::Button(ICON_FA_ARROW_LEFT "##back")) {
+    std::string prev = nav_history_.back();
+    nav_history_.pop_back();
+    navigate_to(prev, /*push_history=*/false);
+  }
+  ImGui::EndDisabled();
+  if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+    ImGui::SetTooltip("Back");
+
+  ImGui::SameLine(0, 0.2);
+
+  ImGui::BeginDisabled(fetching_ || current_folder_id_.empty());
+  if (ImGui::Button(ICON_FA_ROTATE "##refresh"))
+    navigate_to(current_folder_id_, /*push_history=*/false);
+  ImGui::EndDisabled();
+  if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+    ImGui::SetTooltip("Refresh");
+
+  ImGui::SameLine();
+
+  bool enter = ImGui::InputTextWithHint(
+      "##folderid", ICON_FA_FOLDER " Folder ID…", id_buf_, sizeof(id_buf_),
+      ImGuiInputTextFlags_EnterReturnsTrue);
+
+  ImGui::SameLine();
+
+  if (ImGui::Button(ICON_FA_SATELLITE_DISH) || enter) {
+    std::string target(id_buf_);
+    if (!target.empty()) {
+      if (target != current_folder_id_)
+        navigate_to(target);
+      else
+        navigate_to(target, false); // re-fetch same folder
     }
   }
-}
 
-GoogleDriveBrowser::GoogleDriveBrowser(SDL_Window *window) : window_(window) {
-  current_folder_id_ = "";
-  folder_id_input_[0] = '\0';
-  if (database.has_credentials()) {
-    load_client_from_db();
-  } else {
-    show_import_modal_ = true;
+  // Inline spinner while loading
+  if (fetching_) {
+    ImGui::SameLine();
+    draw_spinner();
   }
 }
 
-void GoogleDriveBrowser::load_client_from_db() {
-  try {
-    std::string json_data = database.get_credentials();
-    ServiceAccountCredentials creds =
-        ServiceAccountCredentials::from_json(json_data);
-    client_ = std::make_unique<DriveClient>(std::move(creds));
-    init_failed_ = false;
-    show_import_modal_ = false;
-  } catch (const std::exception &e) {
-    init_failed_ = true;
-    error_message_ = e.what();
-    show_import_modal_ = true; // Show the modal again if parsing failed
-  }
+void GoogleDriveBrowser::draw_error_bar() {
+  if (error_.empty())
+    return;
+  ImGui::Spacing();
+  ImGui::TextColored({1.f, 0.35f, 0.35f, 1.f}, ICON_FA_CIRCLE_EXCLAMATION " %s",
+                     error_.c_str());
 }
 
-void GoogleDriveBrowser::load_folder_async(const std::string &folder_id) {
-  if (is_loading_)
+void GoogleDriveBrowser::draw_file_table() {
+  ImGui::Separator();
+  if (current_folder_id_.empty() && current_items_.empty()) {
+    ImGui::Spacing();
+    ImGui::TextDisabled("Enter a folder ID above to start browsing.");
+    return;
+  }
+
+  if (fetching_) {
+    return;
+  }
+
+  if (current_items_.empty()) {
+    ImGui::Spacing();
+    ImGui::TextDisabled(ICON_FA_GHOST "  Nothing to see here");
+    return;
+  }
+
+  constexpr ImGuiTableFlags kTableFlags =
+      ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter |
+      ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable |
+      ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingStretchProp;
+
+  if (!ImGui::BeginTable("##driveitems", 3, kTableFlags))
     return;
 
-  is_loading_ = true;
-  error_message_.clear();
+  ImGui::TableSetupScrollFreeze(0, 1);
+  ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthStretch);
+  ImGui::TableSetupColumn("Size", ImGuiTableColumnFlags_WidthFixed, 80.f);
+  ImGui::TableSetupColumn("Modified", ImGuiTableColumnFlags_WidthFixed, 160.f);
+  ImGui::TableHeadersRow();
+
+  for (const auto &item : current_items_) {
+    ImGui::TableNextRow();
+    ImGui::TableSetColumnIndex(0);
+
+    std::string label =
+        std::string(icon_for(item)) + "  " + item.name + "##" + item.id;
+
+    bool clicked = ImGui::Selectable(label.c_str(), false,
+                                     ImGuiSelectableFlags_SpanAllColumns |
+                                         ImGuiSelectableFlags_AllowDoubleClick);
+
+    if (ImGui::BeginPopupContextItem(("ctx##" + item.id).c_str())) {
+      if (ImGui::MenuItem(ICON_FA_DOWNLOAD " Download")) {
+        dl_item_ = item;
+        dl_state_ = DownloadState::WaitingForPath;
+        SDL_ShowOpenFolderDialog(on_folder_picked, this, window_, nullptr,
+                                 false);
+      }
+      ImGui::EndPopup();
+    }
+
+    if (clicked && ImGui::IsMouseDoubleClicked(0) &&
+        item.type == FileType::Folder) {
+      navigate_to(item.id);
+    }
+
+    ImGui::TableSetColumnIndex(1);
+    if (item.type != FileType::Folder)
+      ImGui::TextDisabled("%s", friendly_size(item.size_bytes).c_str());
+
+    ImGui::TableSetColumnIndex(2);
+    ImGui::TextDisabled("%s", friendly_time(item.modified_time).c_str());
+  }
+
+  ImGui::EndTable();
+}
+
+void GoogleDriveBrowser::draw_download_overlay() {
+
+  if (dl_state_ == DownloadState::WaitingForPath) {
+    ImGui::TextDisabled(ICON_FA_FOLDER_OPEN "  Waiting for folder selection…");
+    ImGui::Spacing();
+    if (ImGui::Button("Cancel")) {
+      dl_state_ = DownloadState::Idle;
+    }
+    return;
+  }
+
+  {
+    std::lock_guard lock(dl_msg_mutex_);
+    ImGui::TextWrapped("%s", dl_message_.c_str());
+  }
+
+  float progress = dl_progress_.load();
+  char overlay[32];
+
+  if (dl_state_ == DownloadState::Done) {
+    if (ImGui::Button(ICON_FA_ARROW_LEFT)) {
+      dl_state_ = DownloadState::Idle;
+      error_.clear();
+    }
+    ImGui::SameLine();
+  }
+
+  if (dl_state_ == DownloadState::Done) {
+    snprintf(overlay, sizeof(overlay), "Done");
+  } else if (progress > 0.f) {
+    snprintf(overlay, sizeof(overlay), "%d%%",
+             static_cast<int>(progress * 100.f));
+  } else {
+    snprintf(overlay, sizeof(overlay), "…");
+  }
+  ImGui::ProgressBar(progress, {-1.f, 0.f}, overlay);
+
+  if (dl_state_ == DownloadState::Active && dl_future_.valid() &&
+      dl_future_.wait_for(std::chrono::seconds(0)) ==
+          std::future_status::ready) {
+    try {
+      dl_future_.get();
+      set_message(ICON_FA_CIRCLE_CHECK "  Download complete: " + dl_item_.name);
+    } catch (const std::exception &e) {
+      set_message(std::string(ICON_FA_CIRCLE_EXCLAMATION "  Failed: ") +
+                  e.what());
+    }
+    dl_state_ = DownloadState::Done;
+    dl_progress_ = 1.f;
+  }
+
+  ImGui::Separator();
+}
+
+void GoogleDriveBrowser::navigate_to(const std::string &folder_id,
+                                     bool push_history) {
+  if (fetching_)
+    return;
+
+  if (push_history && !current_folder_id_.empty())
+    nav_history_.push_back(current_folder_id_);
+
   current_folder_id_ = folder_id;
+  strncpy(id_buf_, folder_id.c_str(), sizeof(id_buf_) - 1);
+  id_buf_[sizeof(id_buf_) - 1] = '\0';
 
-  strncpy(folder_id_input_, current_folder_id_.c_str(),
-          sizeof(folder_id_input_) - 1);
-  folder_id_input_[sizeof(folder_id_input_) - 1] = '\0';
+  error_.clear();
+  fetching_ = true;
 
-  fetch_future_ = std::async(std::launch::async, [this, folder_id]() {
+  fetch_future_ = std::async(std::launch::async, [this, folder_id] {
     return client_->get_folder_contents(folder_id);
   });
 }
 
-void GoogleDriveBrowser::cancel_download_state() {
-  waiting_for_folder_picker_ = false;
+void GoogleDriveBrowser::poll_fetch() {
+  if (!fetching_ || !fetch_future_.valid())
+    return;
+  if (fetch_future_.wait_for(std::chrono::seconds(0)) !=
+      std::future_status::ready)
+    return;
+
+  try {
+    current_items_ = fetch_future_.get();
+  } catch (const std::exception &e) {
+    error_ = e.what();
+    current_items_.clear();
+  }
+  fetching_ = false;
 }
 
-void GoogleDriveBrowser::start_download(const std::string &dest_folder) {
-  waiting_for_folder_picker_ = false;
-  is_downloading_ = true;
-  download_progress_ = 0.0f;
+void GoogleDriveBrowser::begin_download(const DriveItem &item,
+                                        const std::string &dest_path) {
+  dl_item_ = item;
+  dl_state_ = DownloadState::Active;
+  dl_progress_ = 0.f;
+  set_message("Starting: " + item.name);
 
-  {
-    std::lock_guard<std::mutex> lock(ui_mutex_);
-    download_message_ = "Preparing download: " + item_to_download_.name;
-  }
+  dl_future_ = std::async(std::launch::async, [this, dest_path] {
+    std::filesystem::path dest(dest_path);
 
-  std::string dest_dir_str = dest_folder;
-  download_future_ = std::async(std::launch::async, [this, dest_dir_str]() {
-    try {
-      std::filesystem::path dest_dir(dest_dir_str);
-
-      if (item_to_download_.type == FileType::File) {
-        client_->download_file(item_to_download_, dest_dir,
-                               [this](long long done, long long total) {
-                                 if (total > 0) {
-                                   this->download_progress_ =
-                                       static_cast<float>(done) /
-                                       static_cast<float>(total);
-                                 }
-                               });
-      } else if (item_to_download_.type == FileType::Folder) {
-        client_->download_folder(
-            item_to_download_, dest_dir,
-            [this](int done, int total, const DriveItem &curr) {
-              std::lock_guard<std::mutex> lock(this->ui_mutex_);
-              if (total == 0) {
-                this->download_message_ =
-                    "Mapping directory structure: " + curr.name;
-              } else {
-                this->download_message_ =
-                    "Downloading file (" + std::to_string(done) + "/" +
-                    std::to_string(total) + "): " + curr.name;
-                this->download_progress_ =
-                    static_cast<float>(done) / static_cast<float>(total);
-              }
-            });
-      }
-
-      std::lock_guard<std::mutex> lock(this->ui_mutex_);
-      this->download_message_ =
-          "Successfully downloaded: " + item_to_download_.name;
-      this->download_progress_ = 1.0f;
-
-    } catch (const std::exception &e) {
-      std::lock_guard<std::mutex> lock(this->ui_mutex_);
-      this->download_message_ = std::string("Download failed: ") + e.what();
-      this->download_progress_ = 0.0f;
+    if (dl_item_.type == FileType::File) {
+      client_->download_file(
+          dl_item_, dest, [this](long long done, long long total) {
+            if (total > 0)
+              dl_progress_ = static_cast<float>(done) / total;
+          });
+    } else {
+      client_->download_folder(
+          dl_item_, dest, [this](int done, int total, const DriveItem &curr) {
+            std::lock_guard lock(dl_msg_mutex_);
+            if (total == 0) {
+              dl_message_ = "Mapping: " + curr.name;
+            } else {
+              dl_message_ = "(" + std::to_string(done) + "/" +
+                            std::to_string(total) + ")  " + curr.name;
+              dl_progress_ = static_cast<float>(done) / total;
+            }
+          });
     }
   });
 }
 
-std::string GoogleDriveBrowser::format_size(long long bytes) {
-  if (bytes == 0)
-    return "--";
-  const char *units[] = {"B", "KB", "MB", "GB"};
-  int i = 0;
-  double dbl_bytes = static_cast<double>(bytes);
+void GoogleDriveBrowser::set_message(const std::string &msg) {
+  std::lock_guard lock(dl_msg_mutex_);
+  dl_message_ = msg;
+}
 
-  while (dbl_bytes >= 1024.0 && i < 3) {
-    dbl_bytes /= 1024.0;
-    i++;
+void SDLCALL GoogleDriveBrowser::on_folder_picked(void *userdata,
+                                                  const char *const *filelist,
+                                                  int /*filter*/) {
+  auto *self = static_cast<GoogleDriveBrowser *>(userdata);
+  if (filelist == nullptr || *filelist == nullptr) {
+    // User cancelled
+    self->dl_state_ = DownloadState::Idle;
+    return;
+  }
+  self->begin_download(self->dl_item_, *filelist);
+}
+
+const char *GoogleDriveBrowser::icon_for(const DriveItem &item) {
+  if (item.type == FileType::Folder)
+    return ICON_FA_FOLDER;
+  if (item.mime_type == "image/jpeg" || item.mime_type == "image/png" ||
+      item.mime_type == "image/gif")
+    return ICON_FA_IMAGE;
+  if (item.mime_type == "text/csv")
+    return ICON_FA_FILE_CSV;
+  if (item.mime_type == "text/plain")
+    return ICON_FA_FILE_LINES;
+  if (item.mime_type == "application/pdf")
+    return ICON_FA_FILE_PDF;
+  if (item.mime_type == "application/zip" ||
+      item.mime_type == "application/x-tar")
+    return ICON_FA_FILE_ZIPPER;
+  if (item.mime_type.find("audio") != std::string::npos)
+    return ICON_FA_FILE_AUDIO;
+  if (item.mime_type.find("video") != std::string::npos)
+    return ICON_FA_FILE_VIDEO;
+  return ICON_FA_FILE;
+}
+
+std::string GoogleDriveBrowser::friendly_size(long long bytes) {
+  if (bytes <= 0)
+    return "--";
+  const char *units[] = {"B", "KB", "MB", "GB", "TB"};
+  double val = static_cast<double>(bytes);
+  int i = 0;
+  while (val >= 1024.0 && i < 4) {
+    val /= 1024.0;
+    ++i;
   }
   char buf[32];
-  snprintf(buf, sizeof(buf), "%.1f %s", dbl_bytes, units[i]);
+  snprintf(buf, sizeof(buf), i == 0 ? "%.0f %s" : "%.1f %s", val, units[i]);
   return buf;
 }
 
-void GoogleDriveBrowser::render_window(const char *window_title) {
-
-  if (show_import_modal_) {
-    if (!ImGui::IsPopupOpen("Import Credentials")) {
-      ImGui::OpenPopup("Import Credentials");
-    }
-  }
-
-  ImVec2 center = ImGui::GetMainViewport()->GetCenter();
-  ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-
-  if (ImGui::BeginPopupModal("Import Credentials", NULL,
-                             ImGuiWindowFlags_AlwaysAutoResize |
-                                 ImGuiWindowFlags_NoCollapse)) {
-
-    if (!show_import_modal_) {
-      ImGui::CloseCurrentPopup();
-      ImGui::EndPopup();
-      return;
-    }
-
-    if (init_failed_) {
-      ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f),
-                         "Error loading credentials: %s",
-                         error_message_.c_str());
-      ImGui::Separator();
-    }
-
-    ImGui::Text("Service account credentials are not loaded.");
-    ImGui::Separator();
-
-    if (ImGui::Button("Import Creds", ImVec2(120, 0))) {
-      SDL_ShowOpenFileDialog(import_cred_callback, this, window_, json_filters,
-                             1, nullptr, false);
-    }
-
-    ImGui::SameLine();
-    if (ImGui::Button("Cancel", ImVec2(120, 0))) {
-      show_import_modal_ = false;
-    }
-
-    ImGui::EndPopup();
-    return;
-  }
-
-  if (client_) {
-    ImGui::Begin(window_title);
-
-    if (is_downloading_ || waiting_for_folder_picker_) {
-      render_download_ui();
-    } else {
-      render_browser_ui();
-    }
-
-    ImGui::End();
-  }
-}
-
-void GoogleDriveBrowser::render_download_ui() {
-  ImGui::Spacing();
-  ImGui::Spacing();
-
-  if (waiting_for_folder_picker_) {
-    ImGui::Text("Awaiting system folder dialog...");
-    ImGui::Spacing();
-    if (ImGui::Button("Cancel Selection")) {
-      waiting_for_folder_picker_ = false;
-    }
-    return;
-  }
-
-  std::lock_guard<std::mutex> lock(ui_mutex_);
-
-  ImGui::TextColored(ImVec4(0.4f, 0.8f, 1.0f, 1.0f), "%s",
-                     download_message_.c_str());
-  ImGui::Spacing();
-
-  char overlay[32];
-  if (download_progress_ >= 1.0f) {
-    snprintf(overlay, sizeof(overlay), "Complete!");
-  } else if (download_progress_ > 0.0f) {
-    snprintf(overlay, sizeof(overlay), "%d%%",
-             static_cast<int>(download_progress_ * 100.0f));
-  } else {
-    snprintf(overlay, sizeof(overlay), "Starting/Unknown size...");
-  }
-
-  ImGui::ProgressBar(download_progress_, ImVec2(-1.0f, 0.0f), overlay);
-  ImGui::Spacing();
-  ImGui::Spacing();
-
-  bool is_done = (download_future_.valid() &&
-                  download_future_.wait_for(std::chrono::seconds(0)) ==
-                      std::future_status::ready);
-
-  if (is_done) {
-    if (ImGui::Button("Return to Browser")) {
-      is_downloading_ = false;
-      download_message_.clear();
-    }
-  }
-}
-
-void GoogleDriveBrowser::render_browser_ui() {
-  if (is_loading_ && fetch_future_.valid()) {
-    if (fetch_future_.wait_for(std::chrono::seconds(0)) ==
-        std::future_status::ready) {
-      try {
-        current_items_ = fetch_future_.get();
-      } catch (const std::exception &e) {
-        error_message_ = e.what();
-        current_items_.clear();
-      }
-      is_loading_ = false;
-    }
-  }
-
-  draw_navigation_bar();
-
-  ImGui::Separator();
-  ImGui::Spacing();
-
-  if (!error_message_.empty()) {
-    ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "Error: %s",
-                       error_message_.c_str());
-  }
-
-  if (is_loading_) {
-    ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f),
-                       "Fetching drive contents...");
-  } else if (current_items_.empty() && current_folder_id_.empty()) {
-    ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f),
-                       "Enter a folder ID to begin browsing.");
-  } else {
-    draw_item_list();
-  }
-}
-
-void GoogleDriveBrowser::draw_navigation_bar() {
-  ImGui::BeginDisabled(history_.empty());
-  if (ImGui::Button(ICON_FA_BACKWARD)) {
-    std::string prev_id = history_.back();
-    history_.pop_back();
-    load_folder_async(prev_id);
-  }
-  ImGui::EndDisabled();
-
-  ImGui::SameLine();
-  if (ImGui::Button(ICON_FA_ROTATE)) {
-    load_folder_async(current_folder_id_);
-  }
-  ImGui::SameLine();
-  ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x - 60.0f);
-  bool enter_pressed = ImGui::InputTextWithHint(
-      "##FolderIDInput", ICON_FA_FOLDER_CLOSED "  Folder ID", folder_id_input_,
-      sizeof(folder_id_input_), ImGuiInputTextFlags_EnterReturnsTrue);
-  ImGui::PopItemWidth();
-
-  ImGui::SameLine();
-  if (ImGui::Button(ICON_FA_SATELLITE_DISH) || enter_pressed) {
-    std::string target_id(folder_id_input_);
-    if (!target_id.empty() && target_id != current_folder_id_) {
-      if (!current_folder_id_.empty())
-        history_.push_back(current_folder_id_);
-      load_folder_async(target_id);
-    } else if (target_id == current_folder_id_ && !target_id.empty()) {
-      load_folder_async(current_folder_id_);
-    }
-  }
-}
-
-void GoogleDriveBrowser::draw_item_list() {
-  static ImGuiTableFlags flags =
-      ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_BordersOuter |
-      ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable |
-      ImGuiTableFlags_ScrollY;
-
-  if (ImGui::BeginTable("DriveItems", 3, flags)) {
-    ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthStretch);
-    ImGui::TableSetupColumn("Size", ImGuiTableColumnFlags_WidthFixed, 80.0f);
-    ImGui::TableSetupColumn("Modified", ImGuiTableColumnFlags_WidthFixed,
-                            180.0f);
-    ImGui::TableHeadersRow();
-
-    for (const auto &item : current_items_) {
-      ImGui::TableNextRow();
-      ImGui::TableNextColumn();
-
-      bool is_folder = (item.type == FileType::Folder);
-      auto mime_icon = [](const std::string &mime) -> const char * {
-        if (mime == "application/vnd.google-apps.folder")
-          return ICON_FA_FOLDER;
-        if (mime == "image/jpeg" || mime == "image/png")
-          return ICON_FA_IMAGE;
-        if (mime == "text/csv")
-          return ICON_FA_FILE_CSV;
-        if (mime == "text/plain")
-          return ICON_FA_FILE_LINES;
-        return ICON_FA_FILE;
-      };
-
-      std::string display_label =
-          std::string(mime_icon(item.mime_type)) + " " + item.name;
-
-      ImGui::Selectable(display_label.c_str(), false,
-                        ImGuiSelectableFlags_SpanAllColumns |
-                            ImGuiSelectableFlags_AllowDoubleClick);
-      if (ImGui::BeginPopupContextItem()) {
-        if (ImGui::Selectable(ICON_FA_DOWNLOAD "  Download")) {
-          item_to_download_ = item;
-          waiting_for_folder_picker_ = true;
-          SDL_ShowOpenFolderDialog(folder_picker_callback, this, window_,
-                                   nullptr, false);
-        }
-        ImGui::EndPopup();
-      }
-
-      if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0) &&
-          is_folder) {
-        history_.push_back(current_folder_id_);
-        load_folder_async(item.id);
-      }
-
-      ImGui::TableNextColumn();
-      if (!is_folder)
-        ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "%s",
-                           format_size(item.size_bytes).c_str());
-
-      ImGui::TableNextColumn();
-      ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "%s",
-                         item.modified_time.c_str());
-    }
-    ImGui::EndTable();
-  }
+std::string GoogleDriveBrowser::friendly_time(const std::string &rfc3339) {
+  if (rfc3339.size() < 16)
+    return rfc3339;
+  return rfc3339.substr(0, 10) + "  " + rfc3339.substr(11, 5);
 }

@@ -583,3 +583,188 @@ std::filesystem::path DriveClient::download_file(
 
   return dest_file;
 }
+
+static int UploadProgressCallback(void *clientp, curl_off_t /*dltotal*/,
+                                  curl_off_t /*dlnow*/, curl_off_t ultotal,
+                                  curl_off_t ulnow) {
+  auto *cb = static_cast<std::function<void(long long, long long)> *>(clientp);
+  if (*cb && ultotal > 0)
+    (*cb)(static_cast<long long>(ulnow), static_cast<long long>(ultotal));
+  return 0;
+}
+
+DriveItem DriveClient::http_resumable_upload(
+    const std::string &file_id, const std::filesystem::path &local_path,
+    const std::string &parent_folder_id,
+    std::function<void(long long, long long)> progress_cb) {
+
+  ensure_valid_token();
+
+  if (!std::filesystem::exists(local_path))
+    throw DriveError("Local file not found: " + local_path.string());
+
+  const long long file_size =
+      static_cast<long long>(std::filesystem::file_size(local_path));
+  const std::string filename = local_path.filename().string();
+
+  static const std::map<std::string, std::string> kMimeMap = {
+      {".pdf", "application/pdf"}, {".png", "image/png"},
+      {".jpg", "image/jpeg"},      {".jpeg", "image/jpeg"},
+      {".gif", "image/gif"},       {".txt", "text/plain"},
+      {".csv", "text/csv"},        {".json", "application/json"},
+      {".zip", "application/zip"},
+  };
+  std::string mime_type = "application/octet-stream";
+  auto ext = local_path.extension().string();
+  // Normalise extension to lowercase for matching
+  std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+  if (auto it = kMimeMap.find(ext); it != kMimeMap.end())
+    mime_type = it->second;
+
+  json metadata;
+  metadata["name"] = filename;
+  metadata["mimeType"] = mime_type;
+  if (file_id.empty() && !parent_folder_id.empty())
+    metadata["parents"] = json::array({parent_folder_id});
+
+  const std::string metadata_str = metadata.dump();
+
+  const std::string init_url =
+      file_id.empty() ? "https://www.googleapis.com/upload/drive/v3/"
+                        "files?uploadType=resumable"
+                      : "https://www.googleapis.com/upload/drive/v3/files/" +
+                            file_id + "?uploadType=resumable";
+
+  curl_easy_reset(curl);
+  std::string init_response;
+  std::string session_uri;
+
+  {
+    curl_slist *headers = build_auth_headers();
+    headers = curl_slist_append(
+        headers, "Content-Type: application/json; charset=UTF-8");
+    const std::string x_upload_size =
+        "X-Upload-Content-Length: " + std::to_string(file_size);
+    const std::string x_upload_type = "X-Upload-Content-Type: " + mime_type;
+    headers = curl_slist_append(headers, x_upload_size.c_str());
+    headers = curl_slist_append(headers, x_upload_type.c_str());
+
+    curl_easy_setopt(curl, CURLOPT_URL, init_url.c_str());
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, metadata_str.c_str());
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE,
+                     static_cast<long>(metadata_str.size()));
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteStringCallback);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &init_response);
+
+    if (!file_id.empty())
+      curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "PATCH");
+
+    // We need the response headers to fish out the Location: URI
+    std::string raw_headers;
+    curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, WriteStringCallback);
+    curl_easy_setopt(curl, CURLOPT_HEADERDATA, &raw_headers);
+
+    CURLcode res = curl_easy_perform(curl);
+    curl_slist_free_all(headers);
+
+    if (res != CURLE_OK)
+      throw ApiError(0, curl_easy_strerror(res));
+
+    long http_code = 0;
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
+    if (http_code != 200 && http_code != 200)
+      ;
+
+    const std::string location_key = "Location: ";
+    auto loc_pos = raw_headers.find(location_key);
+    if (loc_pos == std::string::npos)
+      throw ApiError(
+          static_cast<int>(http_code),
+          "Resumable upload: no Location header in initiation response");
+
+    auto uri_start = loc_pos + location_key.size();
+    auto uri_end = raw_headers.find_first_of("\r\n", uri_start);
+    session_uri = raw_headers.substr(uri_start, uri_end - uri_start);
+  }
+
+  std::ifstream ifs(local_path, std::ios::binary);
+  if (!ifs.is_open())
+    throw DriveError("Cannot open local file for reading: " +
+                     local_path.string());
+
+  curl_easy_reset(curl);
+  std::string upload_response;
+
+  {
+    curl_slist *headers = nullptr;
+    const std::string ct_header = "Content-Type: " + mime_type;
+    headers = curl_slist_append(headers, ct_header.c_str());
+
+    curl_easy_setopt(curl, CURLOPT_URL, session_uri.c_str());
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+    curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L);
+    curl_easy_setopt(curl, CURLOPT_READDATA, &ifs);
+    curl_easy_setopt(curl, CURLOPT_INFILESIZE_LARGE,
+                     static_cast<curl_off_t>(file_size));
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteStringCallback);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &upload_response);
+
+    if (progress_cb) {
+      curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
+      curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, UploadProgressCallback);
+      curl_easy_setopt(curl, CURLOPT_XFERINFODATA, &progress_cb);
+    }
+
+    CURLcode res = curl_easy_perform(curl);
+    curl_slist_free_all(headers);
+    ifs.close();
+
+    if (res != CURLE_OK)
+      throw ApiError(0, curl_easy_strerror(res));
+
+    long http_code = 0;
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
+    if (http_code != 200 && http_code != 201)
+      throw ApiError(static_cast<int>(http_code),
+                     "Resumable upload failed: " + upload_response);
+  }
+
+  try {
+    auto j = json::parse(upload_response);
+    DriveItem result;
+    result.id = j.value("id", "");
+    result.name = j.value("name", "");
+    result.mime_type = j.value("mimeType", "");
+    result.modified_time = j.value("modifiedTime", "");
+    result.type = (result.mime_type == "application/vnd.google-apps.folder")
+                      ? FileType::Folder
+                      : FileType::File;
+    result.size_bytes = file_size; // Drive omits size for native types
+    return result;
+  } catch (const json::exception &) {
+    throw ApiError(0, "Failed to parse upload response: " + upload_response);
+  }
+}
+
+DriveItem DriveClient::upload_file(
+    const std::filesystem::path &local_path,
+    const std::string &parent_folder_id,
+    std::function<void(long long, long long)> progress_cb) {
+
+  return http_resumable_upload("", local_path, parent_folder_id,
+                               std::move(progress_cb));
+}
+
+DriveItem DriveClient::update_file(
+    const DriveItem &drive_item, const std::filesystem::path &local_path,
+    std::function<void(long long, long long)> progress_cb) {
+
+  if (drive_item.id.empty())
+    throw DriveError("update_file: DriveItem has no id");
+  if (drive_item.type == FileType::Folder)
+    throw DriveError("update_file: cannot replace content of a folder");
+
+  return http_resumable_upload(drive_item.id, local_path, "",
+                               std::move(progress_cb));
+}
