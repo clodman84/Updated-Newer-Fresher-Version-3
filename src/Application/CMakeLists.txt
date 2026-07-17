@@ -15,6 +15,7 @@ add_library(unfv3_application STATIC
     session_image_ui.cpp
     session_keyboard_nav.cpp
     session_search_ui.cpp
+    dino_jumpy.cpp
     operations/gimp_levels.cpp
     operations/my_colour_enhance.cpp
 )

@@ -1,30 +1,7 @@
 #include "include/IconsFontAwesome6.h"
+#include "include/imgui_custom.h"
 #include "include/session.h"
 #include <imgui.h>
-
-inline ImVec2 operator+(const ImVec2 &a, const ImVec2 &b) {
-  return ImVec2(a.x + b.x, a.y + b.y);
-}
-
-inline ImVec2 operator+=(ImVec2 &a, const ImVec2 &b) {
-  a.x += b.x;
-  a.y += b.y;
-  return a;
-}
-
-inline ImVec2 operator-(const ImVec2 &a, const ImVec2 &b) {
-  return ImVec2(a.x - b.x, a.y - b.y);
-}
-
-inline ImVec2 operator*(const ImVec2 &a, float scalar) {
-  return ImVec2(a.x * scalar, a.y * scalar);
-}
-
-inline ImVec2 operator*=(ImVec2 &a, float scalar) {
-  a.x = a.x * scalar;
-  a.y = a.y * scalar;
-  return a;
-}
 
 void Session::reset_view_to_image() {
   const Image *image = image_manager.current_image;

@@ -11,6 +11,7 @@
 #include <iostream>
 #include <turbojpeg.h>
 #include <vector>
+#include <algorithm>
 
 #ifdef TRACY_ENABLE
 #include <tracy/Tracy.hpp>

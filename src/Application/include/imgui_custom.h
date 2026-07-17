@@ -29,3 +29,27 @@ inline void draw_spinner() {
   draw_list->PathStroke(arc_col, false, thickness);
   ImGui::Dummy(ImVec2(radius * 2.0f, radius * 2.0f + 4.0f));
 }
+
+inline ImVec2 operator+(const ImVec2 &a, const ImVec2 &b) {
+  return ImVec2(a.x + b.x, a.y + b.y);
+}
+
+inline ImVec2 operator+=(ImVec2 &a, const ImVec2 &b) {
+  a.x += b.x;
+  a.y += b.y;
+  return a;
+}
+
+inline ImVec2 operator-(const ImVec2 &a, const ImVec2 &b) {
+  return ImVec2(a.x - b.x, a.y - b.y);
+}
+
+inline ImVec2 operator*(const ImVec2 &a, float scalar) {
+  return ImVec2(a.x * scalar, a.y * scalar);
+}
+
+inline ImVec2 operator*=(ImVec2 &a, float scalar) {
+  a.x = a.x * scalar;
+  a.y = a.y * scalar;
+  return a;
+}

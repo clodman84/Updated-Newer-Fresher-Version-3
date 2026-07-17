@@ -22,6 +22,7 @@
 #include <deque>
 #include <filesystem>
 #include <fstream>
+#include <glibconfig.h>
 #include <iostream>
 #include <memory>
 #include <mutex>
@@ -97,8 +98,8 @@ private:
     gimp_levels_op_register();
     colour_enhance_op_register();
     g_object_set(gegl_config(), "mipmap-rendering", TRUE, nullptr);
-    guint64 tile_cache_size = 0;
-    // g_object_set(gegl_config(), "tile-cache-size", 100 * 1024 * 1024, NULL);
+    // g_object_set(gegl_config(), "mipmap-rendering", FALSE, nullptr);
+    guint64 tile_cache_size = 100 * 1024 * 1024;
     g_object_get(gegl_config(), "tile-cache-size", &tile_cache_size, NULL);
     SDL_Log("GEGL tile cache size: %lu MB", tile_cache_size / (1024 * 1024));
     srand(static_cast<unsigned int>(time(nullptr)));

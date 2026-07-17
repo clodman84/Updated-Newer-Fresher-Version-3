@@ -5,6 +5,7 @@
 #include <sqlite3.h>
 #include <string>
 #include <vector>
+#include <array>
 
 void prepare_database();
 

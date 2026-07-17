@@ -1,4 +1,5 @@
 #include "include/database.h"
+#include <algorithm>
 
 #ifdef TRACY_ENABLE
 #include <tracy/Tracy.hpp>

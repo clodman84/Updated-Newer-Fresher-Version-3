@@ -1,6 +1,7 @@
 #pragma once
 
 #include "google_drive.h"
+#include "include/dino_jumpy.h"
 #include <SDL3/SDL.h>
 #include <atomic>
 #include <future>
@@ -9,22 +10,13 @@
 #include <string>
 #include <vector>
 
-// A self-contained ImGui panel for browsing a Google Drive.
-// The caller owns the DriveClient; this class holds only a non-owning pointer.
 class GoogleDriveBrowser {
 public:
-  // window is used for native file dialogs (SDL3).
   GoogleDriveBrowser(std::shared_ptr<DriveClient> client, SDL_Window *window);
-
-  // Call once per frame inside an ImGui::Begin/End block.
-  // The panel draws itself into whatever window is currently open.
   void render();
-
-  // True while an async download is in progress.
   bool is_busy() const;
 
 private:
-  // ── State ────────────────────────────────────────────────────────────────
   std::shared_ptr<DriveClient> client_;
   SDL_Window *window_;
 
@@ -34,11 +26,9 @@ private:
   char id_buf_[256];
   std::string error_;
 
-  // ── Async fetch ──────────────────────────────────────────────────────────
   bool fetching_ = false;
   std::future<std::vector<DriveItem>> fetch_future_;
 
-  // ── Async download ───────────────────────────────────────────────────────
   enum class DownloadState { Idle, WaitingForPath, Active, Done };
   DownloadState dl_state_ = DownloadState::Idle;
   DriveItem dl_item_;
@@ -46,14 +36,13 @@ private:
   std::atomic<float> dl_progress_{0.f};
   std::mutex dl_msg_mutex_;
   std::string dl_message_;
+  Game dino_jumpy;
 
-  // ── Rendering helpers ────────────────────────────────────────────────────
   void draw_toolbar();
   void draw_file_table();
   void draw_download_overlay();
   void draw_error_bar();
 
-  // ── Logic helpers ────────────────────────────────────────────────────────
   void navigate_to(const std::string &folder_id, bool push_history = true);
   void poll_fetch();
   void begin_download(const DriveItem &item, const std::string &dest_path);
@@ -63,7 +52,6 @@ private:
   static std::string friendly_size(long long bytes);
   static std::string friendly_time(const std::string &rfc3339);
 
-  // SDL dialog callbacks (must be static; use userdata pointer)
   static void SDLCALL on_folder_picked(void *userdata,
                                        const char *const *filelist, int filter);
 };
