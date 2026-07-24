@@ -1,6 +1,9 @@
 #include "include/IconsFontAwesome6.h"
+#include "include/image.h"
 #include "include/imgui_custom.h"
 #include "include/session.h"
+#include <SDL3/SDL_log.h>
+#include <complex>
 #include <imgui.h>
 
 void Session::reset_view_to_image() {
@@ -196,12 +199,16 @@ void Session::render_main_image() {
 }
 
 void Session::render_control_panel() {
-  const Image *image = image_manager.current_image;
+  Image *image = image_manager.current_image;
 
   ImGui::TableNextColumn();
   ImGui::BeginChild("Control Panel", ImVec2(0, 0));
-  ImGui::Text(ICON_FA_WRENCH "  This is a work in progress :)");
-  ImGui::Separator();
+  if (ImGui::Button(ICON_FA_FLOPPY_DISK " Save")) {
+    editor.save(image->filename);
+    image->load_fullres();
+    image->load_thumbnail();
+  }
+
   if (image == nullptr || !image->is_valid()) {
     with_preview = false;
     with_detection = false;
@@ -210,6 +217,9 @@ void Session::render_control_panel() {
     return;
   }
   editor.render_controls();
+  ImGui::Separator();
+  ImGui::Text(ICON_FA_WRENCH "  This is a work in progress :)");
+
   ImGui::EndChild();
 }
 

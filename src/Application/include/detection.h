@@ -18,7 +18,6 @@ public:
   FaceDetector();
   ~FaceDetector() = default;
   bool load(const char *param, const char *bin);
-
   std::vector<FaceRect> scan_faces(const std::filesystem::path &path);
 
 private:

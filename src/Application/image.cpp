@@ -58,8 +58,6 @@ void Image::load_thumbnail() {
 #ifdef TRACY_ENABLE
   ZoneScopedN("Image::load_thumbnail");
 #endif
-  if (thumbnail_texture != nullptr)
-    return;
   int w;
   int h;
   unsigned char *src = load_texture_data_from_file(filename, &w, &h, 0.25);

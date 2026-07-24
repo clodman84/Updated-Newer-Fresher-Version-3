@@ -122,6 +122,9 @@ public:
   void render_controls();
   void reset_view_to_image();
 
+  void save(std::filesystem::path path);
+  bool is_saving = false;
+
   GeglRectangle roi;
 
 private:

@@ -68,7 +68,7 @@ Image *ImageManager::load_image(int idx) {
   if (current_image != nullptr)
     texture_manager->queue_destruction(current_image->texture);
 
-  image_order[index].load_halfres();
+  image_order[index].load_fullres();
   current_image = &image_order[index];
   return current_image;
 }

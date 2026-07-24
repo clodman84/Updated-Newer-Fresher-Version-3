@@ -2,6 +2,7 @@
 #include "SDL3/SDL_log.h"
 #include "imgui.h"
 #include "include/gpu_utils.h"
+#include "include/image.h"
 #include "include/stb_image.h"
 #include <algorithm>
 #include <gegl.h>
@@ -325,4 +326,23 @@ Effect &ImageEditor::get_or_create_effect(EffectType type) {
 
   effects.emplace_back(e);
   return effects.back();
+}
+
+void ImageEditor::save(std::filesystem::path path) {
+#ifdef TRACY_ENABLE
+  ZoneScopedN("save_image");
+#endif
+  std::lock_guard lock(graph_mutex);
+  if (sink == nullptr) {
+    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "CRITICAL: GEGL graph not ready for save.");
+    return;
+  }
+
+  GeglNode *save_node = gegl_node_new_child(
+      graph, "operation", "gegl:jpg-save", "path", path.c_str(), NULL);
+
+  gegl_node_link(sink, save_node);
+  gegl_node_process(save_node);
+
+  gegl_node_remove_child(graph, save_node);
 }

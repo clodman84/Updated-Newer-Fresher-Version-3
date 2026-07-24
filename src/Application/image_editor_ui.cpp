@@ -95,8 +95,6 @@ void ImageEditor::render_preview() {
   roi.width = roi_x2 - roi.x;
   roi.height = roi_y2 - roi.y;
 
-  // TODO: This is a rather naive and stupid way to do things, makes the UI
-  // unresponsive, instead maintain some sort of queueing system
   if (roi.width != current_texture_width ||
       roi.height != current_texture_height ||
       roi.x != current_texture_offset_x || roi.y != current_texture_offset_y)
@@ -524,7 +522,6 @@ void ImageEditor::render_controls() {
     }
   }
 
-  // ── Colour ────────────────────────────────────────────────
   ImGui::SeparatorText(ICON_FA_DROPLET "  Colour");
 
   if (gegl_has_operation("gegl:color-temperature")) {
@@ -625,7 +622,7 @@ void ImageEditor::render_controls() {
     bool active = is_effect_active(type);
     bool open = false;
     switch (draw_effect_header(
-        active, "Color Enhance",
+        active, "Colour Enhance",
         "Stretches chroma to cover the maximum possible range, "
         "keeping hue and lightness untouched.",
         open)) {
@@ -638,8 +635,10 @@ void ImageEditor::render_controls() {
     case EffectHeaderAction::None:
       break;
     }
-    if (open)
+    if (open) {
+      ImGui::Text("'Colour Enhance' is pretty vague, but aren't all words.");
       ImGui::TreePop();
+    }
   }
 
   if (gegl_has_operation("gegl:saturation")) {
