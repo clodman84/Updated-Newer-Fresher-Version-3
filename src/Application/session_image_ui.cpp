@@ -3,7 +3,6 @@
 #include "include/imgui_custom.h"
 #include "include/session.h"
 #include <SDL3/SDL_log.h>
-#include <complex>
 #include <imgui.h>
 
 void Session::reset_view_to_image() {
@@ -199,15 +198,25 @@ void Session::render_main_image() {
 }
 
 void Session::render_control_panel() {
-  Image *image = image_manager.current_image;
+Image *image = image_manager.current_image;
 
   ImGui::TableNextColumn();
   ImGui::BeginChild("Control Panel", ImVec2(0, 0));
-  if (ImGui::Button(ICON_FA_FLOPPY_DISK " Save")) {
+
+  ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+  ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1, 1, 1, 0.1f));
+  ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(1, 1, 1, 0.2f));
+
+  if (ImGui::SmallButton(ICON_FA_FLOPPY_DISK " Save")) {
     editor.save(image->filename);
     image->load_fullres();
     image->load_thumbnail();
+    export_manager.bill[image_manager.current_image->filename]
+        .attributes.cloud_synced = false;
+    export_manager.autosave();
   }
+
+  ImGui::PopStyleColor(3);
 
   if (image == nullptr || !image->is_valid()) {
     with_preview = false;
@@ -216,6 +225,7 @@ void Session::render_control_panel() {
     ImGui::EndChild();
     return;
   }
+
   editor.render_controls();
   ImGui::Separator();
   ImGui::Text(ICON_FA_WRENCH "  This is a work in progress :)");

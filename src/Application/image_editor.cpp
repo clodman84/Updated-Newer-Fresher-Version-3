@@ -2,10 +2,11 @@
 #include "SDL3/SDL_log.h"
 #include "imgui.h"
 #include "include/gpu_utils.h"
-#include "include/image.h"
 #include "include/stb_image.h"
 #include <algorithm>
+#include <cstddef>
 #include <gegl.h>
+#include <glib.h>
 #include <mutex>
 
 #ifdef TRACY_ENABLE
@@ -239,6 +240,13 @@ Effect &ImageEditor::get_or_create_effect(EffectType type) {
   std::lock_guard lock(graph_mutex);
 
   switch (type) {
+  case EffectType::MagnitudeSpectrumChannel:
+    e.node = gegl_node_new_child(
+        graph, "operation", "unfv3:magnitude-spectrum-channel", "channel",
+        (gint)magnitude_spectrum_channel_state.channel, "log-scale",
+        (gboolean)magnitude_spectrum_channel_state.log_scale, "shift",
+        (gboolean)magnitude_spectrum_channel_state.shift, NULL);
+    break;
   case EffectType::Exposure:
     e.node =
         gegl_node_new_child(graph, "operation", "gegl:exposure", "black-level",
@@ -334,12 +342,13 @@ void ImageEditor::save(std::filesystem::path path) {
 #endif
   std::lock_guard lock(graph_mutex);
   if (sink == nullptr) {
-    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "CRITICAL: GEGL graph not ready for save.");
+    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
+                 "CRITICAL: GEGL graph not ready for save.");
     return;
   }
 
-  GeglNode *save_node = gegl_node_new_child(
-      graph, "operation", "gegl:jpg-save", "path", path.c_str(), NULL);
+  GeglNode *save_node = gegl_node_new_child(graph, "operation", "gegl:jpg-save",
+                                            "path", path.c_str(), NULL);
 
   gegl_node_link(sink, save_node);
   gegl_node_process(save_node);

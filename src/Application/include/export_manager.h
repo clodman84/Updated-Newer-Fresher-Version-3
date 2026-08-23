@@ -17,7 +17,8 @@ struct BillEntry {
 struct FileAttributes {
   bool bookmark = false;
   bool finalised = false;
-  NLOHMANN_DEFINE_TYPE_INTRUSIVE(FileAttributes, bookmark, finalised);
+  bool cloud_synced = true;
+  NLOHMANN_DEFINE_TYPE_INTRUSIVE(FileAttributes, bookmark, finalised, cloud_synced);
 };
 
 struct BillFile {

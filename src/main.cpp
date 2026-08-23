@@ -11,6 +11,7 @@
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
 #include "imgui_impl_sdlgpu3.h"
+#include "operations/fft.h"
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_dialog.h>
@@ -96,8 +97,13 @@ private:
     setup_environment();
 
     gegl_init(nullptr, nullptr);
+
     gimp_levels_op_register();
     colour_enhance_op_register();
+    channel_fft_op_register();
+    magnitude_spectrum_channel_op_register();
+    spectral_magnitude_op_register();
+
     g_object_set(gegl_config(), "mipmap-rendering", TRUE, nullptr);
     // g_object_set(gegl_config(), "mipmap-rendering", FALSE, nullptr);
     guint64 tile_cache_size = 100 * 1024 * 1024;
