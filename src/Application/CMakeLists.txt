@@ -15,13 +15,9 @@ add_library(unfv3_application STATIC
     session_image_ui.cpp
     session_keyboard_nav.cpp
     session_search_ui.cpp
-    dino_jumpy.cpp
     operations/gimp_levels.cpp
     operations/my_colour_enhance.cpp
-    operations/channel_fft.cpp
     operations/magnitude_spectrum.cpp
-    operations/magnitude_spectrum_channel.cpp
-    operations/fft_format.cpp
 )
 
 target_include_directories(unfv3_application

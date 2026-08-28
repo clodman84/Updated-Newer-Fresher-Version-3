@@ -755,49 +755,42 @@ void ImageEditor::render_controls() {
     }
   }
 
-  if (gegl_has_operation("unfv3:magnitude-spectrum-channel")) {
-    const EffectType type = EffectType::MagnitudeSpectrumChannel;
-    bool active = is_effect_active(type);
-    bool open = false;
-    switch (draw_effect_header(
-        active, "FFT Magnitude Spectrum",
-        "Show the magnitude spectrum of a specific channel.", open)) {
-    case EffectHeaderAction::Toggled:
-      toggle_effect(type, active);
-      break;
-    case EffectHeaderAction::Reset:
-      magnitude_spectrum_channel_state = MagnitudeSpectrumChannelState();
-      if (active) {
-        Effect &e = get_or_create_effect(type);
-        gegl_node_set(e.node, "channel",
-        (gint)magnitude_spectrum_channel_state.channel, "log-scale",
-        (gboolean)magnitude_spectrum_channel_state.log_scale, "shift",
-        (gboolean)magnitude_spectrum_channel_state.shift, NULL);
-        put_render_request();
-      }
-      break;
-    case EffectHeaderAction::None:
-      break;
-    }
-    if (open) {
-      bool changed = false;
-
-      changed |= ImGui::InputInt("Channel", &magnitude_spectrum_channel_state.channel);
-      changed |= ImGui::Checkbox("Log Scale", &magnitude_spectrum_channel_state.log_scale);
-      changed |= ImGui::Checkbox("Shift", &magnitude_spectrum_channel_state.shift);
-
-      if (changed && active) {
-        Effect &e = get_or_create_effect(type);
-        gegl_node_set(e.node, "channel",
-        (gint)magnitude_spectrum_channel_state.channel, "log-scale",
-        (gboolean)magnitude_spectrum_channel_state.log_scale, "shift",
-        (gboolean)magnitude_spectrum_channel_state.shift, NULL);
-        put_render_request();
-      }
-
-      ImGui::TreePop();
-    }
-  }
+  // if (gegl_has_operation("unfv3:magnitude-spectrum")) {
+  //   const EffectType type = EffectType::MagnitudeSpectrum;
+  //   bool active = is_effect_active(type);
+  //   bool open = false;
+  //   switch (draw_effect_header(
+  //       active, "FFT Magnitude Spectrum",
+  //       "Show the magnitude spectrum of an Image.", open)) {
+  //   case EffectHeaderAction::Toggled:
+  //     toggle_effect(type, active);
+  //     break;
+  //   case EffectHeaderAction::Reset:
+  //     magnitude_spectrum_channel_state = MagnitudeSpectrumState();
+  //     if (active) {
+  //       Effect &e = get_or_create_effect(type);
+  //       gegl_node_set(e.node, "log-scale",
+  //       (gboolean)magnitude_spectrum_channel_state.log_scale, NULL);
+  //       put_render_request();
+  //     }
+  //     break;
+  //   case EffectHeaderAction::None:
+  //     break;
+  //   }
+  //   if (open) {
+  //     bool changed = false;
+  //     changed |= ImGui::Checkbox("Log Scale", &magnitude_spectrum_channel_state.log_scale);
+  //
+  //     if (changed && active) {
+  //       Effect &e = get_or_create_effect(type);
+  //       gegl_node_set(e.node, "log-scale",
+  //       (gboolean)magnitude_spectrum_channel_state.log_scale, NULL);
+  //       put_render_request();
+  //     }
+  //
+  //     ImGui::TreePop();
+  //   }
+  // }
 
   ImGui::PopStyleVar();
 }

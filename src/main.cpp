@@ -100,9 +100,7 @@ private:
 
     gimp_levels_op_register();
     colour_enhance_op_register();
-    channel_fft_op_register();
-    magnitude_spectrum_channel_op_register();
-    spectral_magnitude_op_register();
+    // magnitude_spectrum_op_register();
 
     g_object_set(gegl_config(), "mipmap-rendering", TRUE, nullptr);
     // g_object_set(gegl_config(), "mipmap-rendering", FALSE, nullptr);

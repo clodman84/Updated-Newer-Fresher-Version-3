@@ -1,7 +1,6 @@
 #pragma once
 
 #include "include/gpu_utils.h"
-#include "operations/fft.h"
 #include <atomic>
 #include <condition_variable>
 #include <filesystem>
@@ -73,11 +72,9 @@ struct MonoMixerState {
   bool preserve_luminosity = true;
 };
 
-struct MagnitudeSpectrumChannelState {
-  int channel = 0;
-  bool log_scale = false;
-  bool shift = true;
-};
+// struct MagnitudeSpectrumState {
+//   bool log_scale = false;
+// };
 
 enum class EffectType {
   Exposure,
@@ -90,7 +87,7 @@ enum class EffectType {
   MonoMixer,
   UnsharpMask,
   NoiseReduction,
-  MagnitudeSpectrumChannel
+  MagnitudeSpectrum
 };
 
 struct Effect {
@@ -174,7 +171,7 @@ private:
   MonoMixerState mono_mixer_state;
   UnsharpMaskState unsharp_mask_state;
   NoiseReductionState noise_reduction_state;
-  MagnitudeSpectrumChannelState magnitude_spectrum_channel_state;
+  // MagnitudeSpectrumState magnitude_spectrum_channel_state;
 
   void *image_src = nullptr;
 

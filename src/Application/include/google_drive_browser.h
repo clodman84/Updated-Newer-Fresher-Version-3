@@ -1,7 +1,6 @@
 #pragma once
 
 #include "google_drive.h"
-#include "include/dino_jumpy.h"
 #include <SDL3/SDL.h>
 #include <atomic>
 #include <future>
@@ -36,7 +35,6 @@ private:
   std::atomic<float> dl_progress_{0.f};
   std::mutex dl_msg_mutex_;
   std::string dl_message_;
-  Game dino_jumpy;
 
   void draw_toolbar();
   void draw_file_table();

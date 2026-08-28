@@ -1,6 +1,5 @@
 #include "include/google_drive_browser.h"
 #include "include/IconsFontAwesome6.h"
-#include "include/dino_jumpy.h"
 #include "include/imgui_custom.h"
 #include <chrono>
 #include <cstdio>
@@ -90,7 +89,6 @@ void GoogleDriveBrowser::draw_file_table() {
   if (current_folder_id_.empty() && current_items_.empty()) {
     ImGui::Spacing();
     ImGui::TextDisabled("Enter a folder ID above to start browsing.");
-    dino_jumpy.render_frame();
     return;
   }
 
@@ -207,7 +205,6 @@ void GoogleDriveBrowser::draw_download_overlay() {
   }
 
   ImGui::Separator();
-  dino_jumpy.render_frame();
 }
 
 void GoogleDriveBrowser::navigate_to(const std::string &folder_id,
@@ -277,7 +274,6 @@ void GoogleDriveBrowser::begin_download(const DriveItem &item,
     }
   });
 
-  dino_jumpy = Game();
 }
 
 void GoogleDriveBrowser::set_message(const std::string &msg) {

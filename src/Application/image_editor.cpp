@@ -240,13 +240,6 @@ Effect &ImageEditor::get_or_create_effect(EffectType type) {
   std::lock_guard lock(graph_mutex);
 
   switch (type) {
-  case EffectType::MagnitudeSpectrumChannel:
-    e.node = gegl_node_new_child(
-        graph, "operation", "unfv3:magnitude-spectrum-channel", "channel",
-        (gint)magnitude_spectrum_channel_state.channel, "log-scale",
-        (gboolean)magnitude_spectrum_channel_state.log_scale, "shift",
-        (gboolean)magnitude_spectrum_channel_state.shift, NULL);
-    break;
   case EffectType::Exposure:
     e.node =
         gegl_node_new_child(graph, "operation", "gegl:exposure", "black-level",
