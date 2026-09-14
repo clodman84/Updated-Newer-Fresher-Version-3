@@ -392,7 +392,7 @@ void ExportManager::render_export_modal(SDL_Window *window) {
   }
 
   ImGui::SameLine();
-  if (ImGui::Button(exporting ? "Close" : "Done", ImVec2(120, 0))) {
+  if (ImGui::Button(exporting ? "Close" : "Exit", ImVec2(120, 0))) {
     draw_exporting = false;
     if (!exporting) {
       ImGui::CloseCurrentPopup();

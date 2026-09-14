@@ -11,7 +11,6 @@
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
 #include "imgui_impl_sdlgpu3.h"
-#include "operations/fft.h"
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_dialog.h>
@@ -89,6 +88,9 @@ private:
   std::vector<std::filesystem::path> pending_session_paths_;
 
   bool show_drive_browser = false;
+  bool open_import_popup = false;
+  bool open_error_popup = false;
+  std::string drive_error_msg;
   std::shared_ptr<DriveClient> drive_client;
   std::unique_ptr<GoogleDriveBrowser> google_drive_browser;
   std::shared_ptr<TextureManager> texture_manager;
@@ -376,32 +378,72 @@ private:
     if (ImGui::BeginMenu(ICON_FA_CLOUD)) {
       if (ImGui::MenuItem(ICON_FA_GOOGLE_DRIVE "  Show Browser", nullptr,
                           &show_drive_browser)) {
-        if (!drive_client) {
-          try {
-            if (!db_.has_credentials())
-              SDL_ShowOpenFileDialog(import_cred_callback, this, window_,
-                                     json_filters, 1, nullptr, false);
-            std::string json_data = db_.get_credentials();
-            ServiceAccountCredentials creds =
-                ServiceAccountCredentials::from_json(json_data);
-            drive_client = std::make_shared<DriveClient>(std::move(creds));
-          } catch (const std::exception &e) {
-            std::cerr << "Drive Client init failed: " << e.what() << "\n";
-          }
-        }
-        if (!google_drive_browser) {
-          try {
-            google_drive_browser =
-                std::make_unique<GoogleDriveBrowser>(drive_client, window_);
-          } catch (const std::exception &e) {
-            std::cerr << "Drive Client init failed: " << e.what() << "\n";
-          }
-        }
+        if (show_drive_browser && !google_drive_browser)
+          open_import_popup = !db_.has_credentials();
+        if (show_drive_browser && db_.has_credentials())
+          ensure_drive_client();
       }
       ImGui::EndMenu();
     }
 
     ImGui::EndMainMenuBar();
+
+    if (open_import_popup) {
+      ImGui::OpenPopup("Import Credentials");
+      open_import_popup = false;
+    }
+    render_drive_popups();
+  }
+
+  // Builds drive_client / google_drive_browser from stored credentials if
+  // they don't already exist. Shows an error popup on failure.
+  void ensure_drive_client() {
+    if (drive_client && google_drive_browser)
+      return;
+    try {
+      ServiceAccountCredentials creds =
+          ServiceAccountCredentials::from_json(db_.get_credentials());
+      drive_client = std::make_shared<DriveClient>(std::move(creds));
+      google_drive_browser =
+          std::make_unique<GoogleDriveBrowser>(drive_client, window_);
+    } catch (const std::exception &e) {
+      drive_error_msg = e.what();
+      open_error_popup = true;
+      show_drive_browser = false;
+    }
+  }
+
+  void render_drive_popups() {
+    if (open_error_popup) {
+      ImGui::OpenPopup("Drive Error");
+      open_error_popup = false;
+    }
+
+    if (ImGui::BeginPopupModal("Import Credentials", nullptr,
+                               ImGuiWindowFlags_AlwaysAutoResize)) {
+      ImGui::Text("No Google Drive credentials found. Please import a service account \
+                  JSON file to continue.");
+      ImGui::Separator();
+      if (ImGui::Button("Import", ImVec2(120, 0))) {
+        SDL_ShowOpenFileDialog(import_cred_callback, this, window_,
+                               json_filters, 1, nullptr, false);
+        ImGui::CloseCurrentPopup();
+      }
+      ImGui::SameLine();
+      if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+        show_drive_browser = false;
+        ImGui::CloseCurrentPopup();
+      }
+      ImGui::EndPopup();
+    }
+
+    if (ImGui::BeginPopupModal("Drive Error", nullptr,
+                               ImGuiWindowFlags_AlwaysAutoResize)) {
+      ImGui::TextWrapped("Failed to connect: %s", drive_error_msg.c_str());
+      if (ImGui::Button("OK", ImVec2(120, 0)))
+        ImGui::CloseCurrentPopup();
+      ImGui::EndPopup();
+    }
   }
 
   void render_sessions() {
@@ -541,7 +583,7 @@ private:
                                            const char *const *filelist,
                                            int filter) {
     if (filelist == nullptr || *filelist == nullptr)
-      return;
+      return; // Canceled
     auto *app = static_cast<Application *>(userdata);
     std::filesystem::path file_path(*filelist);
     std::ifstream ifs(file_path, std::ios::in | std::ios::binary);
@@ -549,6 +591,7 @@ private:
       std::string json_content((std::istreambuf_iterator<char>(ifs)),
                                std::istreambuf_iterator<char>());
       app->db_.save_credentials(json_content);
+      app->ensure_drive_client(); // credentials now present -> build client
     }
   }
 };

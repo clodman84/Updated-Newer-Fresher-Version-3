@@ -384,6 +384,11 @@ void ImageEditor::toggle_effect(EffectType type, bool now_active) {
   put_render_request();
 }
 
+static const char *op_description(const char *op_type) {
+  const char *d = gegl_operation_get_key(op_type, "description");
+  return d ? d : "No description available.";
+}
+
 void ImageEditor::render_controls() {
   ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(6, 6));
 
@@ -394,11 +399,8 @@ void ImageEditor::render_controls() {
     const EffectType type = EffectType::Exposure;
     bool active = is_effect_active(type);
     bool open = false;
-    switch (draw_effect_header(
-        active, "Exposure",
-        "Exposure adjustment in the linear light domain — applies a "
-        "black-level offset and an exposure value in stops.",
-        open)) {
+    switch (draw_effect_header(active, "Exposure",
+                                op_description("gegl:exposure"), open)) {
     case EffectHeaderAction::Toggled:
       toggle_effect(type, active);
       break;
@@ -469,10 +471,8 @@ void ImageEditor::render_controls() {
       put_render_request();
     };
 
-    switch (draw_effect_header(
-        active, "Levels",
-        "Per-channel input/output levels with gamma midtone adjustment.",
-        open)) {
+    switch (draw_effect_header(active, "Levels", op_description("gegl:levels"),
+                                open)) {
     case EffectHeaderAction::Toggled:
       toggle_effect(type, active);
       break;
@@ -529,11 +529,9 @@ void ImageEditor::render_controls() {
     const EffectType type = EffectType::ColorTemperature;
     bool active = is_effect_active(type);
     bool open = false;
-    switch (draw_effect_header(
-        active, "Color Temperature",
-        "Changes colour temperature. Both values in Kelvin — "
-        "lower is warmer (orange), higher is cooler (blue).",
-        open)) {
+    switch (draw_effect_header(active, "Color Temperature",
+                                op_description("gegl:color-temperature"),
+                                open)) {
     case EffectHeaderAction::Toggled:
       toggle_effect(type, active);
       break;
@@ -577,12 +575,8 @@ void ImageEditor::render_controls() {
     const EffectType type = EffectType::HueChroma;
     bool active = is_effect_active(type);
     bool open = false;
-    switch (draw_effect_header(
-        active, "Hue-Chroma",
-        "Adjusts hue, chroma (saturation), and lightness in a perceptually "
-        "uniform colour space. Cleaner than naive HSL, especially when "
-        "pushing chroma.",
-        open)) {
+    switch (draw_effect_header(active, "Hue-Chroma",
+                                op_description("gegl:hue-chroma"), open)) {
     case EffectHeaderAction::Toggled:
       toggle_effect(type, active);
       break;
@@ -622,11 +616,8 @@ void ImageEditor::render_controls() {
     const EffectType type = EffectType::ColorEnhance;
     bool active = is_effect_active(type);
     bool open = false;
-    switch (draw_effect_header(
-        active, "Colour Enhance",
-        "Stretches chroma to cover the maximum possible range, "
-        "keeping hue and lightness untouched.",
-        open)) {
+    switch (draw_effect_header(active, "Colour Enhance",
+                                op_description("gegl:color-enhance"), open)) {
     case EffectHeaderAction::Toggled:
       toggle_effect(type, active);
       break;
@@ -646,11 +637,8 @@ void ImageEditor::render_controls() {
     const EffectType type = EffectType::Saturation;
     bool active = is_effect_active(type);
     bool open = false;
-    switch (draw_effect_header(
-        active, "Saturation",
-        "Scale multiplier on saturation. 1.0 = unchanged, 0.0 = "
-        "desaturated, 2.0 = doubled.",
-        open)) {
+    switch (draw_effect_header(active, "Saturation",
+                                op_description("gegl:saturation"), open)) {
     case EffectHeaderAction::Toggled:
       toggle_effect(type, active);
       break;
@@ -681,8 +669,8 @@ void ImageEditor::render_controls() {
     const EffectType type = EffectType::Sepia;
     bool active = is_effect_active(type);
     bool open = false;
-    switch (draw_effect_header(
-        active, "Sepia", "Apply a sepia tone to the input image.", open)) {
+    switch (draw_effect_header(active, "Sepia", op_description("gegl:sepia"),
+                                open)) {
     case EffectHeaderAction::Toggled:
       toggle_effect(type, active);
       break;
@@ -715,7 +703,7 @@ void ImageEditor::render_controls() {
     bool active = is_effect_active(type);
     bool open = false;
     switch (draw_effect_header(active, "Mono Mixer",
-                               "Monochrome channel mixer.", open)) {
+                                op_description("gegl:mono-mixer"), open)) {
     case EffectHeaderAction::Toggled:
       toggle_effect(type, active);
       break;
@@ -761,7 +749,7 @@ void ImageEditor::render_controls() {
   //   bool open = false;
   //   switch (draw_effect_header(
   //       active, "FFT Magnitude Spectrum",
-  //       "Show the magnitude spectrum of an Image.", open)) {
+  //       op_description("unfv3:magnitude-spectrum"), open)) {
   //   case EffectHeaderAction::Toggled:
   //     toggle_effect(type, active);
   //     break;
@@ -794,3 +782,4 @@ void ImageEditor::render_controls() {
 
   ImGui::PopStyleVar();
 }
+
