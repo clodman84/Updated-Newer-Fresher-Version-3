@@ -196,18 +196,45 @@ if(WIN32)
             message(WARNING "Unresolved runtime deps: ${_unresolved}")
         endif()
     ]])
+
+    foreach(_mingw_dll
+        libgcc_s_seh-1.dll
+        libgomp-1.dll
+        libstdc++-6.dll
+        libwinpthread-1.dll
+    )
+        find_file(_mingw_dll_path_${_mingw_dll} NAMES ${_mingw_dll})
+        if(_mingw_dll_path_${_mingw_dll})
+            install(FILES "${_mingw_dll_path_${_mingw_dll}}" DESTINATION ".")
+        else()
+            message(WARNING "Could not locate ${_mingw_dll} to bundle")
+        endif()
+    endforeach()
 endif()
 
 if(APPLE)
     install(CODE "
         include(BundleUtilities)
         set(APPS \"\${CMAKE_INSTALL_PREFIX}/UNFV3.app\")
-        set(DIRS \"${VCPKG_LIB_DIR}\")
-        fixup_bundle(\"\${APPS}\" \"\" \"\${DIRS}\")
+        set(DIRS \"${VCPKG_LIB_DIR}\" \"${GLIB_LIBRARY_DIRS}\" \"${GOBJECT_LIBRARY_DIRS}\" \"${GEGL_LIBRARY_DIRS}\" \"${BABL_LIBRARY_DIRS}\")
+        set(BU_CHMOD_BUNDLE_ITEMS ON)
+
+        file(GLOB_RECURSE _unfv3_plugin_dylibs
+            \"\${APPS}/Contents/MacOS/lib/babl-0.1/*.so\"
+            \"\${APPS}/Contents/MacOS/lib/babl-0.1/*.dylib\"
+            \"\${APPS}/Contents/MacOS/lib/gegl-0.4/*.so\"
+            \"\${APPS}/Contents/MacOS/lib/gegl-0.4/*.dylib\"
+        )
+
+        fixup_bundle(\"\${APPS}\" \"\${_unfv3_plugin_dylibs}\" \"\${DIRS}\")
     ")
     install(CODE "
         message(STATUS \"Repairing ad-hoc signature...\")
-        execute_process(COMMAND codesign --force --deep --sign - \"\${CMAKE_INSTALL_PREFIX}/UNFV3.app\")
+        execute_process(COMMAND codesign --force --deep --sign - --options runtime \"\${CMAKE_INSTALL_PREFIX}/UNFV3.app\"
+            RESULT_VARIABLE _codesign_result)
+        if(NOT _codesign_result EQUAL 0)
+            message(FATAL_ERROR \"codesign failed with exit code \${_codesign_result}\")
+        endif()
     ")
 endif()
 

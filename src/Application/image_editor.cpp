@@ -341,7 +341,7 @@ void ImageEditor::save(std::filesystem::path path) {
   }
 
   GeglNode *save_node = gegl_node_new_child(graph, "operation", "gegl:jpg-save",
-                                            "path", path.c_str(), NULL);
+                                            "path", path.string().c_str(), NULL);
 
   gegl_node_link(sink, save_node);
   gegl_node_process(save_node);

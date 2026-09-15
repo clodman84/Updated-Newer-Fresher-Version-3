@@ -628,7 +628,7 @@ void ImageEditor::render_controls() {
       break;
     }
     if (open) {
-      ImGui::Text("'Colour Enhance' is pretty vague not gonna lie.");
+      ImGui::Text("Who buys the olives at Akshay?");
       ImGui::TreePop();
     }
   }
