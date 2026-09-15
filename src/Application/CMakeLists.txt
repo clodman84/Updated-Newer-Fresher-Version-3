@@ -37,6 +37,7 @@ target_link_libraries(unfv3_application PUBLIC
     PkgConfig::GEGL
     PkgConfig::BABL
     CURL::libcurl
+    OpenSSL::Crypto
 )
 
 target_link_libraries(unfv3_application PRIVATE $<IF:$<TARGET_EXISTS:libjpeg-turbo::turbojpeg>,libjpeg-turbo::turbojpeg,libjpeg-turbo::turbojpeg-static>)

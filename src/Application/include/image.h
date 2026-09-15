@@ -33,7 +33,7 @@ public:
 
   void
   render_thumbnail(float height,
-                   const std::function<void(const std::string &)> &on_click,
+                   const std::function<void(const std::filesystem::path &)> &on_click,
                    bool is_selected, bool is_active, bool is_highlight) const {
     // Helper function to render the thumbnail of an image, the image is
     // clickable

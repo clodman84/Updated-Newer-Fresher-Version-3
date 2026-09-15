@@ -2,6 +2,10 @@
 
 If you only need the application, download a prebuilt release from the Releases page.
 
+WINDOWS IS NOT EXPLICITLY SUPPORTED AS A DEVELOPMENT ENVIRONMENT, IF YOU WANT TO DEVELOP THIS ON WINDOWS,
+YOU WILL HAVE TO PUT IN SOME WORK TO GET THE DEVELOPMENT BUILD TO RUN. ONLY THE PACKAGED BUILD IS CONFIRMED
+TO WORK.
+
 ## Requirements
 
 Install the following before building:

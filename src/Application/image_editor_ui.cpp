@@ -628,7 +628,7 @@ void ImageEditor::render_controls() {
       break;
     }
     if (open) {
-      ImGui::Text("'Colour Enhance' is pretty vague, but aren't all words.");
+      ImGui::Text("'Colour Enhance' is pretty vague not gonna lie.");
       ImGui::TreePop();
     }
   }

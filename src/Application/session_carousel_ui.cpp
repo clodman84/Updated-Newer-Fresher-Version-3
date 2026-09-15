@@ -20,7 +20,7 @@ void Session::render_carousel(float carousel_height) {
     const auto &image = image_manager.image_order[i];
     const auto current_image_filename = image.filename;
 
-    ImGui::PushID(current_image_filename.c_str());
+    ImGui::PushID(current_image_filename.string().c_str()); // I fucking hate windows
     bool is_selected = selection_storage.contains(current_image_filename);
     bool is_context_menu_open = ImGui::IsPopupOpen("ThumbnailContextMenu");
 
@@ -28,7 +28,7 @@ void Session::render_carousel(float carousel_height) {
     ImGui::Text("Frame %d", i + 1);
     image.render_thumbnail(
         200,
-        [this, i](const std::string &n) {
+        [this, i](const std::filesystem::path &n) {
           auto &io = ImGui::GetIO();
           if (io.KeyShift && last_clicked_index != -1) {
             int start = std::min(i, last_clicked_index);
