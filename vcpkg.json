@@ -1,0 +1,32 @@
+{
+  "name": "unfv3",
+  "version": "0.5.0",
+  "dependencies": [
+    "babl",
+    "gegl",
+    {
+      "name": "imgui",
+      "features": [
+        "sdlgpu3-binding"
+      ]
+    },
+    "libjpeg-turbo",
+    "ncnn",
+    "nlohmann-json",
+    {
+      "name": "sdl3",
+      "features": [
+        "vulkan"
+      ]
+    },
+    {
+      "name": "sqlite3",
+      "features": [
+        "fts5"
+      ]
+    },
+    "tracy",
+    "curl",
+    "openssl"
+  ]
+}

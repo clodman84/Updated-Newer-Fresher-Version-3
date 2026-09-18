@@ -1,0 +1,106 @@
+name: Release Build and Publish
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            triplet: x64-linux-mixed
+            extra_cmake_args: "-DVCPKG_OVERLAY_TRIPLETS=./triplets/"
+          - os: macos-latest
+            triplet: arm64-osx-dynamic
+            extra_cmake_args: ""
+          - os: windows-latest
+            triplet: x64-mingw-dynamic
+            # Force MinGW compilers instead of MSVC
+            extra_cmake_args: "-DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++"
+
+    steps:
+      # --------------------------------------------------
+      # Checkout
+      # --------------------------------------------------
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        
+      # --------------------------------------------------
+      # vcpkg (Handles setup AND caching automatically)
+      # --------------------------------------------------
+      - name: Setup vcpkg
+        uses: lukka/run-vcpkg@v11
+
+      # --------------------------------------------------
+      # Setup Ninja (Cross-Platform)
+      # --------------------------------------------------
+      - name: Setup Ninja
+        run: pipx install ninja
+
+      - name: Install System Dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config nasm \
+            libx11-dev libxext-dev libxft-dev libxcursor-dev \
+            libxi-dev libxinerama-dev libxrandr-dev libxss-dev \
+            libwayland-dev libxkbcommon-dev libegl1-mesa-dev libvulkan-dev \
+            libxtst-dev
+
+      - name: Install System Dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew update
+          brew install nasm pkg-config
+
+      - name: Install System Dependencies (Windows)
+        if: runner.os == 'Windows'
+        run: | 
+          choco install pkgconfiglite -y
+          choco install nsis
+
+      # --------------------------------------------------
+      # Configure
+      # --------------------------------------------------
+      
+      - name: Configure CMake
+        shell: bash
+        run: >
+          cmake -S . -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DUNFV3_ENABLE_LTO=ON
+          -DUNFV3_ENABLE_TRACY=OFF
+          "-DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
+          -DVCPKG_TARGET_TRIPLET=${{ matrix.triplet }}
+          ${{ matrix.extra_cmake_args }}
+          
+      # --------------------------------------------------
+      # Build
+      # --------------------------------------------------
+      - name: Build
+        run: cmake --build build --config Release
+
+      # --------------------------------------------------
+      # Package via CPack 
+      # --------------------------------------------------
+      - name: Run CPack
+        working-directory: ${{ github.workspace }}/build
+        run: cpack -C Release
+
+      # --------------------------------------------------
+      # Upload artifacts to GitHub Release
+      # --------------------------------------------------
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            build/*.tar.gz
+            build/*AMD64.exe
