@@ -253,6 +253,37 @@ void ExportManager::start_export() {
   }
 
   std::filesystem::create_directories(export_output_directory);
+
+  nlohmann::json serialised = nlohmann::json::object();
+
+  // building save.json
+  auto clean_bill = bill;
+  for (auto &[image_path, file_data] : clean_bill) {
+    std::erase_if(file_data.entries,
+                  [](const auto &pair) { return pair.second.count < 1; });
+    if (file_data.entries.empty())
+      continue;
+
+    std::string filename = image_path.filename().string();
+    serialised[filename] = file_data;
+  }
+
+  for (const auto &[image_path, entry_map] : clean_bill) {
+    std::string filename = image_path.filename().string();
+    serialised[filename] = entry_map;
+  }
+
+  // writing save.json within the export directory
+  const std::filesystem::path save_file_path = export_output_directory / "save.json";
+  std::ofstream file(save_file_path, std::ios::out | std::ios::trunc);
+  if (!file.is_open()) {
+    throw std::runtime_error("Failed to open file: " + save_file_path.string());
+  }
+  file << serialised.dump(4);
+  if (!file.good()) {
+    throw std::runtime_error("Error writing to file: " + save_file_path.string());
+  }
+
   export_progress = 0;
   export_completed = false;
   exporting = true;
