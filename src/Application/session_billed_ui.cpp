@@ -13,9 +13,9 @@ void Session::render_billed_table() {
                             ImGui::GetStyle().ItemSpacing.y * 2 + 2.0f;
   int sum = 0;
   if (ImGui::BeginChild("##billed_table_scroll", ImVec2(0, -bottom_bar_height),
-                        false, ImGuiWindowFlags_None)) {
+                        false, ImGuiWindowFlags_None)) { 
     if (!ImGui::BeginTable("##billed_results", 3,
-                           ImGuiTableFlags_RowBg |
+                           ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable |
                                ImGuiTableFlags_SizingFixedFit)) {
       return;
     }

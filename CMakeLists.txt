@@ -78,10 +78,6 @@ find_package(libjpeg-turbo CONFIG REQUIRED)
 find_package(CURL REQUIRED)
 find_package(OpenSSL REQUIRED)
 
-<<<<<<< HEAD
-
-=======
->>>>>>> 63b7ad47ba259c0d8421cb0e2696720f520f4284
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GLIB REQUIRED IMPORTED_TARGET glib-2.0)
 pkg_check_modules(GOBJECT REQUIRED IMPORTED_TARGET gobject-2.0)
@@ -98,11 +94,7 @@ endif()
 
 add_subdirectory(src/Application)
 
-<<<<<<< HEAD
-add_executable(UNFV3 MACOSX_BUNDLE src/main.cpp)
-=======
 add_executable(UNFV3 src/main.cpp)
->>>>>>> 63b7ad47ba259c0d8421cb0e2696720f520f4284
 
 target_link_libraries(UNFV3 PRIVATE unfv3_application)
 
@@ -145,21 +137,9 @@ add_custom_command(TARGET UNFV3 POST_BUILD
 include(GNUInstallDirs)
 
 set(UNFV3_INSTALL_BINDIR ".")
-<<<<<<< HEAD
-
-if(APPLE)
-    set(UNFV3_INSTALL_LIBDIR "UNFV3.app/Contents/MacOS/lib")
-else()
-    set(UNFV3_INSTALL_LIBDIR "lib")
-endif()
-
-install(TARGETS UNFV3
-    BUNDLE  DESTINATION "."
-=======
 set(UNFV3_INSTALL_LIBDIR "lib")
 
 install(TARGETS UNFV3
->>>>>>> 63b7ad47ba259c0d8421cb0e2696720f520f4284
     RUNTIME DESTINATION "${UNFV3_INSTALL_BINDIR}"
 )
 
@@ -171,15 +151,6 @@ install(DIRECTORY "${VCPKG_LIB_DIR}/gegl-0.4/"
     DESTINATION "${UNFV3_INSTALL_LIBDIR}/gegl-0.4"
 )
 
-<<<<<<< HEAD
-if(APPLE)
-    install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/Data/" DESTINATION "UNFV3.app/Contents/MacOS")
-else()
-    install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/Data/" DESTINATION "./Data")
-endif()
-
-if(NOT APPLE AND NOT WIN32)
-=======
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/Data/"
     DESTINATION "./Data"
 )
@@ -194,7 +165,6 @@ if(APPLE)
         PATTERN "pkgconfig" EXCLUDE
     )
 elseif(NOT WIN32)
->>>>>>> 63b7ad47ba259c0d8421cb0e2696720f520f4284
     install(DIRECTORY "${VCPKG_LIB_DIR}/"
         DESTINATION "${UNFV3_INSTALL_LIBDIR}"
         FILES_MATCHING
@@ -242,40 +212,6 @@ if(WIN32)
     endforeach()
 endif()
 
-<<<<<<< HEAD
-if(APPLE)
-    install(CODE "
-        include(BundleUtilities)
-        set(APPS \"\${CMAKE_INSTALL_PREFIX}/UNFV3.app\")
-        set(DIRS \"${VCPKG_LIB_DIR}\" \"${GLIB_LIBRARY_DIRS}\" \"${GOBJECT_LIBRARY_DIRS}\" \"${GEGL_LIBRARY_DIRS}\" \"${BABL_LIBRARY_DIRS}\")
-        set(BU_CHMOD_BUNDLE_ITEMS ON)
-
-        file(GLOB_RECURSE _unfv3_plugin_dylibs
-            \"\${APPS}/Contents/MacOS/lib/babl-0.1/*.so\"
-            \"\${APPS}/Contents/MacOS/lib/babl-0.1/*.dylib\"
-            \"\${APPS}/Contents/MacOS/lib/gegl-0.4/*.so\"
-            \"\${APPS}/Contents/MacOS/lib/gegl-0.4/*.dylib\"
-        )
-
-        fixup_bundle(\"\${APPS}\" \"\${_unfv3_plugin_dylibs}\" \"\${DIRS}\")
-    ")
-    install(CODE "
-        message(STATUS \"Repairing ad-hoc signature...\")
-        execute_process(COMMAND codesign --force --deep --sign - --options runtime \"\${CMAKE_INSTALL_PREFIX}/UNFV3.app\"
-            RESULT_VARIABLE _codesign_result)
-        if(NOT _codesign_result EQUAL 0)
-            message(FATAL_ERROR \"codesign failed with exit code \${_codesign_result}\")
-        endif()
-    ")
-endif()
-
-if(NOT APPLE AND NOT WIN32)
-    install(CODE "
-        message(STATUS \"Stripping bundled shared libraries and plugins...\")
-        file(GLOB_RECURSE _bundled_sos \"\${CMAKE_INSTALL_PREFIX}/${UNFV3_INSTALL_LIBDIR}/*.so*\")
-        foreach(_so \${_bundled_sos})
-            execute_process(COMMAND strip --strip-unneeded \"\${_so}\" ERROR_QUIET)
-=======
 if (APPLE)
 	install(CODE [[
 	    file(GLOB _plugin_dylibs
@@ -304,7 +240,6 @@ if(NOT WIN32)
         file(GLOB_RECURSE _bundled_libs \"\${CMAKE_INSTALL_PREFIX}/${UNFV3_INSTALL_LIBDIR}/*${CMAKE_SHARED_LIBRARY_SUFFIX}*\")
         foreach(_lib \${_bundled_libs})
             execute_process(COMMAND strip ${_strip_flag} \"\${_lib}\" ERROR_QUIET)
->>>>>>> 63b7ad47ba259c0d8421cb0e2696720f520f4284
         endforeach()
     ")
 endif()
@@ -322,13 +257,8 @@ endif()
 set(CPACK_PACKAGE_NAME                "UNFV3")
 set(CPACK_PACKAGE_VENDOR              "DoPySOFT")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "The DoPy Billing Software")
-<<<<<<< HEAD
-set(CPACK_PACKAGE_VERSION_MAJOR       "0")
-set(CPACK_PACKAGE_VERSION_MINOR       "5")
-=======
 set(CPACK_PACKAGE_VERSION_MAJOR       "1")
 set(CPACK_PACKAGE_VERSION_MINOR       "0")
->>>>>>> 63b7ad47ba259c0d8421cb0e2696720f520f4284
 set(CPACK_PACKAGE_VERSION_PATCH       "0")
 set(CPACK_PACKAGE_VERSION
     "${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}")
@@ -351,13 +281,6 @@ if(WIN32)
         "CreateShortCut '$SMPROGRAMS\\\\$STARTMENU_FOLDER\\\\UNFV3.lnk' '$INSTDIR\\\\UNFV3.exe'")
     set(CPACK_NSIS_DELETE_ICONS_EXTRA
         "Delete '$SMPROGRAMS\\\\$STARTMENU_FOLDER\\\\UNFV3.lnk'")
-<<<<<<< HEAD
-elseif(APPLE)
-    set(CPACK_GENERATOR       "DragNDrop")
-    set(CPACK_DMG_VOLUME_NAME "UNFV3")
-    set(CPACK_DMG_FORMAT      "UDZO")
-=======
->>>>>>> 63b7ad47ba259c0d8421cb0e2696720f520f4284
 else()
     set(CPACK_GENERATOR "TGZ")
 endif()
@@ -368,8 +291,4 @@ message(STATUS "Build type       : ${CMAKE_BUILD_TYPE}")
 message(STATUS "LTO enabled      : ${UNFV3_ENABLE_LTO}")
 message(STATUS "Tracy enabled    : ${UNFV3_ENABLE_TRACY}")
 message(STATUS "Compiler         : ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
-<<<<<<< HEAD
 message(STATUS "CPack generators : ${CPACK_GENERATOR}")
-=======
-message(STATUS "CPack generators : ${CPACK_GENERATOR}")
->>>>>>> 63b7ad47ba259c0d8421cb0e2696720f520f4284

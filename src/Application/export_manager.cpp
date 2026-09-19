@@ -253,8 +253,6 @@ void ExportManager::start_export() {
   }
 
   std::filesystem::create_directories(export_output_directory);
-<<<<<<< HEAD
-=======
 
   nlohmann::json serialised = nlohmann::json::object();
 
@@ -286,7 +284,6 @@ void ExportManager::start_export() {
     throw std::runtime_error("Error writing to file: " + save_file_path.string());
   }
 
->>>>>>> 63b7ad47ba259c0d8421cb0e2696720f520f4284
   export_progress = 0;
   export_completed = false;
   exporting = true;

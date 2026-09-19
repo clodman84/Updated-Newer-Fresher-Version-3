@@ -102,9 +102,5 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-<<<<<<< HEAD
-            build/*.dmg
-=======
->>>>>>> 63b7ad47ba259c0d8421cb0e2696720f520f4284
             build/*.tar.gz
             build/*AMD64.exe
