@@ -160,14 +160,6 @@ private:
   }
 
   void setup_environment() {
-<<<<<<< HEAD
-    std::filesystem::path exePath = std::filesystem::weakly_canonical(argv_[0]);
-    std::filesystem::current_path(exePath.parent_path());
-
-    const char *base_path = SDL_GetBasePath();
-    if (base_path) {
-      std::filesystem::path root_dir(base_path);
-=======
       const char *base_path_cstr = SDL_GetBasePath();
       if (!base_path_cstr) {
           SDL_Log("Warning: SDL_GetBasePath() failed");
@@ -178,7 +170,6 @@ private:
 
       std::filesystem::current_path(root_dir);
 
->>>>>>> 63b7ad47ba259c0d8421cb0e2696720f520f4284
       std::filesystem::path bundled_gegl = root_dir / "lib" / "gegl-0.4";
       std::filesystem::path bundled_babl = root_dir / "lib" / "babl-0.1";
 
