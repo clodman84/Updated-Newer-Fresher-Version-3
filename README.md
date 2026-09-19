@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Building from Source
 
 If you only need the application, download a prebuilt release from the Releases page.
@@ -236,3 +237,6 @@ Open an issue and include:
 * Compiler version
 * Full configure/build output
 * The exact failing step
+=======
+hello
+>>>>>>> 63b7ad47ba259c0d8421cb0e2696720f520f4284

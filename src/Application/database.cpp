@@ -293,11 +293,16 @@ void prepare_database() {
   std::filesystem::path preferred_path = SDL_GetPrefPath("DoPySOFT", "UNFV3");
   std::filesystem::path db_filename = preferred_path / "database.db";
 
+  const char *base_path_cstr = SDL_GetBasePath();
+  if (!base_path_cstr) {
+      SDL_Log("Warning: SDL_GetBasePath() failed");
+      return;
+  }
+
+  std::filesystem::path root_dir(base_path_cstr);
   std::cout << "Database Path: " << db_filename << '\n';
-
-  // TODO: Migrate to a cross platform resource based thing
-  const std::filesystem::path sql_filename = "./Data/schema.sql";
-
+  
+  const std::filesystem::path sql_filename = root_dir / "Data" / "schema.sql";
   if (sqlite3_open(db_filename.string().c_str(), &database) != SQLITE_OK) {
     std::cerr << "Error opening/creating DB: " << sqlite3_errmsg(database)
               << std::endl;
