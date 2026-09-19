@@ -48,7 +48,7 @@ void Session::render_searcher() {
 
 void Session::render_search_results_table() {
   if (!ImGui::BeginTable("##search_results", 4,
-                         ImGuiTableFlags_RowBg |
+                         ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable |
                              ImGuiTableFlags_SizingFixedFit)) {
     return;
   }
