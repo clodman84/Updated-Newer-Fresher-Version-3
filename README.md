@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.svg" alt="UNFv3 logo" width="140">
+  <img src="assets/logo.svg" alt="UNFv3 logo" width="250">
 </p>
 
 <h1 align="center">UNFv3</h1>
@@ -11,7 +11,6 @@
 
 <p align="center">
   <a href="https://github.com/clodman84/Updated-Newer-Fresher-Version-3/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/clodman84/Updated-Newer-Fresher-Version-3"></a>
-  <a href="https://updated-newer-fresher-version-3.readthedocs.io/en/latest/"><img alt="Docs" src="https://img.shields.io/readthedocs/updated-newer-fresher-version-3"></a>
   <a href="License.txt"><img alt="License" src="https://img.shields.io/github/license/clodman84/Updated-Newer-Fresher-Version-3"></a>
   <img alt="C++" src="https://img.shields.io/badge/C%2B%2B-SDL3%20%C2%B7%20ImGui%20%C2%B7%20GEGL-00599C">
 </p>
@@ -35,22 +34,13 @@ UNFv3 has been used for billing since v0.2.0-beta which started off as a rewrite
 - **Image carousel** with efficient JPEG streaming that can handle very large images.
 
 ### Image editor
-- Edits images in real time, GPU accelerated
+- Edits images in real time, faster than Photoshop
 - Simple by design
 
 ### Interface
 - Tab-based UI for billing several rolls at once
 - Full keyboard navigation, no mouse required
 - GPU-accelerated rendering
-
-### Performance
-
-| | v0.x (Python) | v1.0.0 (C++) |
-| --- | --- | --- |
-| JPEG load (24 MP) | slow | **< 100 ms** |
-| RAM usage | ~5.8 GB | **~98% lower** |
-| Windows binary | ~200 MB | **~20 MB** |
-| Rendering | CPU | **GPU accelerated** |
 
 ## Install
 
@@ -65,10 +55,6 @@ macOS quarantines apps downloaded from the internet. Clear the flag once after d
 3. Check the path is correct, then hit Enter.
 
 You only need to do this the first time you run a new download.
-
-## Documentation
-
-Guides and reference: **[updated-newer-fresher-version-3.readthedocs.io](https://updated-newer-fresher-version-3.readthedocs.io/en/latest/)**
 
 ## Building from source
 
@@ -97,25 +83,6 @@ vcpkg fetches dependencies during configure. Windows (MinGW only, **MSVC is not 
 | `UNFV3_ENABLE_TRACY` | `OFF` | Tracy profiler support |
 | `CMAKE_BUILD_TYPE` | `Release` | Use `Debug` for symbols |
 
-## Roadmap
-
-Planned for the next release:
-
-- Clipboard integration: paste straight from WhatsApp into the search bar
-- Helper showing available bhawan codes
-- Wrong messlist detection
-- Nickname feature (returning)
-- Python scripting for the control desk
-- RAW support: NEF, CR3, CR2
-- Metadata tagging
-- Editor: aspect ratio crop, auto angle correction, presets
-- Contextual help on hover
-- Documentation and tutorials
-- Full Valgrind pass
-- DOOM
-
-Removed in v1.0.0 and possibly returning: audio player, genie, and nickname management.
-
 ## Contributing
 
 Bug reports and PRs are welcome. For build problems, open an issue with your OS and version, compiler version, full configure/build output, and the exact failing step.
@@ -124,7 +91,7 @@ See [CHANGELOG.md](CHANGELOG.md) for release history.
 
 ## Built with
 
-[SDL3](https://libsdl.org) · [Dear ImGui](https://github.com/ocornut/imgui) · [GEGL](https://gegl.org) · [vcpkg](https://vcpkg.io) · CMake + Ninja · NSIS
+[SDL3](https://libsdl.org) · [Dear ImGui](https://github.com/ocornut/imgui) · [GEGL](https://gegl.org) · [vcpkg](https://vcpkg.io)
 
 ## License
 
