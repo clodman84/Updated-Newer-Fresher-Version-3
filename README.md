@@ -34,7 +34,7 @@ UNFv3 has been used for billing since v0.2.0-beta which started off as a rewrite
 - **Image carousel** with efficient JPEG streaming that can handle very large images.
 
 ### Image editor
-- Edits images in real time, faster than Photoshop
+- Edits images in real time, faster than Photoshop (thanks to GEGL)
 - Simple by design
 
 ### Interface
